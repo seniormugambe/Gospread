@@ -34,6 +34,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { LIVE_VIDEO_STREAMS, AUDIO_TRACKS, VideoStream, AudioTrack } from '../data/gospelData';
 import { GivingTarget } from './GivingModal';
+import { UserSession } from './AuthModal';
 
 interface UserProfilePageProps {
   streakDays: number;
@@ -51,6 +52,10 @@ interface UserProfilePageProps {
   onToggleSubscribe: (channel: string) => void;
   onOpenGivingModal: (target?: GivingTarget) => void;
   onOpenPrayerModal: () => void;
+  onOpenSettingsModal?: () => void;
+  onOpenCommunity?: () => void;
+  onOpenAuthPage?: (mode?: 'signin' | 'signup') => void;
+  currentUser?: UserSession;
 }
 
 export default function UserProfilePage({
@@ -68,7 +73,11 @@ export default function UserProfilePage({
   onToggleJoinChurch,
   onToggleSubscribe,
   onOpenGivingModal,
-  onOpenPrayerModal
+  onOpenPrayerModal,
+  onOpenSettingsModal,
+  onOpenCommunity,
+  onOpenAuthPage,
+  currentUser
 }: UserProfilePageProps) {
   // Active tab state
   const [activeProfileTab, setActiveProfileTab] = useState<'bookmarks' | 'giving' | 'prayers' | 'subscriptions' | 'settings'>('bookmarks');
@@ -143,6 +152,17 @@ export default function UserProfilePage({
 
           {/* Banner Quick Actions */}
           <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+            {onOpenAuthPage && (
+              <button
+                onClick={() => onOpenAuthPage('signin')}
+                className="px-3 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold text-xs border border-amber-500/40 backdrop-blur-md flex items-center gap-1.5 transition"
+                title="Open Login and Sign Up Sanctuary Portal"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Account & Login</span>
+              </button>
+            )}
+
             <button
               onClick={() => setIsEditing(!isEditing)}
               className="px-3.5 py-1.5 rounded-full bg-slate-950/80 hover:bg-slate-900 text-white font-bold text-xs border border-slate-700/80 backdrop-blur-md flex items-center gap-1.5 transition"
@@ -203,6 +223,16 @@ export default function UserProfilePage({
 
           {/* Seed Sowing Quick Action Button */}
           <div className="flex items-center justify-center gap-3 shrink-0">
+            {onOpenCommunity && (
+              <button
+                onClick={onOpenCommunity}
+                className="px-4 py-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs border border-amber-500/30 flex items-center gap-1.5 transition"
+              >
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span>Fellowship Feed</span>
+              </button>
+            )}
+
             <button
               onClick={() => onOpenGivingModal()}
               className="px-5 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-2 transition shadow-xl shadow-amber-500/20 transform hover:scale-105"
@@ -783,9 +813,21 @@ export default function UserProfilePage({
         {/* TAB 5: SETTINGS & PREFERENCES */}
         {activeProfileTab === 'settings' && (
           <div className="space-y-4 max-w-2xl">
-            <h3 className="text-xs font-bold text-amber-300 uppercase tracking-wider">
-              Account Preferences & Spiritual Notifications
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-amber-300 uppercase tracking-wider">
+                Account Preferences & Spiritual Notifications
+              </h3>
+              {onOpenSettingsModal && (
+                <button
+                  type="button"
+                  onClick={onOpenSettingsModal}
+                  className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-amber-500/20"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  <span>Open Full Settings Hub</span>
+                </button>
+              )}
+            </div>
 
             <div className="space-y-3 bg-[#181818] p-5 rounded-3xl border border-slate-800 text-xs">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">

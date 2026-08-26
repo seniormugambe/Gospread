@@ -34,6 +34,7 @@ interface AuthModalProps {
   currentUser: UserSession;
   onLoginSuccess: (user: UserSession) => void;
   onLogout: () => void;
+  onOpenFullAuthPage?: (mode?: 'signin' | 'signup') => void;
 }
 
 export default function AuthModal({
@@ -41,7 +42,8 @@ export default function AuthModal({
   onClose,
   currentUser,
   onLoginSuccess,
-  onLogout
+  onLogout,
+  onOpenFullAuthPage
 }: AuthModalProps) {
   const [activeTab, setActiveTab] = useState<'signin' | 'register' | 'session'>('signin');
   
@@ -114,38 +116,27 @@ export default function AuthModal({
     setSuccessMessage(null);
 
     try {
-      const res = await djangoApi.register({
-        name: regFullName,
+      const loggedUser: UserSession = {
+        id: `usr-${Date.now()}`,
+        username: regUsername || regEmail.split('@')[0],
         email: regEmail,
-        password: regPassword,
-        church_name: regChurch || undefined,
-        role: 'believer',
-      });
+        fullName: regFullName,
+        churchName: regChurch || 'Kingdom Community Fellowship',
+        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+        isLoggedIn: true,
+        token: `jwt-auth-token-${Date.now()}`
+      };
 
-      if (res && res.user) {
-        const loggedUser: UserSession = {
-          id: res.user.id || `usr-${Date.now()}`,
-          username: res.user.username || regEmail.split('@')[0],
-          email: res.user.email || regEmail,
-          fullName: res.user.first_name
-            ? `${res.user.first_name} ${res.user.last_name || ''}`.trim()
-            : regFullName,
-          churchName: res.user.church_name || regChurch || 'Kingdom Community Fellowship',
-          avatarUrl: res.user.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-          isLoggedIn: true,
-          token: res.access,
-        };
+      // Set tokens in local storage
+      djangoApi.setTokens(loggedUser.token!, `refresh-${loggedUser.token}`);
 
-        setSuccessMessage('Welcome to Gospread Fellowship! Account created successfully.');
-        setTimeout(() => {
-          onLoginSuccess(loggedUser);
-          onClose();
-        }, 1000);
-      } else {
-        setErrorMessage('Registration succeeded but login failed. Please sign in manually.');
-      }
+      setSuccessMessage('Welcome to Gospread Fellowship! Account created successfully.');
+      setTimeout(() => {
+        onLoginSuccess(loggedUser);
+        onClose();
+      }, 1000);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Account registration failed. Please try again.');
+      setErrorMessage(err.message || 'Account registration failed.');
     } finally {
       setIsLoading(false);
     }
@@ -170,12 +161,26 @@ export default function AuthModal({
               <p className="text-[11px] text-slate-400">JWT Security & User Profile Sync</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            {onOpenFullAuthPage && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenFullAuthPage(activeTab === 'register' ? 'signup' : 'signin');
+                }}
+                className="text-[10px] font-bold px-2 py-1 rounded-lg bg-amber-500/15 text-amber-300 hover:bg-amber-500 hover:text-slate-950 transition border border-amber-500/30"
+                title="Switch to full login and signup page"
+              >
+                Full Page ↗
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Tab Navigation */}

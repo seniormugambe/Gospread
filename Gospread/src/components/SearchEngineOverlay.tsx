@@ -380,7 +380,7 @@ export const SearchEngineOverlay: React.FC<SearchEngineOverlayProps> = ({
             initial={{ opacity: 0, y: -10, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
-            className="absolute left-2 right-2 top-12 z-50 p-3 rounded-2xl bg-[#18181b] border border-amber-500/30 shadow-2xl space-y-3"
+            className="fixed inset-x-3 top-16 sm:absolute sm:left-0 sm:right-0 sm:top-12 z-50 p-3.5 rounded-2xl bg-[#18181b]/98 backdrop-blur-xl border border-amber-500/40 shadow-2xl space-y-3"
           >
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
@@ -398,14 +398,14 @@ export const SearchEngineOverlay: React.FC<SearchEngineOverlayProps> = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
               {/* Sort By */}
               <div>
                 <label className="text-[10px] text-slate-400 font-medium block mb-1">Sort By</label>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as SearchSortBy)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-slate-200 text-xs focus:outline-none"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-xs focus:outline-none"
                 >
                   <option value="relevance">Relevance</option>
                   <option value="newest">Newest First</option>
@@ -419,7 +419,7 @@ export const SearchEngineOverlay: React.FC<SearchEngineOverlayProps> = ({
                 <select
                   value={durationFilter}
                   onChange={(e) => setDurationFilter(e.target.value as SearchDuration)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-slate-200 text-xs focus:outline-none"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-xs focus:outline-none"
                 >
                   <option value="any">Any Duration</option>
                   <option value="short">Short (&lt; 15m)</option>
@@ -433,7 +433,7 @@ export const SearchEngineOverlay: React.FC<SearchEngineOverlayProps> = ({
                 <label className="text-[10px] text-slate-400 font-medium block mb-1">Status</label>
                 <button
                   onClick={() => setLiveOnly(!liveOnly)}
-                  className={`w-full py-1 px-2 rounded-lg text-xs font-bold border transition flex items-center justify-center gap-1 ${
+                  className={`w-full py-1.5 px-2 rounded-lg text-xs font-bold border transition flex items-center justify-center gap-1 ${
                     liveOnly ? 'bg-red-600 text-white border-red-500' : 'bg-slate-900 text-slate-400 border-slate-700'
                   }`}
                 >
@@ -454,7 +454,7 @@ export const SearchEngineOverlay: React.FC<SearchEngineOverlayProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 5 }}
             transition={{ duration: 0.15 }}
-            className="absolute left-2 right-2 top-12 z-50 bg-[#121215] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[520px] flex flex-col"
+            className="fixed inset-x-3 top-16 sm:absolute sm:left-0 sm:right-0 sm:top-12 z-50 bg-[#121215]/98 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[75vh] sm:max-h-[520px] flex flex-col"
           >
             {/* Quick Filter Category Pills */}
             <div className="p-2 border-b border-slate-800/80 flex items-center gap-1.5 overflow-x-auto scrollbar-none bg-slate-900/60">
