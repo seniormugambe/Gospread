@@ -1,0 +1,236 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+
+@layer base {
+  :root {
+    --sky-mist: #D2E5DB;
+    --cloud-border: #A0C8CE;
+    --sky-blue: #338FBA;
+    --deep-royal: #024683;
+    --slate-storm: #436677;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* 🌸 SKY PINK & BLUE COTTON CANDY SUNSET THEME */
+.light-theme {
+  background: linear-gradient(160deg, #7dd3fc 0%, #a5b4fc 35%, #f472b6 70%, #fb7185 100%) fixed !important;
+  color: #0f172a !important;
+  min-height: 100vh;
+}
+
+/* ☁️ Animated Sunset Cloud Drift & Shimmer */
+@keyframes cloudDriftSlow {
+  0% { transform: translateX(-12%) translateY(-2%); }
+  50% { transform: translateX(12%) translateY(2%); }
+  100% { transform: translateX(-12%) translateY(-2%); }
+}
+
+@keyframes cloudDriftFast {
+  0% { transform: translateX(18%) translateY(3%); }
+  50% { transform: translateX(-18%) translateY(-3%); }
+  100% { transform: translateX(18%) translateY(3%); }
+}
+
+@keyframes pinkGlowPulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.08); }
+}
+
+.sky-cloud-1 {
+  animation: cloudDriftSlow 36s ease-in-out infinite;
+}
+
+.sky-cloud-2 {
+  animation: cloudDriftFast 26s ease-in-out infinite;
+}
+
+.sky-shimmer {
+  animation: pinkGlowPulse 5s ease-in-out infinite;
+}
+
+/* 1. Header Navigation Bar (Dark Glass Overlay for High-Contrast Contrast) */
+.light-theme header {
+  background-color: #0f172a !important;
+  backdrop-filter: blur(18px) !important;
+  border-bottom: 1px solid rgba(244, 114, 182, 0.3) !important;
+  box-shadow: 0 4px 25px rgba(15, 23, 42, 0.25) !important;
+  color: #ffffff !important;
+}
+
+/* Header Text & Pills Legibility */
+.light-theme header * {
+  color: #ffffff !important;
+}
+
+.light-theme header input {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.light-theme header input::placeholder {
+  color: #cbd5e1 !important;
+}
+
+.light-theme header .text-amber-400,
+.light-theme header .text-amber-300 {
+  color: #fef08a !important;
+}
+
+.light-theme header [class*="bg-white/10"],
+.light-theme header [class*="bg-slate-800"] {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+}
+
+/* 2. Sidebar Navigation */
+.light-theme aside {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(20px) !important;
+  border-right: 1px solid rgba(244, 114, 182, 0.3) !important;
+  box-shadow: 4px 0 25px rgba(236, 72, 153, 0.08) !important;
+}
+
+.light-theme aside * {
+  color: #0f172a !important;
+}
+
+.light-theme aside .text-slate-500,
+.light-theme aside .text-slate-400 {
+  color: #475569 !important;
+}
+
+.light-theme aside .bg-pink-500\/10,
+.light-theme aside [class*="bg-pink"] {
+  color: #be185d !important;
+}
+
+/* 3. Universal Pods & Cards (Clean High-Contrast Light Cards) */
+.light-theme main [class*="bg-slate-900"],
+.light-theme main [class*="bg-slate-800"],
+.light-theme main [class*="bg-[#121212]"],
+.light-theme main [class*="bg-[#181818]"] {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(16px) !important;
+  border-color: rgba(244, 114, 182, 0.35) !important;
+  box-shadow: 0 8px 24px -4px rgba(2, 132, 199, 0.08), 0 2px 8px rgba(236, 72, 153, 0.05) !important;
+  color: #0f172a !important;
+}
+
+/* Sub-cards and Nested Containers */
+.light-theme main [class*="bg-slate-900/60"],
+.light-theme main [class*="bg-slate-800/80"] {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* 4. Hero Banner Dark Container Exception */
+.light-theme .hero-dark-card,
+.light-theme [class*="bg-gradient-to-r"] {
+  color: #ffffff !important;
+}
+
+/* 5. Typography Engine for Content */
+.light-theme main h1,
+.light-theme main h2,
+.light-theme main h3,
+.light-theme main h4,
+.light-theme main h5,
+.light-theme main h6 {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+.light-theme main p,
+.light-theme main span {
+  color: #1e293b;
+}
+
+.light-theme main .text-slate-400,
+.light-theme main .text-slate-500 {
+  color: #475569 !important;
+  font-weight: 600 !important;
+}
+
+.light-theme main .text-slate-600,
+.light-theme main .text-slate-700 {
+  color: #0284c7 !important;
+  font-weight: 600 !important;
+}
+
+.light-theme main .text-amber-400,
+.light-theme main .text-amber-300 {
+  color: #be185d !important;
+  font-weight: 800 !important;
+}
+
+/* 6. Category Filter Pills */
+.light-theme .bg-white.text-slate-950 {
+  background: linear-gradient(135deg, #0284c7 0%, #ec4899 100%) !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 16px rgba(236, 72, 153, 0.35) !important;
+  border: none !important;
+}
+
+.light-theme .bg-slate-800\/80,
+.light-theme .bg-slate-800 {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(244, 114, 182, 0.4) !important;
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+.light-theme .bg-slate-800\/80:hover {
+  background-color: #ffffff !important;
+  color: #be185d !important;
+  border-color: #f43f5e !important;
+}
+
+/* 7. Action Buttons (Listen Live, Donate, etc.) */
+.light-theme .bg-amber-500,
+.light-theme .bg-amber-400,
+.light-theme .bg-red-600 {
+  background: linear-gradient(135deg, #f43f5e 0%, #ec4899 50%, #8b5cf6 100%) !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 18px rgba(244, 63, 94, 0.35) !important;
+  border: none !important;
+}
+
+.light-theme .bg-amber-500 *,
+.light-theme .bg-amber-400 *,
+.light-theme .bg-red-600 * {
+  color: #ffffff !important;
+}
+
+.light-theme .hover\:bg-amber-400:hover,
+.light-theme .hover\:bg-red-500:hover {
+  background: linear-gradient(135deg, #e11d48 0%, #be185d 50%, #7c3aed 100%) !important;
+  color: #ffffff !important;
+}
+
+/* 8. Input Controls */
+.light-theme input,
+.light-theme select,
+.light-theme textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #f472b6 !important;
+  box-shadow: inset 0 2px 4px rgba(244, 63, 94, 0.05) !important;
+}
+
+/* 9. Scrollbars */
+.light-theme ::-webkit-scrollbar-track {
+  background: #fce7f3;
+}
+.light-theme ::-webkit-scrollbar-thumb {
+  background: #f472b6;
+  border-radius: 9999px;
+}

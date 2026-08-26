@@ -1,0 +1,6 @@
+{
+  "name": "Gospread",
+  "description": "Gospread - Global Gospel streaming platform featuring live worship, sermons, 24/7 audio radio, podcasts, channel management, and creator seed support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
