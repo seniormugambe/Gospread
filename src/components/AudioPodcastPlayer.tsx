@@ -227,7 +227,7 @@ export default function AudioPodcastPlayer({
   return (
     <>
       {/* 🔴 1. PERSISTENT BOTTOM MINI AUDIO PLAYER BAR */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#0c0d10]/95 backdrop-blur-xl border-t border-slate-800/80 px-3 sm:px-6 py-2.5 flex flex-col justify-center shadow-2xl">
+      <div className="fixed bottom-[62px] md:bottom-0 left-0 right-0 z-30 md:z-40 bg-[#0c0d10]/98 backdrop-blur-2xl border-t border-slate-800/90 px-3 sm:px-6 py-2 flex flex-col justify-center shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.5)]">
         
         {/* Interactive Top Border Scrubber Line */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-slate-800/80 cursor-pointer group">
@@ -239,18 +239,18 @@ export default function AudioPodcastPlayer({
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-3 pt-0.5">
+        <div className="flex items-center justify-between gap-2 sm:gap-3 pt-0.5">
           {/* Track Thumbnail & Title */}
           <div
             onClick={() => setIsExpanded(true)}
-            className="flex items-center gap-3 w-1/3 min-w-[150px] cursor-pointer group"
+            className="flex items-center gap-2.5 sm:gap-3 flex-1 min-w-0 cursor-pointer group"
           >
             <div className="relative shrink-0">
               <img
                 src={currentTrack.coverUrl}
                 alt={currentTrack.title}
                 referrerPolicy="no-referrer"
-                className="w-11 h-11 rounded-xl object-cover border border-amber-500/30 group-hover:scale-105 transition shadow-lg"
+                className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-cover border border-amber-500/30 group-hover:scale-105 transition shadow-lg"
               />
               {isPlaying && (
                 <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center gap-0.5 p-1">
@@ -261,7 +261,7 @@ export default function AudioPodcastPlayer({
               )}
             </div>
 
-            <div className="overflow-hidden">
+            <div className="overflow-hidden min-w-0 pr-2">
               <div className="flex items-center gap-1.5">
                 <h4 className="text-xs font-bold text-white truncate group-hover:text-amber-300 transition">
                   {currentTrack.title}
@@ -273,13 +273,13 @@ export default function AudioPodcastPlayer({
                 )}
               </div>
               <p className="text-[10px] text-amber-400/90 truncate font-medium">
-                {currentTrack.artistOrPreacher} • {currentTrack.category}
+                {currentTrack.artistOrPreacher}
               </p>
             </div>
           </div>
 
           {/* Center Main Audio Controls */}
-          <div className="flex items-center justify-center gap-2 sm:gap-4 w-1/3">
+          <div className="flex items-center justify-end sm:justify-center gap-2 sm:gap-4 shrink-0">
             <button
               onClick={() => handleSkipTime(-15)}
               className="p-1.5 text-slate-400 hover:text-white transition hidden sm:inline-block"
@@ -290,16 +290,16 @@ export default function AudioPodcastPlayer({
 
             <button
               onClick={onTogglePlay}
-              className={`w-10 h-10 rounded-full flex items-center justify-center transition shadow-lg transform hover:scale-105 ${
+              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition shadow-lg transform active:scale-95 hover:scale-105 ${
                 isPlaying
                   ? 'bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-amber-500/30'
                   : 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/30'
               }`}
             >
               {isPlaying ? (
-                <Pause className="w-5 h-5 fill-slate-950" />
+                <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-slate-950" />
               ) : (
-                <Play className="w-5 h-5 fill-white ml-0.5" />
+                <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-white ml-0.5" />
               )}
             </button>
 
@@ -313,7 +313,7 @@ export default function AudioPodcastPlayer({
           </div>
 
           {/* Right Actions & Expand Button */}
-          <div className="flex items-center justify-end gap-2 w-1/3">
+          <div className="flex items-center justify-end gap-1.5 sm:gap-2 shrink-0">
             {/* Sow Seed button */}
             <button
               onClick={() => onOpenGivingModal({
@@ -332,7 +332,7 @@ export default function AudioPodcastPlayer({
             {/* Like/Bookmark Heart */}
             <button
               onClick={() => setIsLiked(!isLiked)}
-              className={`p-1.5 rounded-full transition ${isLiked ? 'text-red-500 bg-red-500/10' : 'text-slate-400 hover:text-white'}`}
+              className={`p-1.5 rounded-full transition hidden xs:inline-block ${isLiked ? 'text-red-500 bg-red-500/10' : 'text-slate-400 hover:text-white'}`}
               title={isLiked ? 'Saved to Favorites' : 'Save to Favorites'}
             >
               <Heart className={`w-4 h-4 ${isLiked ? 'fill-red-500' : ''}`} />

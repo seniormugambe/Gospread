@@ -277,6 +277,15 @@ class DjangoApiClient {
     return res.data;
   }
 
+  public logout(): void {
+    this.clearTokens();
+    try {
+      localStorage.removeItem('gospread_user_session');
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   // === 2. DAILY GRACE STREAK & PRAISE XP CHECKIN ===
   public async checkInDailyStreak(): Promise<{
     success: boolean;

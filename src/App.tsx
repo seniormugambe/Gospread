@@ -53,13 +53,18 @@ import {
   Server,
   Youtube,
   ShieldCheck,
-  Download
+  Download,
+  Settings,
+  MessageSquareHeart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import youtubeGospelImg from './assets/images/youtube_gospel_ui_1785687242032.jpg';
 import CreatePage from './components/CreatePage';
 import DiscoverMinistriesHub from './components/DiscoverMinistriesHub';
 import UserProfilePage from './components/UserProfilePage';
+import FellowshipCommunityHub from './components/FellowshipCommunityHub';
+import AccountSettingsModal from './components/AccountSettingsModal';
+import UserAccountMenuDropdown from './components/UserAccountMenuDropdown';
 import ChannelProfileModal from './components/ChannelProfileModal';
 import GivingModal, { GivingTarget } from './components/GivingModal';
 import DailyStreakModal from './components/DailyStreakModal';
@@ -68,6 +73,8 @@ import GraceShortsModal from './components/GraceShortsModal';
 import DjangoBackendModal from './components/DjangoBackendModal';
 import YouTubeApiModal from './components/YouTubeApiModal';
 import AuthModal, { UserSession } from './components/AuthModal';
+import AuthPage from './components/AuthPage';
+import { djangoApi } from './services/djangoApi';
 import VideoDownloadModal from './components/VideoDownloadModal';
 import VideoStreamFrame from './components/VideoStreamFrame';
 import PictureInPictureWindow from './components/PictureInPictureWindow';
@@ -118,7 +125,15 @@ export default function App() {
     }
   }, [theme]);
 
-  const [activeTab, setActiveTab] = useState<'platform' | 'generated' | 'create' | 'profile' | 'history' | 'discover'>('platform');
+  const [activeTab, setActiveTab] = useState<'platform' | 'generated' | 'create' | 'profile' | 'history' | 'discover' | 'community' | 'auth'>('platform');
+  const [initialAuthMode, setInitialAuthMode] = useState<'signin' | 'signup'>('signin');
+
+  const handleOpenAuthPage = (mode: 'signin' | 'signup' = 'signin') => {
+    setInitialAuthMode(mode);
+    setActiveTab('auth');
+    setIsPipDocked(false);
+    setActiveVideo(null);
+  };
   const [videoStreams, setVideoStreams] = useState<VideoStream[]>(LIVE_VIDEO_STREAMS);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -345,6 +360,8 @@ export default function App() {
   const [showDjangoModal, setShowDjangoModal] = useState(false);
   const [showYouTubeModal, setShowYouTubeModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showUserAccountDropdown, setShowUserAccountDropdown] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [downloadingVideo, setDownloadingVideo] = useState<VideoStream | null>(null);
 
@@ -352,15 +369,23 @@ export default function App() {
     setDownloadingVideo(videoToDownload || activeVideo);
     setShowDownloadModal(true);
   };
-  const [userSession, setUserSession] = useState<UserSession>({
-    id: 'usr-101',
-    username: 'david_lawson',
-    email: 'david.lawson@gospread.org',
-    fullName: 'David Lawson',
-    churchName: 'Grace City Cathedral',
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
-    isLoggedIn: true,
-    token: 'jwt-access-token-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'
+  const [userSession, setUserSession] = useState<UserSession>(() => {
+    try {
+      const saved = localStorage.getItem('gospread_user_session');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return {
+      id: 'usr-101',
+      username: 'david_lawson',
+      email: 'david.lawson@gospread.org',
+      fullName: 'David Lawson',
+      churchName: 'Grace City Cathedral',
+      avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
+      isLoggedIn: true,
+      token: 'jwt-access-token-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'
+    };
   });
   const [streakDays, setStreakDays] = useState(5);
   const [praiseXp, setPraiseXp] = useState(650);
@@ -642,20 +667,22 @@ export default function App() {
         />
 
         {/* Right Header Actions & Engagement Psychology Triggers */}
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
           {/* Group 1: Faith Progress & Daily Rhema */}
-          <div className="flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-full border border-slate-800">
+          <div className="flex items-center gap-1 bg-slate-900/90 p-0.5 sm:p-1 rounded-full border border-slate-800">
             {/* Daily Streak & Praise XP Badge */}
             <button
               onClick={() => setShowStreakModal(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950 hover:bg-slate-800 text-amber-400 border border-amber-500/40 text-xs font-black shadow-md transition shrink-0"
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-full bg-slate-950 hover:bg-slate-800 text-amber-400 border border-amber-500/40 text-xs font-black shadow-md transition shrink-0"
               title="Daily Faith Streak & Kingdom Level"
             >
               <Flame className="w-3.5 h-3.5 text-amber-400 fill-amber-400 animate-pulse" />
               <span>{streakDays}d</span>
-              <span className="text-[10px] text-slate-500 font-normal">|</span>
-              <Sparkles className="w-3 h-3 text-amber-300" />
-              <span className="text-[10px] font-mono text-slate-200">{praiseXp} XP</span>
+              <span className="hidden sm:inline-flex items-center gap-1">
+                <span className="text-[10px] text-slate-500 font-normal">|</span>
+                <Sparkles className="w-3 h-3 text-amber-300" />
+                <span className="text-[10px] font-mono text-slate-200">{praiseXp} XP</span>
+              </span>
             </button>
 
             {/* Daily Rhema Promise Card Button */}
@@ -672,7 +699,7 @@ export default function App() {
           {/* Group 2: Media & Shorts */}
           <button
             onClick={() => setShowShortsModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold text-xs shadow-md shadow-red-600/20 transition shrink-0"
+            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold text-xs shadow-md shadow-red-600/20 transition shrink-0"
             title="Watch Bite-sized Grace Shorts & Sermons"
           >
             <Sparkles className="w-3.5 h-3.5" />
@@ -680,7 +707,7 @@ export default function App() {
           </button>
 
           {/* Group 3: Kingdom Support & Django Backend Integration */}
-          <div className="hidden md:flex items-center gap-1.5">
+          <div className="hidden lg:flex items-center gap-1.5">
             <button
               onClick={() => handleOpenGiving()}
               className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition shrink-0 shadow-sm"
@@ -692,68 +719,83 @@ export default function App() {
           </div>
 
           {/* Group 4: Quick Activity & User Account */}
-          <div className="flex items-center gap-1.5 pl-1">
+          <div className="flex items-center gap-1 sm:gap-1.5 pl-0.5 sm:pl-1">
             {/* 🌸 Sky Pink & Blue Theme Toggle Button */}
             <button
               onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
-              className={`p-1.5 rounded-full transition flex items-center gap-1.5 px-3 py-1 text-xs font-bold border shadow-md ${
+              className={`p-1.5 rounded-full transition flex items-center justify-center sm:px-2.5 py-1 text-xs font-bold border shadow-md ${
                 theme === 'light'
                   ? 'bg-gradient-to-r from-pink-500 via-purple-500 to-sky-500 text-white border-pink-300/80 shadow-pink-500/25'
                   : 'bg-slate-900 text-pink-400 border-slate-700 hover:bg-slate-800'
               }`}
-              title={theme === 'light' ? "Sky Pink & Blue Sunset Theme Active (Click for Dark Theme)" : "Switch to Sky Pink & Blue Sunset Theme"}
+              title={theme === 'light' ? "Sky Pink & Blue Sunset Theme Active" : "Switch to Sky Pink & Blue Sunset Theme"}
             >
               {theme === 'light' ? (
-                <>
-                  <Sun className="w-3.5 h-3.5 text-pink-200 fill-pink-200" />
-                  <span className="hidden xl:inline text-[11px] font-bold text-white">Sky Pink & Blue 🌸</span>
-                </>
+                <Sun className="w-3.5 h-3.5 text-pink-200 fill-pink-200" />
               ) : (
-                <>
-                  <Moon className="w-3.5 h-3.5 text-pink-400" />
-                  <span className="hidden xl:inline text-[11px] font-bold text-pink-400">Night</span>
-                </>
+                <Moon className="w-3.5 h-3.5 text-pink-400" />
               )}
+              <span className="hidden xl:inline text-[11px] font-bold text-white ml-1">
+                {theme === 'light' ? 'Sunset 🌸' : 'Night'}
+              </span>
             </button>
 
             <button 
-              className="p-2 rounded-full hover:bg-slate-800 text-slate-300 relative transition"
+              className="hidden sm:flex p-1.5 sm:p-2 rounded-full hover:bg-slate-800 text-slate-300 relative transition"
               title="Notifications"
             >
               <Bell className="w-4 h-4" />
               <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-600 animate-ping" />
             </button>
 
-            {/* Auth / Account Key Button */}
+            {/* Quick Settings Icon Button (Desktop only, mobile in drawer) */}
             <button
-              onClick={() => setShowAuthModal(true)}
-              className="flex items-center justify-center p-1.5 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-amber-400 border border-slate-700 transition"
-              title="Manage Account"
+              onClick={() => setShowSettingsModal(true)}
+              className="hidden md:flex items-center justify-center p-1.5 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-amber-400 border border-slate-700 transition"
+              title="Account & Streaming Settings"
             >
-              <User className="w-4 h-4" />
+              <Settings className="w-4 h-4" />
             </button>
 
-            {/* User Profile Avatar Header Button */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                setActiveTab('profile');
-              }}
-              className={`flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full border transition shrink-0 ${
-                activeTab === 'profile'
-                  ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-lg shadow-amber-500/20'
-                  : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-700'
-              }`}
-              title="View Kingdom Profile"
-            >
-              <img
-                src={userSession.avatarUrl || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80"}
-                alt={userSession.fullName}
-                className="w-6 h-6 rounded-full object-cover ring-2 ring-amber-400"
+            {/* User Profile Avatar Header Button with Account Dropdown Popover */}
+            <div className="relative">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowUserAccountDropdown(prev => !prev)}
+                className={`flex items-center gap-1.5 sm:gap-2 p-0.5 sm:pl-1 sm:pr-2.5 sm:py-1 rounded-full border transition shrink-0 ${
+                  activeTab === 'profile' || showUserAccountDropdown
+                    ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-lg shadow-amber-500/20'
+                    : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-700'
+                }`}
+                title="User Account & Kingdom Control Center"
+              >
+                <img
+                  src={userSession.avatarUrl || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80"}
+                  alt={userSession.fullName}
+                  className="w-7 h-7 sm:w-6 sm:h-6 rounded-full object-cover ring-2 ring-amber-400"
+                />
+                <span className="hidden lg:inline text-xs font-bold">{userSession.fullName.split(' ')[0]}</span>
+              </motion.button>
+
+              <UserAccountMenuDropdown
+                isOpen={showUserAccountDropdown}
+                onClose={() => setShowUserAccountDropdown(false)}
+                userSession={userSession}
+                streakDays={streakDays}
+                praiseXp={praiseXp}
+                onOpenSettings={() => setShowSettingsModal(true)}
+                onOpenProfile={() => setActiveTab('profile')}
+                onOpenCommunity={() => setActiveTab('community')}
+                onOpenHistory={() => setActiveTab('history')}
+                onOpenGiving={() => handleOpenGiving()}
+                onOpenDjango={() => setShowDjangoModal(true)}
+                onOpenAuth={() => setShowAuthModal(true)}
+                onOpenAuthPage={handleOpenAuthPage}
+                theme={theme}
+                onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
               />
-              <span className="hidden lg:inline text-xs font-bold">{userSession.fullName.split(' ')[0]}</span>
-            </motion.button>
+            </div>
           </div>
         </div>
       </header>
@@ -790,9 +832,12 @@ export default function App() {
                 section: 'Platform',
                 items: [
                   { id: 'home', label: 'Home Feed', icon: Compass },
+                  { id: 'community', label: 'Fellowship & Voices', icon: MessageSquareHeart, badge: 'COMMUNITY', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
                   { id: 'discover', label: 'Discover Ministries', icon: Building2, badge: 'EXPLORE', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
                   { id: 'history', label: 'Watch History', icon: History, badge: watchHistory.length > 0 ? `${watchHistory.length}` : undefined, badgeStyle: 'bg-amber-500/20 text-amber-400 border border-amber-500/30' },
+                  { id: 'auth', label: userSession.isLoggedIn ? 'Kingdom Login' : 'Login / Register', icon: ShieldCheck, badge: userSession.isLoggedIn ? 'SECURE' : 'AUTH', badgeStyle: userSession.isLoggedIn ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500 text-slate-950 font-black' },
                   { id: 'profile', label: 'My Profile', icon: User, badge: 'YOU', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
+                  { id: 'settings', label: 'Account Settings', icon: Settings, badge: 'PREFS', badgeStyle: 'bg-slate-800 text-amber-400 border border-slate-700' },
                 ],
               },
               {
@@ -826,6 +871,10 @@ export default function App() {
                     ? activeTab === 'create' 
                     : item.id === 'profile'
                     ? activeTab === 'profile'
+                    : item.id === 'auth'
+                    ? activeTab === 'auth'
+                    : item.id === 'community'
+                    ? activeTab === 'community'
                     : item.id === 'history'
                     ? activeTab === 'history'
                     : item.id === 'discover'
@@ -844,6 +893,14 @@ export default function App() {
                           setActiveTab('create');
                         } else if (item.id === 'profile') {
                           setActiveTab('profile');
+                        } else if (item.id === 'auth') {
+                          handleOpenAuthPage('signin');
+                        } else if (item.id === 'community') {
+                          setActiveTab('community');
+                          setIsPipDocked(false);
+                          setActiveVideo(null);
+                        } else if (item.id === 'settings') {
+                          setShowSettingsModal(true);
                         } else if (item.id === 'history') {
                           setActiveTab('history');
                         } else if (item.id === 'discover') {
@@ -1019,8 +1076,10 @@ export default function App() {
                         section: 'Main Platform',
                         items: [
                           { id: 'home', label: 'Home Feed', icon: Compass },
+                          { id: 'community', label: 'Fellowship & Testimonies', icon: MessageSquareHeart, badge: 'COMMUNITY', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
                           { id: 'discover', label: 'Discover Ministries', icon: Building2, badge: 'EXPLORE', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
                           { id: 'history', label: 'Watch History', icon: History, badge: watchHistory.length > 0 ? `${watchHistory.length}` : undefined, badgeStyle: 'bg-amber-500/20 text-amber-400 border border-amber-500/30' },
+                          { id: 'auth', label: userSession.isLoggedIn ? 'Kingdom Login' : 'Login / Register', icon: ShieldCheck, badge: userSession.isLoggedIn ? 'SECURE' : 'AUTH', badgeStyle: userSession.isLoggedIn ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500 text-slate-950 font-black' },
                           { id: 'profile', label: 'My Kingdom Profile', icon: User, badge: 'YOU', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
                         ],
                       },
@@ -1052,6 +1111,10 @@ export default function App() {
                               ? activeTab === 'create' 
                               : item.id === 'profile'
                               ? activeTab === 'profile'
+                              : item.id === 'auth'
+                              ? activeTab === 'auth'
+                              : item.id === 'community'
+                              ? activeTab === 'community'
                               : item.id === 'history'
                               ? activeTab === 'history'
                               : item.id === 'discover'
@@ -1072,6 +1135,14 @@ export default function App() {
                                     setActiveTab('create');
                                   } else if (item.id === 'profile') {
                                     setActiveTab('profile');
+                                  } else if (item.id === 'auth') {
+                                    handleOpenAuthPage('signin');
+                                  } else if (item.id === 'community') {
+                                    setActiveTab('community');
+                                    setIsPipDocked(false);
+                                    setActiveVideo(null);
+                                  } else if (item.id === 'settings') {
+                                    setShowSettingsModal(true);
                                   } else if (item.id === 'history') {
                                     setActiveTab('history');
                                   } else if (item.id === 'discover') {
@@ -1147,9 +1218,47 @@ export default function App() {
         </AnimatePresence>
 
         {/* Main Body */}
-        <div className="flex-1 overflow-y-auto flex flex-col">
+        <div className="flex-1 overflow-y-auto flex flex-col pb-32 md:pb-16">
           
-          {activeTab === 'profile' ? (
+          {activeTab === 'auth' ? (
+            <div className="p-2 sm:p-4 lg:p-6 max-w-7xl w-full mx-auto">
+              <AuthPage
+                initialMode={initialAuthMode}
+                currentUser={userSession}
+                onLoginSuccess={(newSession) => {
+                  setUserSession(newSession);
+                }}
+                onLogout={() => {
+                  djangoApi.logout();
+                  setUserSession({
+                    id: '',
+                    username: '',
+                    email: '',
+                    fullName: 'Guest Believer',
+                    churchName: 'Seeking Sanctuary',
+                    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+                    isLoggedIn: false
+                  });
+                }}
+                onNavigateHome={() => {
+                  setActiveTab('platform');
+                  setSelectedCategory('All');
+                }}
+                onNavigateProfile={() => setActiveTab('profile')}
+                onAwardXp={(amount, reason) => {
+                  setPraiseXp(prev => {
+                    const updated = prev + amount;
+                    try {
+                      localStorage.setItem('gospread_praise_xp', updated.toString());
+                    } catch (e) {
+                      console.error(e);
+                    }
+                    return updated;
+                  });
+                }}
+              />
+            </div>
+          ) : activeTab === 'profile' ? (
             <div className="p-4 lg:p-6 max-w-7xl w-full mx-auto">
               <UserProfilePage
                 streakDays={streakDays}
@@ -1167,6 +1276,30 @@ export default function App() {
                 onToggleSubscribe={toggleSubscribe}
                 onOpenGivingModal={handleOpenGiving}
                 onOpenPrayerModal={() => setPrayerModalOpen(true)}
+                onOpenSettingsModal={() => setShowSettingsModal(true)}
+                onOpenCommunity={() => setActiveTab('community')}
+                onOpenAuthPage={handleOpenAuthPage}
+                currentUser={userSession}
+              />
+            </div>
+          ) : activeTab === 'community' ? (
+            <div className="p-2 sm:p-4 lg:p-6 max-w-7xl w-full mx-auto">
+              <FellowshipCommunityHub
+                userSession={userSession}
+                streakDays={streakDays}
+                praiseXp={praiseXp}
+                onAwardXp={(amount, reason) => {
+                  setPraiseXp(prev => {
+                    const updated = prev + amount;
+                    try {
+                      localStorage.setItem('gospread_praise_xp', updated.toString());
+                    } catch (e) {
+                      console.error(e);
+                    }
+                    return updated;
+                  });
+                }}
+                onOpenGiving={handleOpenGiving}
               />
             </div>
           ) : activeTab === 'history' ? (
@@ -1248,7 +1381,7 @@ export default function App() {
             </div>
           ) : (activeVideo && !isPipDocked) ? (
             /* Watch Theater Mode */
-            <div className="max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="max-w-7xl w-full mx-auto p-2.5 sm:p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
               
               {/* Left Main Player */}
               <div className="lg:col-span-2 space-y-3">
@@ -1480,10 +1613,10 @@ export default function App() {
             </div>
           ) : (
             /* Media Centric Grid Page */
-            <div className="p-4 lg:p-6 space-y-6">
+            <div className="p-3 sm:p-4 lg:p-6 space-y-6 max-w-7xl w-full mx-auto">
               
               {/* Category Filter Pills */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none py-1">
                 {categories.map((cat) => {
                   const Icon = cat.icon;
                   const isSelected = selectedCategory === cat.label;
@@ -1499,16 +1632,16 @@ export default function App() {
                           if (activeTab !== 'platform') setActiveTab('platform');
                         }
                       }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
+                      className={`px-3.5 py-2 sm:py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-2 shrink-0 min-h-[40px] sm:min-h-[34px] ${
                         isSelected
-                          ? 'bg-white text-slate-950 shadow-md'
-                          : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+                          ? 'bg-white text-slate-950 shadow-md ring-2 ring-white/20'
+                          : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 active:bg-slate-600'
                       }`}
                     >
-                      <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-slate-950' : 'text-slate-400'}`} />
+                      <Icon className={`w-4 h-4 sm:w-3.5 sm:h-3.5 ${isSelected ? 'text-slate-950' : 'text-slate-400'}`} />
                       <span>{cat.label}</span>
                       {cat.count !== undefined && cat.count > 0 && (
-                        <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-[9px] font-black ${
                           isSelected ? 'bg-slate-950 text-white' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                         }`}>
                           {cat.count}
@@ -1535,7 +1668,7 @@ export default function App() {
               {/* 📅 CHURCH SCHEDULES SPECIAL SECTION */}
               {selectedCategory === 'Church Schedules' && (
                 <div className="space-y-6">
-                  <div className="bg-gradient-to-r from-slate-900 via-amber-950/40 to-slate-900 border border-amber-500/30 p-5 rounded-3xl space-y-2">
+                  <div className="bg-gradient-to-r from-slate-900 via-amber-950/40 to-slate-900 border border-amber-500/30 p-4 sm:p-5 rounded-3xl space-y-2">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-6 h-6 text-amber-400" />
                       <div>
@@ -1549,7 +1682,7 @@ export default function App() {
                     {Object.entries(CHURCH_SCHEDULES).map(([churchName, schedules]) => (
                       <div
                         key={churchName}
-                        className="bg-[#0f0f0f] border border-slate-800 rounded-3xl p-5 space-y-5 hover:border-amber-500/30 transition shadow-xl"
+                        className="bg-[#0f0f0f] border border-slate-800 rounded-3xl p-4 sm:p-5 space-y-5 hover:border-amber-500/30 transition shadow-xl"
                       >
                         {/* Header & Channel Profile Button */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
@@ -1578,7 +1711,7 @@ export default function App() {
 
                           <button
                             onClick={() => setSelectedChannelModal(churchName)}
-                            className="self-start sm:self-auto px-4 py-2 rounded-full bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs transition border border-slate-700 flex items-center gap-1.5"
+                            className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl sm:rounded-full bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-amber-300 font-bold text-xs transition border border-slate-700 flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[36px]"
                           >
                             <span>View Church Profile</span>
                             <ChevronRight className="w-4 h-4" />
@@ -1608,29 +1741,29 @@ export default function App() {
                             {schedules.map((sch) => (
                               <div
                                 key={sch.id}
-                                className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800/90 space-y-2 hover:border-amber-500/40 transition"
+                                className="p-4 sm:p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800/90 space-y-2 hover:border-amber-500/40 transition"
                               >
                                 <div className="flex items-center justify-between gap-2 flex-wrap">
                                   <div className="flex items-center gap-2">
-                                    <span className="px-2.5 py-0.5 rounded-lg bg-amber-500 text-slate-950 font-black text-[10px] uppercase tracking-wider">
+                                    <span className="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-black text-[10px] uppercase tracking-wider">
                                       {sch.day}
                                     </span>
-                                    <span className="px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 text-[10px] font-mono flex items-center gap-1 border border-slate-700">
+                                    <span className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 text-[10px] font-mono flex items-center gap-1 border border-slate-700">
                                       <Clock className="w-3 h-3 text-amber-400" />
                                       {sch.time}
                                     </span>
                                   </div>
                                   {sch.isLiveNow && (
-                                    <span className="px-2 py-0.5 rounded-full bg-red-600 text-white font-extrabold text-[9px] uppercase tracking-wider animate-pulse flex items-center gap-1">
+                                    <span className="px-2.5 py-1 rounded-full bg-red-600 text-white font-extrabold text-[9px] uppercase tracking-wider animate-pulse flex items-center gap-1">
                                       <Radio className="w-3 h-3" /> Streaming Live
                                     </span>
                                   )}
                                 </div>
 
                                 <h4 className="text-xs font-bold text-white mt-1">{sch.title}</h4>
-                                <p className="text-[10px] text-slate-400 leading-normal">{sch.description}</p>
+                                <p className="text-xs sm:text-[10px] text-slate-400 leading-normal">{sch.description}</p>
                                 
-                                <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1.5 border-t border-slate-800/60">
+                                <div className="flex items-center justify-between text-xs sm:text-[10px] text-slate-500 pt-2 border-t border-slate-800/60 flex-wrap gap-1">
                                   <span className="text-slate-400">Location / Stream: {sch.locationOrStream}</span>
                                   <span className="text-amber-400 font-bold">{sch.speakerOrLeader}</span>
                                 </div>
@@ -1645,7 +1778,7 @@ export default function App() {
               )}
               {selectedCategory === 'Following' && (
                 <div className="space-y-6">
-                  <div className="bg-gradient-to-r from-slate-900 via-amber-950/30 to-slate-900 border border-amber-500/20 p-5 rounded-3xl space-y-4">
+                  <div className="bg-gradient-to-r from-slate-900 via-amber-950/30 to-slate-900 border border-amber-500/20 p-4 sm:p-5 rounded-3xl space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <h2 className="text-sm font-bold text-white flex items-center gap-2">
@@ -1655,47 +1788,50 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {/* Single-column on mobile, multi-column on tablet and desktop */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-3">
                       {SUBSCRIPTION_CHANNELS.map((ch) => {
                         const isFollowed = subscribedChannels.includes(ch.name);
                         return (
                           <motion.div
                             key={ch.name}
-                            whileHover={{ scale: 1.04, y: -2, boxShadow: "0 15px 30px -5px rgba(245, 158, 11, 0.2)" }}
+                            whileHover={{ scale: 1.02, y: -2, boxShadow: "0 15px 30px -5px rgba(245, 158, 11, 0.2)" }}
                             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                            className={`p-3 rounded-2xl border transition flex flex-col items-center text-center gap-2 relative ${
+                            className={`p-3.5 sm:p-3 rounded-2xl border transition flex flex-row sm:flex-col items-center justify-between sm:justify-start text-left sm:text-center gap-3 relative ${
                               isFollowed ? 'bg-slate-900/90 border-amber-500/30' : 'bg-slate-900/40 border-slate-800'
                             }`}
                           >
-                            <motion.img
-                              src={ch.avatar}
-                              alt={ch.name}
-                              whileHover={{ scale: 1.15, rotate: 2 }}
-                              transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-                              onClick={() => setSelectedChannelModal(ch.name)}
-                              className="w-12 h-12 rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-amber-400 transition"
-                            />
-                            <div className="overflow-hidden w-full">
-                              <h4
+                            <div className="flex items-center gap-3 sm:flex-col sm:gap-2 flex-1 min-w-0">
+                              <motion.img
+                                src={ch.avatar}
+                                alt={ch.name}
+                                whileHover={{ scale: 1.15 }}
+                                transition={{ type: 'spring', stiffness: 300, damping: 15 }}
                                 onClick={() => setSelectedChannelModal(ch.name)}
-                                className="text-xs font-bold text-white truncate cursor-pointer hover:text-amber-400"
-                              >
-                                {ch.name}
-                              </h4>
-                              <p className="text-[10px] text-slate-400 mt-0.5">
-                                {((followerCounts[ch.name] || 482000) / 1000).toFixed(1)}K followers
-                              </p>
+                                className="w-13 h-13 sm:w-12 sm:h-12 rounded-full object-cover cursor-pointer ring-2 ring-slate-700 hover:ring-amber-400 transition shrink-0"
+                              />
+                              <div className="overflow-hidden min-w-0">
+                                <h4
+                                  onClick={() => setSelectedChannelModal(ch.name)}
+                                  className="text-xs sm:text-xs font-bold text-white truncate cursor-pointer hover:text-amber-400"
+                                >
+                                  {ch.name}
+                                </h4>
+                                <p className="text-[11px] sm:text-[10px] text-slate-400 mt-0.5">
+                                  {((followerCounts[ch.name] || 482000) / 1000).toFixed(1)}K followers
+                                </p>
+                              </div>
                             </div>
 
                             <button
                               onClick={() => toggleSubscribe(ch.name)}
-                              className={`w-full py-1.5 rounded-xl text-[10px] font-bold transition flex items-center justify-center gap-1 ${
+                              className={`px-4 py-2 sm:w-full sm:py-1.5 rounded-xl text-xs sm:text-[10px] font-bold transition flex items-center justify-center gap-1.5 shrink-0 min-h-[40px] sm:min-h-[32px] ${
                                 isFollowed
-                                  ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                                  : 'bg-red-600 text-white hover:bg-red-500'
+                                  ? 'bg-slate-800 text-slate-300 hover:bg-slate-700 active:bg-slate-600'
+                                  : 'bg-red-600 text-white hover:bg-red-500 active:bg-red-700'
                               }`}
                             >
-                              {isFollowed ? <UserCheck className="w-3 h-3 text-emerald-400" /> : <UserPlus className="w-3 h-3" />}
+                              {isFollowed ? <UserCheck className="w-3.5 h-3.5 text-emerald-400" /> : <UserPlus className="w-3.5 h-3.5" />}
                               <span>{isFollowed ? 'Following' : 'Follow'}</span>
                             </button>
                           </motion.div>
@@ -1708,16 +1844,16 @@ export default function App() {
 
               {/* 24/7 Gospel Radio Visual Hero Card */}
               {(selectedCategory === 'All' || selectedCategory === '24/7 Gospel Radio') && (
-                <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-red-950/80 via-slate-900 to-slate-950 border border-red-900/40 p-5 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl">
-                  <div className="flex items-center gap-5 w-full md:w-auto">
-                    <div className="relative w-20 h-20 rounded-2xl overflow-hidden shrink-0 ring-2 ring-red-500/40 shadow-xl group cursor-pointer" onClick={() => handlePlayAudioTrack(currentAudio)}>
+                <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-red-950/80 via-slate-900 to-slate-950 border border-red-900/40 p-4 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6 shadow-2xl">
+                  <div className="flex items-center gap-3.5 sm:gap-5 w-full md:w-auto">
+                    <div className="relative w-18 h-18 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shrink-0 ring-2 ring-red-500/40 shadow-xl group cursor-pointer" onClick={() => handlePlayAudioTrack(currentAudio)}>
                       <img src={currentAudio.coverUrl} alt={currentAudio.title} className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                        <Radio className="w-8 h-8 text-white animate-pulse" />
+                        <Radio className="w-7 h-7 sm:w-8 sm:h-8 text-white animate-pulse" />
                       </div>
                     </div>
 
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-0.5 bg-red-600 text-white font-extrabold text-[9px] rounded uppercase tracking-wider">
                           24/7 Gospel Radio
@@ -1730,14 +1866,14 @@ export default function App() {
                           </div>
                         )}
                       </div>
-                      <h3 className="text-base font-bold text-white mt-1">{currentAudio.title}</h3>
-                      <p className="text-xs text-slate-400">{currentAudio.artistOrPreacher}</p>
+                      <h3 className="text-sm sm:text-base font-bold text-white mt-1 truncate">{currentAudio.title}</h3>
+                      <p className="text-xs text-slate-400 truncate">{currentAudio.artistOrPreacher}</p>
                     </div>
                   </div>
 
                   <button
                     onClick={() => handlePlayAudioTrack(currentAudio)}
-                    className="w-full md:w-auto px-6 py-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition"
+                    className="w-full md:w-auto px-6 py-3 sm:py-2.5 rounded-2xl sm:rounded-full bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition min-h-[44px]"
                   >
                     {isAudioPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-white" />}
                     <span>{isAudioPlaying ? 'Pause Stream' : 'Listen Live'}</span>
@@ -1745,7 +1881,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* Audio Tracks Media Carousel Strip */}
+              {/* Audio Tracks Media Carousel / Single-Column Mobile Strip */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
@@ -1753,39 +1889,64 @@ export default function App() {
                   </h2>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                {/* Single column horizontal row card on mobile, grid card on sm/md/lg */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-3">
                   {AUDIO_TRACKS.map((track) => (
                     <motion.div
                       key={track.id}
-                      whileHover={{ scale: 1.05, y: -2, boxShadow: "0 15px 25px -5px rgba(239, 68, 68, 0.25)" }}
+                      whileHover={{ scale: 1.02, y: -2 }}
                       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                       onClick={() => handlePlayAudioTrack(track)}
-                      className={`p-2.5 rounded-2xl border transition cursor-pointer group flex flex-col justify-between ${
+                      className={`p-3 sm:p-2.5 rounded-2xl border transition cursor-pointer group flex flex-row sm:flex-col items-center sm:items-stretch justify-between gap-3 sm:gap-0 ${
                         currentAudio.id === track.id && isAudioPlaying
-                          ? 'bg-red-950/40 border-red-600'
-                          : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                          ? 'bg-red-950/40 border-red-600 shadow-md shadow-red-900/20'
+                          : 'bg-slate-900/80 border-slate-800 hover:border-slate-700 active:bg-slate-850'
                       }`}
                     >
-                      <div className="relative aspect-square rounded-xl overflow-hidden mb-2">
-                        <img src={track.coverUrl} alt={track.title} className="w-full h-full object-cover group-hover:scale-105 transition" />
-                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                          <div className="w-9 h-9 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg">
-                            <Play className="w-4 h-4 fill-white ml-0.5" />
+                      <div className="flex items-center gap-3 sm:flex-col sm:items-stretch sm:gap-0 flex-1 min-w-0">
+                        <div className="relative w-14 h-14 sm:w-full sm:aspect-square rounded-xl overflow-hidden sm:mb-2 shrink-0 bg-slate-950">
+                          <img src={track.coverUrl} alt={track.title} className="w-full h-full object-cover group-hover:scale-105 transition" />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                            <div className="w-9 h-9 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg">
+                              <Play className="w-4 h-4 fill-white ml-0.5" />
+                            </div>
                           </div>
+                        </div>
+
+                        <div className="overflow-hidden min-w-0">
+                          <h4 className="text-xs sm:text-xs font-bold text-white truncate group-hover:text-amber-300 transition">{track.title}</h4>
+                          <p className="text-[11px] sm:text-[10px] text-slate-400 truncate mt-0.5">{track.artistOrPreacher}</p>
                         </div>
                       </div>
 
-                      <h4 className="text-xs font-bold text-white truncate">{track.title}</h4>
-                      <p className="text-[10px] text-slate-400 truncate">{track.artistOrPreacher}</p>
+                      {/* Mobile Instant Play Action Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePlayAudioTrack(track);
+                        }}
+                        className={`sm:hidden w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition ${
+                          currentAudio.id === track.id && isAudioPlaying
+                            ? 'bg-amber-500 text-slate-950'
+                            : 'bg-slate-800 text-slate-200 active:bg-red-600 active:text-white'
+                        }`}
+                        title="Play audio track"
+                      >
+                        {currentAudio.id === track.id && isAudioPlaying ? (
+                          <Pause className="w-4 h-4 fill-slate-950" />
+                        ) : (
+                          <Play className="w-4 h-4 fill-current ml-0.5" />
+                        )}
+                      </button>
                     </motion.div>
                   ))}
                 </div>
               </div>
 
-              {/* Visual Main Stream Grid */}
-              <div className="space-y-3">
+              {/* Visual Main Stream Grid - Single-column on mobile, responsive multi-column on sm/lg */}
+              <div className="space-y-4 sm:space-y-3">
                 {searchQuery.trim() !== '' && (
-                  <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-4">
+                  <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-4 flex-wrap">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold shrink-0">
                         <Search className="w-4 h-4" />
@@ -1801,7 +1962,7 @@ export default function App() {
                     </div>
                     <button
                       onClick={() => setSearchQuery('')}
-                      className="px-3 py-1.5 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 shrink-0"
+                      className="px-3.5 py-1.5 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 shrink-0 min-h-[36px]"
                     >
                       <X className="w-3.5 h-3.5 text-amber-400" />
                       <span>Clear Search</span>
@@ -1822,10 +1983,10 @@ export default function App() {
                     <p className="text-xs text-slate-400 max-w-md mx-auto">
                       Try adjusting your query, checking spelling, or resetting your filter category to find divine worship broadcasts.
                     </p>
-                    <div className="flex items-center justify-center gap-2 pt-2">
+                    <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
                       <button
                         onClick={() => setSearchQuery('')}
-                        className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-full transition shadow-md"
+                        className="px-4 py-2.5 sm:py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-full transition shadow-md min-h-[40px]"
                       >
                         Clear Search Query
                       </button>
@@ -1834,25 +1995,26 @@ export default function App() {
                           setSearchQuery('');
                           setSelectedCategory('All');
                         }}
-                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-full transition"
+                        className="px-4 py-2.5 sm:py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-full transition min-h-[40px]"
                       >
                         Reset All Filters
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                  /* Mobile-first single column with generous gaps, expanding to 2 and 3 columns on tablet/desktop */
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-5">
                     {filteredVideos.map((video) => (
                       <motion.div
                         key={video.id}
                         whileHover={{ y: -4 }}
                         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                         onClick={() => handleSelectVideo(video)}
-                        className="flex flex-col space-y-2 cursor-pointer group"
+                        className="flex flex-col space-y-2.5 cursor-pointer group bg-slate-900/30 sm:bg-transparent p-2.5 sm:p-0 rounded-3xl sm:rounded-none border border-slate-800/50 sm:border-none"
                       >
                       {/* Media Card Preview */}
                       <motion.div
-                        whileHover={{ scale: 1.03, boxShadow: "0 20px 30px -5px rgba(0, 0, 0, 0.7), 0 10px 20px -5px rgba(239, 68, 68, 0.25)" }}
+                        whileHover={{ scale: 1.02, boxShadow: "0 20px 30px -5px rgba(0, 0, 0, 0.7), 0 10px 20px -5px rgba(239, 68, 68, 0.25)" }}
                         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                         className="relative aspect-video rounded-2xl overflow-hidden bg-slate-900 border border-slate-800/80 shadow-md"
                       >
@@ -1869,44 +2031,44 @@ export default function App() {
                         </div>
 
                         {video.isLive ? (
-                          <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-red-600 text-white text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
+                          <span className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-md bg-red-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-lg">
                             <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> LIVE
                           </span>
                         ) : (
-                          <span className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/80 text-white text-[10px] font-mono">
+                          <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/85 text-white text-[11px] sm:text-[10px] font-mono shadow-lg">
                             {video.duration}
                           </span>
                         )}
                       </motion.div>
 
                       {/* Info Row */}
-                      <div className="flex items-start space-x-2.5">
+                      <div className="flex items-start space-x-3 pt-0.5">
                         <motion.img
                           src={video.channelAvatar}
                           alt={video.speakerOrArtist}
-                          whileHover={{ scale: 1.2, rotate: 3, boxShadow: "0 4px 12px rgba(245, 158, 11, 0.4)" }}
+                          whileHover={{ scale: 1.15, rotate: 3, boxShadow: "0 4px 12px rgba(245, 158, 11, 0.4)" }}
                           transition={{ type: 'spring', stiffness: 350, damping: 15 }}
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedChannelModal(video.churchOrMinistry);
                           }}
-                          className="w-8 h-8 rounded-full object-cover shrink-0 mt-0.5 ring-1 ring-slate-700 hover:ring-2 hover:ring-amber-400 transition cursor-pointer"
+                          className="w-10 h-10 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 mt-0.5 ring-1 ring-slate-700 hover:ring-2 hover:ring-amber-400 transition cursor-pointer"
                           title="View channel profile"
                         />
-                        <div className="flex-1 overflow-hidden">
-                          <h3 className="text-xs font-bold text-white line-clamp-2 leading-snug group-hover:text-red-400 transition">
+                        <div className="flex-1 overflow-hidden min-w-0">
+                          <h3 className="text-sm sm:text-xs font-bold text-white line-clamp-2 leading-snug group-hover:text-red-400 transition">
                             {video.title}
                           </h3>
-                          <div className="flex items-center justify-between gap-1 mt-1">
+                          <div className="flex items-center justify-between gap-2 mt-1.5 flex-wrap">
                             <p 
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedChannelModal(video.churchOrMinistry);
                               }}
-                              className="text-[11px] text-slate-400 flex items-center gap-1 cursor-pointer hover:text-amber-400 transition truncate"
+                              className="text-xs sm:text-[11px] text-slate-400 flex items-center gap-1 cursor-pointer hover:text-amber-400 transition truncate"
                             >
                               <span>{video.churchOrMinistry}</span>
-                              <CheckCircle2 className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" />
+                              <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
                             </p>
 
                             <button
@@ -1914,10 +2076,10 @@ export default function App() {
                                 e.stopPropagation();
                                 toggleSubscribe(video.churchOrMinistry);
                               }}
-                              className={`px-2 py-0.5 rounded-full text-[9px] font-bold transition shrink-0 ${
+                              className={`px-3 py-1 sm:px-2 sm:py-0.5 rounded-full text-xs sm:text-[9px] font-bold transition shrink-0 min-h-[32px] sm:min-h-[24px] flex items-center justify-center ${
                                 subscribedChannels.includes(video.churchOrMinistry)
-                                  ? 'bg-slate-800 text-slate-400 hover:text-white'
-                                  : 'bg-red-600/90 hover:bg-red-500 text-white'
+                                  ? 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700'
+                                  : 'bg-red-600 hover:bg-red-500 text-white shadow-sm'
                               }`}
                             >
                               {subscribedChannels.includes(video.churchOrMinistry) ? 'Following' : '+ Follow'}
@@ -2149,6 +2311,19 @@ export default function App() {
         onClose={() => setShowDjangoModal(false)}
       />
 
+      {/* ⚙️ User Account & Spiritual Preferences Modal */}
+      <AccountSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        userSession={userSession}
+        onUpdateUserSession={(newSession) => setUserSession(prev => ({ ...prev, ...newSession }))}
+        streakDays={streakDays}
+        praiseXp={praiseXp}
+        theme={theme}
+        onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
+        onOpenDjangoModal={() => setShowDjangoModal(true)}
+      />
+
       {/* 🔐 Auth & JWT Session Modal */}
       <AuthModal
         isOpen={showAuthModal}
@@ -2156,6 +2331,7 @@ export default function App() {
         currentUser={userSession}
         onLoginSuccess={(newSession) => setUserSession(newSession)}
         onLogout={() => {
+          djangoApi.logout();
           setUserSession({
             id: 'guest',
             username: 'guest',
@@ -2164,6 +2340,7 @@ export default function App() {
             isLoggedIn: false
           });
         }}
+        onOpenFullAuthPage={handleOpenAuthPage}
       />
 
       {/* 🔴 YouTube Data API v3 Live Stream Hub Modal */}

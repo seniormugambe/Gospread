@@ -34,6 +34,7 @@ interface AuthModalProps {
   currentUser: UserSession;
   onLoginSuccess: (user: UserSession) => void;
   onLogout: () => void;
+  onOpenFullAuthPage?: (mode?: 'signin' | 'signup') => void;
 }
 
 export default function AuthModal({
@@ -41,7 +42,8 @@ export default function AuthModal({
   onClose,
   currentUser,
   onLoginSuccess,
-  onLogout
+  onLogout,
+  onOpenFullAuthPage
 }: AuthModalProps) {
   const [activeTab, setActiveTab] = useState<'signin' | 'register' | 'session'>('signin');
   
@@ -159,12 +161,26 @@ export default function AuthModal({
               <p className="text-[11px] text-slate-400">JWT Security & User Profile Sync</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            {onOpenFullAuthPage && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenFullAuthPage(activeTab === 'register' ? 'signup' : 'signin');
+                }}
+                className="text-[10px] font-bold px-2 py-1 rounded-lg bg-amber-500/15 text-amber-300 hover:bg-amber-500 hover:text-slate-950 transition border border-amber-500/30"
+                title="Switch to full login and signup page"
+              >
+                Full Page ↗
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Tab Navigation */}
