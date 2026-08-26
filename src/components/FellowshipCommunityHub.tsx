@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserSession } from './AuthModal';
+import { CommunityCommentApi, CommunityPostApi, djangoApi } from '../services/djangoApi';
 
 export type PostCategory = 'all' | 'testimony' | 'prayer' | 'reflection' | 'discussion';
 
@@ -322,6 +323,47 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
   onAwardXp,
   onOpenGiving,
 }) => {
+  const mapComment = (comment: CommunityCommentApi): CommunityComment => ({
+    id: String(comment.id),
+    authorName: comment.author_name,
+    authorHandle: comment.author_handle,
+    authorAvatar: comment.author_avatar,
+    authorRole: comment.author_role,
+    content: comment.content,
+    createdAt: new Date(comment.created_at).toLocaleString(),
+    amensCount: comment.amens_count,
+    hasAmened: comment.has_amened,
+  });
+
+  const mapPost = (post: CommunityPostApi): CommunityPost => ({
+    id: String(post.id),
+    authorName: post.author_name,
+    authorHandle: post.author_handle,
+    authorAvatar: post.author_avatar,
+    authorRole: post.author_role,
+    authorChurch: post.author_church,
+    category: post.category,
+    title: post.title || undefined,
+    content: post.content,
+    scriptureReference: post.scripture_reference || undefined,
+    scriptureText: post.scripture_text || undefined,
+    imageUrl: post.image_url || undefined,
+    audioSnippetDuration: post.audio_snippet_duration || undefined,
+    audioSnippetTitle: post.audio_snippet_title || undefined,
+    createdAt: new Date(post.created_at).toLocaleString(),
+    amensCount: post.amens_count,
+    prayersCount: post.prayers_count,
+    gloryCount: post.glory_count,
+    sharesCount: post.shares_count,
+    comments: post.comments.map(mapComment),
+    isAnonymous: post.is_anonymous,
+    hasAmened: post.has_amened,
+    hasPrayed: post.has_prayed,
+    hasGlory: post.has_glory,
+    hasBookmarked: post.has_bookmarked,
+    tags: post.tags || [],
+  });
+
   // Posts state
   const [posts, setPosts] = useState<CommunityPost[]>(() => {
     try {
@@ -364,6 +406,14 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
     }
   }, [posts]);
 
+  useEffect(() => {
+    let mounted = true;
+    djangoApi.getCommunityPosts().then(apiPosts => {
+      if (mounted && apiPosts.length > 0) setPosts(apiPosts.map(mapPost));
+    }).catch(error => console.warn('[Community] Unable to load backend posts:', error));
+    return () => { mounted = false; };
+  }, []);
+
   // Handle Amen Reaction
   const handleToggleAmen = (postId: string) => {
     setPosts(prev => prev.map(p => {
@@ -378,6 +428,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
       }
       return p;
     }));
+    void djangoApi.toggleCommunityPost(postId, 'amen').catch(error => console.warn('[Community] Amen was not saved:', error));
   };
 
   // Handle "I Prayed for You" Reaction
@@ -398,6 +449,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
       }
       return p;
     }));
+    void djangoApi.toggleCommunityPost(postId, 'pray').catch(error => console.warn('[Community] Prayer was not saved:', error));
   };
 
   // Handle Glory to God Reaction
@@ -413,6 +465,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
       }
       return p;
     }));
+    void djangoApi.toggleCommunityPost(postId, 'glory').catch(error => console.warn('[Community] Glory was not saved:', error));
   };
 
   // Handle Bookmark
@@ -428,6 +481,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
       }
       return p;
     }));
+    void djangoApi.toggleCommunityPost(postId, 'bookmark').catch(error => console.warn('[Community] Bookmark was not saved:', error));
   };
 
   // Submit Comment
@@ -459,6 +513,9 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
     setReplyText(prev => ({ ...prev, [postId]: '' }));
     setExpandedComments(prev => ({ ...prev, [postId]: true }));
     if (onAwardXp) onAwardXp(10, 'Fellowship encouragement posted');
+    void djangoApi.addCommunityComment(postId, text.trim()).then(comment => {
+      setPosts(prev => prev.map(post => post.id === postId ? { ...post, comments: [mapComment(comment), ...post.comments] } : post));
+    }).catch(error => console.warn('[Community] Comment was not saved:', error));
   };
 
   // Create Post Submit
@@ -494,6 +551,22 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
     };
 
     setPosts(prev => [newPost, ...prev]);
+    void djangoApi.createCommunityPost({
+      category: postCategory,
+      title: postTitle.trim() || undefined,
+      content: postContent.trim(),
+      scripture_reference: postScripture.trim() || undefined,
+      scripture_text: postScriptureText.trim() || undefined,
+      image_url: postImageUrl.trim() || undefined,
+      tags: newPost.tags,
+      is_anonymous: isAnonymous,
+    }).then(savedPost => {
+      setPosts(prev => prev.map(post => post.id === newPost.id ? mapPost(savedPost) : post));
+    }).catch(error => {
+      setPosts(prev => prev.filter(post => post.id !== newPost.id));
+      setPrayerNotification(error instanceof Error ? error.message : 'Unable to publish to the fellowship feed.');
+      setTimeout(() => setPrayerNotification(null), 3500);
+    });
     setShowCreateModal(false);
     
     // Reset Form

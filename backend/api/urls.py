@@ -2,7 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
-    ChangePasswordView, ChurchEventViewSet, ChurchViewSet, DonationViewSet, GivingFundViewSet,
+    ChangePasswordView, ChurchEventViewSet, ChurchViewSet, CommunityPostViewSet, DonationViewSet, GivingFundViewSet,
     GospreadTokenView, HealthCheckView, LiveStreamViewSet, LogoutView, MeView,
     PrayerRequestViewSet, RandomScriptureView, SavedSermonViewSet, SermonShortViewSet,
     SermonViewSet, SignupView, StreakCheckinView, WatchProgressViewSet, WorshipSongViewSet,
@@ -10,6 +10,7 @@ from .views import (
 
 router = DefaultRouter()
 router.register("churches", ChurchViewSet, basename="church")
+router.register("community/posts", CommunityPostViewSet, basename="community-post")
 router.register("sermons", SermonViewSet, basename="sermon")
 router.register("shorts", SermonShortViewSet, basename="short")
 router.register("streams", LiveStreamViewSet, basename="stream")

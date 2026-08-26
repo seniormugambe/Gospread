@@ -8,10 +8,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .models import Church, ChurchEvent, Donation, GivingFund, LiveStream, PaymentGatewayCheckout, PrayerComment, PrayerRequest, Scripture, SavedSermon, Sermon, SermonShort, WatchProgress, WorshipSong
+from .models import Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund, LiveStream, PaymentGatewayCheckout, PrayerComment, PrayerRequest, Scripture, SavedSermon, Sermon, SermonShort, WatchProgress, WorshipSong
 from .permissions import IsPastorOwnerOrReadOnly
 from .serializers import (
-    ChurchEventSerializer, ChurchSerializer, DonationCheckoutSerializer, DonationSerializer,
+    ChurchEventSerializer, ChurchSerializer, CommunityCommentSerializer, CommunityPostSerializer, DonationCheckoutSerializer, DonationSerializer,
     GivingFundSerializer, LiveStreamSerializer, PaymentGatewayCheckoutSerializer,
     PrayerCommentSerializer, PrayerRequestSerializer, SavedSermonSerializer, ChangePasswordSerializer,
     GospreadTokenSerializer, ScriptureSerializer, SermonSerializer, SermonShortSerializer,
@@ -298,6 +298,64 @@ class PrayerRequestViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         comment = PrayerComment.objects.create(prayer=prayer, author=request.user, **serializer.validated_data)
         return Response(PrayerCommentSerializer(comment, context={"request": request}).data, status=status.HTTP_201_CREATED)
+
+
+class CommunityPostViewSet(viewsets.ModelViewSet):
+    serializer_class = CommunityPostSerializer
+    search_fields = ("title", "content", "scripture_reference", "tags", "church__name", "author__username")
+    ordering_fields = ("created_at",)
+
+    def get_queryset(self):
+        queryset = CommunityPost.objects.select_related("author", "church").prefetch_related(
+            "amen_by", "prayed_by", "glory_by", "bookmarked_by", "comments", "comments__author", "comments__amen_by"
+        )
+        category = self.request.query_params.get("category")
+        if category and category != "all":
+            queryset = queryset.filter(category=category)
+        return queryset
+
+    def perform_create(self, serializer):
+        church = self.request.user.owned_churches.order_by("created_at").first()
+        serializer.save(author=self.request.user, church=church)
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
+    def _toggle(self, request, relation, response_key):
+        post = self.get_object()
+        members = getattr(post, relation)
+        active = not members.filter(id=request.user.id).exists()
+        if active:
+            members.add(request.user)
+        else:
+            members.remove(request.user)
+        return Response({response_key: active, f"{response_key}_count": members.count()})
+
+    @action(detail=True, methods=["post"])
+    def amen(self, request, pk=None):
+        return self._toggle(request, "amen_by", "amens")
+
+    @action(detail=True, methods=["post"])
+    def pray(self, request, pk=None):
+        return self._toggle(request, "prayed_by", "prayed")
+
+    @action(detail=True, methods=["post"])
+    def glory(self, request, pk=None):
+        return self._toggle(request, "glory_by", "glory")
+
+    @action(detail=True, methods=["post"])
+    def bookmark(self, request, pk=None):
+        return self._toggle(request, "bookmarked_by", "bookmarked")
+
+    @action(detail=True, methods=["post"])
+    def comment(self, request, pk=None):
+        post = self.get_object()
+        serializer = CommunityCommentSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        comment = CommunityComment.objects.create(post=post, author=request.user, content=serializer.validated_data["content"])
+        return Response(CommunityCommentSerializer(comment, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
 
 class GivingFundViewSet(viewsets.ModelViewSet):

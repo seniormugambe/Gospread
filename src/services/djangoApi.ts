@@ -88,6 +88,48 @@ export interface DjangoAuthResponse {
   user: UserProfileData;
 }
 
+export interface CommunityCommentApi {
+  id: number;
+  author_name: string;
+  author_handle: string;
+  author_avatar: string;
+  author_role: string;
+  content: string;
+  created_at: string;
+  amens_count: number;
+  has_amened: boolean;
+}
+
+export interface CommunityPostApi {
+  id: number;
+  author_name: string;
+  author_handle: string;
+  author_avatar: string;
+  author_role: string;
+  author_church: string;
+  category: 'testimony' | 'prayer' | 'reflection' | 'discussion';
+  title: string;
+  content: string;
+  scripture_reference: string;
+  scripture_text: string;
+  image_url: string;
+  audio_url: string;
+  audio_snippet_title: string;
+  audio_snippet_duration: string;
+  created_at: string;
+  amens_count: number;
+  prayers_count: number;
+  glory_count: number;
+  shares_count: number;
+  comments: CommunityCommentApi[];
+  is_anonymous: boolean;
+  has_amened: boolean;
+  has_prayed: boolean;
+  has_glory: boolean;
+  has_bookmarked: boolean;
+  tags: string[];
+}
+
 class DjangoApiClient {
   private baseUrl: string;
   private fallbackToMock: boolean = true;
@@ -526,6 +568,52 @@ class DjangoApiClient {
         message: 'Prayer request placed upon the global altar!'
       };
     }
+    return res.data;
+  }
+
+  // === 8. FELLOWSHIP & VOICES COMMUNITY ===
+  public async getCommunityPosts(category?: string, search?: string): Promise<CommunityPostApi[]> {
+    const params = new URLSearchParams();
+    if (category && category !== 'all') params.append('category', category);
+    if (search?.trim()) params.append('search', search.trim());
+    const endpoint = `/community/posts/${params.toString() ? `?${params.toString()}` : ''}`;
+    const res = await this.request<CommunityPostApi[] | { results: CommunityPostApi[] }>(endpoint);
+    if (res.fromCacheOrMock || !res.data) return [];
+    return Array.isArray(res.data) ? res.data : res.data.results;
+  }
+
+  public async createCommunityPost(payload: {
+    category: CommunityPostApi['category'];
+    title?: string;
+    content: string;
+    scripture_reference?: string;
+    scripture_text?: string;
+    image_url?: string;
+    audio_url?: string;
+    audio_snippet_title?: string;
+    audio_snippet_duration?: string;
+    tags?: string[];
+    is_anonymous?: boolean;
+  }): Promise<CommunityPostApi> {
+    const res = await this.request<CommunityPostApi>('/community/posts/', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (res.fromCacheOrMock || !res.data) throw new Error('The fellowship service is unavailable.');
+    return res.data;
+  }
+
+  public async toggleCommunityPost(postId: string, action: 'amen' | 'pray' | 'glory' | 'bookmark'): Promise<void> {
+    const res = await this.request(`/community/posts/${postId}/${action}/`, { method: 'POST' });
+    if (res.fromCacheOrMock) throw new Error('The fellowship service is unavailable.');
+  }
+
+  public async addCommunityComment(postId: string, content: string): Promise<CommunityCommentApi> {
+    const res = await this.request<CommunityCommentApi>(`/community/posts/${postId}/comment/`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+    if (res.fromCacheOrMock || !res.data) throw new Error('The fellowship service is unavailable.');
     return res.data;
   }
 }

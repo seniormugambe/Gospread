@@ -9,7 +9,7 @@ from django.utils.text import slugify
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import (
-    Church, ChurchEvent, Donation, GivingFund, LiveStream, PrayerComment, PrayerRequest,
+    Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund, LiveStream, PrayerComment, PrayerRequest,
     PaymentGatewayCheckout, SavedSermon, Scripture, Sermon, SermonShort, User,
     WatchProgress, WorshipSlide, WorshipSong,
 )
@@ -383,6 +383,64 @@ class PrayerRequestSerializer(serializers.ModelSerializer):
     def get_has_prayed(self, obj):
         user = self.context["request"].user
         return user.is_authenticated and obj.prayed_by.filter(id=user.id).exists()
+
+
+class CommunityCommentSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    author_handle = serializers.CharField(source="author.username", read_only=True)
+    author_avatar = serializers.CharField(source="author.avatar_url", read_only=True)
+    author_role = serializers.CharField(source="author.get_role_display", read_only=True)
+    amens_count = serializers.IntegerField(source="amen_by.count", read_only=True)
+    has_amened = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CommunityComment
+        fields = ("id", "author_name", "author_handle", "author_avatar", "author_role", "content", "created_at", "amens_count", "has_amened")
+        read_only_fields = ("id", "author_name", "author_handle", "author_avatar", "author_role", "created_at", "amens_count", "has_amened")
+
+    def get_author_name(self, obj):
+        return obj.author.get_full_name() or obj.author.username
+
+    def get_has_amened(self, obj):
+        user = self.context["request"].user
+        return user.is_authenticated and obj.amen_by.filter(id=user.id).exists()
+
+
+class CommunityPostSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    author_handle = serializers.CharField(source="author.username", read_only=True)
+    author_avatar = serializers.CharField(source="author.avatar_url", read_only=True)
+    author_role = serializers.CharField(source="author.get_role_display", read_only=True)
+    author_church = serializers.SerializerMethodField()
+    amens_count = serializers.IntegerField(source="amen_by.count", read_only=True)
+    prayers_count = serializers.IntegerField(source="prayed_by.count", read_only=True)
+    glory_count = serializers.IntegerField(source="glory_by.count", read_only=True)
+    comments = CommunityCommentSerializer(many=True, read_only=True)
+    shares_count = serializers.IntegerField(read_only=True, default=0)
+    has_amened = serializers.SerializerMethodField()
+    has_prayed = serializers.SerializerMethodField()
+    has_glory = serializers.SerializerMethodField()
+    has_bookmarked = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CommunityPost
+        fields = ("id", "author_name", "author_handle", "author_avatar", "author_role", "author_church", "category", "title", "content", "scripture_reference", "scripture_text", "image_url", "audio_url", "audio_snippet_title", "audio_snippet_duration", "created_at", "amens_count", "prayers_count", "glory_count", "shares_count", "comments", "is_anonymous", "has_amened", "has_prayed", "has_glory", "has_bookmarked", "tags")
+        read_only_fields = ("id", "author_name", "author_handle", "author_avatar", "author_role", "author_church", "created_at", "amens_count", "prayers_count", "glory_count", "shares_count", "comments", "has_amened", "has_prayed", "has_glory", "has_bookmarked")
+
+    def get_author_name(self, obj):
+        return "Kingdom Intercessor" if obj.is_anonymous else (obj.author.get_full_name() or obj.author.username)
+
+    def get_author_church(self, obj):
+        return obj.church.name if obj.church else "Global Fellowship"
+
+    def _has(self, relation, obj):
+        user = self.context["request"].user
+        return user.is_authenticated and getattr(obj, relation).filter(id=user.id).exists()
+
+    def get_has_amened(self, obj): return self._has("amen_by", obj)
+    def get_has_prayed(self, obj): return self._has("prayed_by", obj)
+    def get_has_glory(self, obj): return self._has("glory_by", obj)
+    def get_has_bookmarked(self, obj): return self._has("bookmarked_by", obj)
 
 
 class SavedSermonSerializer(serializers.ModelSerializer):

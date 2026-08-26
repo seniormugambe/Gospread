@@ -210,6 +210,50 @@ class PrayerComment(models.Model):
         return self.body[:80]
 
 
+class CommunityPost(models.Model):
+    class Category(models.TextChoices):
+        TESTIMONY = "testimony", "Testimony"
+        PRAYER = "prayer", "Prayer"
+        REFLECTION = "reflection", "Reflection"
+        DISCUSSION = "discussion", "Discussion"
+
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="community_posts")
+    church = models.ForeignKey(Church, on_delete=models.SET_NULL, related_name="community_posts", null=True, blank=True)
+    category = models.CharField(max_length=12, choices=Category.choices)
+    title = models.CharField(max_length=220, blank=True)
+    content = models.TextField(max_length=5000)
+    scripture_reference = models.CharField(max_length=120, blank=True)
+    scripture_text = models.TextField(blank=True)
+    image_url = models.URLField(blank=True)
+    audio_url = models.URLField(blank=True)
+    audio_snippet_title = models.CharField(max_length=180, blank=True)
+    audio_snippet_duration = models.CharField(max_length=20, blank=True)
+    tags = models.JSONField(default=list, blank=True)
+    is_anonymous = models.BooleanField(default=False)
+    amen_by = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="amened_community_posts")
+    prayed_by = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="prayed_community_posts")
+    glory_by = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="gloried_community_posts")
+    bookmarked_by = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="bookmarked_community_posts")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title or self.content[:80]
+
+
+class CommunityComment(models.Model):
+    post = models.ForeignKey(CommunityPost, on_delete=models.CASCADE, related_name="comments")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="community_comments")
+    content = models.TextField(max_length=1000)
+    amen_by = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="amened_community_comments")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
 class GivingFund(models.Model):
     church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="giving_funds")
     name = models.CharField(max_length=120)
