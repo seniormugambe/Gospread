@@ -88,9 +88,6 @@ import ChurchLocationsCard from './components/ChurchLocationsCard';
 import SocialMediaLinksBar from './components/SocialMediaLinksBar';
 import LiveChatPanel from './components/LiveChatPanel';
 import { 
-  LIVE_VIDEO_STREAMS, 
-  AUDIO_TRACKS, 
-  INITIAL_CHAT_MESSAGES, 
   SUBSCRIPTION_CHANNELS,
   CHURCH_SCHEDULES,
   VideoStream, 
@@ -134,7 +131,7 @@ export default function App() {
     setIsPipDocked(false);
     setActiveVideo(null);
   };
-  const [videoStreams, setVideoStreams] = useState<VideoStream[]>(LIVE_VIDEO_STREAMS);
+  const [videoStreams, setVideoStreams] = useState<VideoStream[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -149,21 +146,53 @@ export default function App() {
       const queryTerm = searchQuery.trim() || (selectedCategory === 'All' ? 'Gospel Live Worship Sermon' : `Gospel ${selectedCategory}`);
       const isLiveOnly = selectedCategory === 'Live Worship';
       
-      const res = await youtubeApi.searchGospelVideos(queryTerm, isLiveOnly);
-      if (isMounted && res.videos && res.videos.length > 0) {
-        setVideoStreams(res.videos);
-        setIsRealYoutubeData(res.isRealYoutubeData);
-        if (res.isRealYoutubeData && res.videos[0]) {
-          setActiveVideo(prev => prev ? prev : res.videos[0]);
+      try {
+        const backendStreams = await djangoApi.getLiveStreams();
+        if (isMounted && backendStreams && backendStreams.length > 0) {
+          setVideoStreams(backendStreams);
+          if (!activeVideo && backendStreams[0]) {
+            setActiveVideo(backendStreams[0]);
+          }
+        } else {
+          const res = await youtubeApi.searchGospelVideos(queryTerm, isLiveOnly);
+          if (isMounted && res.videos && res.videos.length > 0) {
+            setVideoStreams(res.videos);
+            setIsRealYoutubeData(res.isRealYoutubeData);
+            if (res.isRealYoutubeData && res.videos[0]) {
+              setActiveVideo(prev => prev ? prev : res.videos[0]);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Error fetching live streams:', e);
+        const res = await youtubeApi.searchGospelVideos(queryTerm, isLiveOnly);
+        if (isMounted && res.videos && res.videos.length > 0) {
+          setVideoStreams(res.videos);
+          setIsRealYoutubeData(res.isRealYoutubeData);
+          if (res.isRealYoutubeData && res.videos[0]) {
+            setActiveVideo(prev => prev ? prev : res.videos[0]);
+          }
         }
       }
 
-      const audioRes = await youtubeApi.searchGospelAudio(searchQuery.trim() || 'Gospel Worship Podcast Audio Sermon');
-      if (isMounted && audioRes.tracks && audioRes.tracks.length > 0) {
-        setAudioQueue(audioRes.tracks);
-        if (audioRes.isRealYoutubeData && audioRes.tracks[0]) {
-          setCurrentAudio(prev => prev ? prev : audioRes.tracks[0]);
+      try {
+        const backendTracks = await djangoApi.getAudioTracks();
+        if (isMounted && backendTracks && backendTracks.length > 0) {
+          setAudioQueue(backendTracks);
+          if (!currentAudio && backendTracks[0]) {
+            setCurrentAudio(backendTracks[0]);
+          }
+        } else {
+          const audioRes = await youtubeApi.searchGospelAudio(searchQuery.trim() || 'Gospel Worship Podcast Audio Sermon');
+          if (isMounted && audioRes.tracks && audioRes.tracks.length > 0) {
+            setAudioQueue(audioRes.tracks);
+            if (audioRes.isRealYoutubeData && audioRes.tracks[0]) {
+              setCurrentAudio(prev => prev ? prev : audioRes.tracks[0]);
+            }
+          }
         }
+      } catch (e) {
+        console.error('Error fetching audio tracks:', e);
       }
 
       if (isMounted) setIsYoutubeLoading(false);
@@ -181,11 +210,7 @@ export default function App() {
     } catch (e) {
       console.error('Failed to load watch history:', e);
     }
-    return [
-      { video: LIVE_VIDEO_STREAMS[0], watchedAt: Date.now() - 1000 * 60 * 20 },
-      { video: LIVE_VIDEO_STREAMS[1], watchedAt: Date.now() - 1000 * 60 * 60 * 3 },
-      { video: LIVE_VIDEO_STREAMS[2], watchedAt: Date.now() - 1000 * 60 * 60 * 26 }
-    ];
+    return [];
   });
 
   const addToWatchHistory = (video: VideoStream) => {
@@ -316,16 +341,16 @@ export default function App() {
   // Video player controls state
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(INITIAL_CHAT_MESSAGES);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
   // Audio player state
-  const [currentAudio, setCurrentAudio] = useState<AudioTrack>(AUDIO_TRACKS[0]);
+  const [currentAudio, setCurrentAudio] = useState<AudioTrack | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
-  const [audioQueue, setAudioQueue] = useState<AudioTrack[]>(AUDIO_TRACKS);
+  const [audioQueue, setAudioQueue] = useState<AudioTrack[]>([]);
 
   const handlePlayAudioTrack = (track: AudioTrack) => {
-    if (currentAudio.id === track.id) {
+    if (currentAudio?.id === track.id) {
       setIsAudioPlaying(!isAudioPlaying);
     } else {
       setCurrentAudio(track);
@@ -1332,7 +1357,7 @@ export default function App() {
               onSelectVideo={handleSelectVideo}
               onPlayAudioTrack={handlePlayAudioTrack}
               allVideos={videoStreams}
-              allAudio={AUDIO_TRACKS}
+              allAudio={audioQueue}
               streakDays={streakDays}
               praiseXp={praiseXp}
             />
@@ -1891,14 +1916,14 @@ export default function App() {
 
                 {/* Single column horizontal row card on mobile, grid card on sm/md/lg */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-3">
-                  {AUDIO_TRACKS.map((track) => (
+                  {audioQueue.map((track) => (
                     <motion.div
                       key={track.id}
                       whileHover={{ scale: 1.02, y: -2 }}
                       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                       onClick={() => handlePlayAudioTrack(track)}
                       className={`p-3 sm:p-2.5 rounded-2xl border transition cursor-pointer group flex flex-row sm:flex-col items-center sm:items-stretch justify-between gap-3 sm:gap-0 ${
-                        currentAudio.id === track.id && isAudioPlaying
+                        currentAudio?.id === track.id && isAudioPlaying
                           ? 'bg-red-950/40 border-red-600 shadow-md shadow-red-900/20'
                           : 'bg-slate-900/80 border-slate-800 hover:border-slate-700 active:bg-slate-850'
                       }`}
@@ -2100,16 +2125,18 @@ export default function App() {
       </div>
 
       {/* 🔴 ADVANCED MEDIA AUDIO PLAYER */}
-      <AudioPodcastPlayer
-        currentTrack={currentAudio}
-        isPlaying={isAudioPlaying}
-        onTogglePlay={() => setIsAudioPlaying(!isAudioPlaying)}
-        isMuted={isAudioMuted}
-        onToggleMute={() => setIsAudioMuted(!isAudioMuted)}
-        audioQueue={audioQueue}
-        onSelectTrackFromQueue={handlePlayAudioTrack}
-        onOpenGivingModal={handleOpenGiving}
-      />
+      {currentAudio && (
+        <AudioPodcastPlayer
+          currentTrack={currentAudio}
+          isPlaying={isAudioPlaying}
+          onTogglePlay={() => setIsAudioPlaying(!isAudioPlaying)}
+          isMuted={isAudioMuted}
+          onToggleMute={() => setIsAudioMuted(!isAudioMuted)}
+          audioQueue={audioQueue}
+          onSelectTrackFromQueue={handlePlayAudioTrack}
+          onOpenGivingModal={handleOpenGiving}
+        />
+      )}
 
       {/* Prayer Request Modal */}
       <AnimatePresence>
@@ -2226,7 +2253,7 @@ export default function App() {
           onSelectVideo={handleSelectVideo}
           onPlayAudioTrack={handlePlayAudioTrack}
           allVideos={videoStreams}
-          allAudio={AUDIO_TRACKS}
+          allAudio={audioQueue}
         />
       )}
 

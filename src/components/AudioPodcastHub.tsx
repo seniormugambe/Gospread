@@ -23,12 +23,13 @@ import {
   Waves
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { AUDIO_TRACKS, AudioTrack } from '../data/gospelData';
+import { AudioTrack } from '../data/gospelData';
+import { djangoApi } from '../services/djangoApi';
 import { youtubeApi } from '../services/youtubeApi';
 import { GivingTarget } from './GivingModal';
 
 interface AudioPodcastHubProps {
-  currentTrack: AudioTrack;
+  currentTrack?: AudioTrack | null;
   isPlaying: boolean;
   onPlayTrack: (track: AudioTrack) => void;
   onAddToQueue: (track: AudioTrack) => void;
@@ -48,7 +49,7 @@ export default function AudioPodcastHub({
 }: AudioPodcastHubProps) {
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [audioList, setAudioList] = useState<AudioTrack[]>(AUDIO_TRACKS);
+  const [audioList, setAudioList] = useState<AudioTrack[]>([]);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [downloadedIds, setDownloadedIds] = useState<string[]>([]);
 
@@ -56,22 +57,34 @@ export default function AudioPodcastHub({
 
   useEffect(() => {
     let active = true;
-    const fetchYoutubeAudio = async () => {
+    const fetchAudio = async () => {
       setIsLoadingAudio(true);
+      try {
+        const djangoTracks = await djangoApi.getAudioTracks(selectedSubCategory === 'All' ? undefined : selectedSubCategory);
+        if (active && djangoTracks && djangoTracks.length > 0) {
+          setAudioList(djangoTracks);
+          setIsLoadingAudio(false);
+          return;
+        }
+      } catch (e) {
+        console.warn('[Audio] Backend track fetch notice:', e);
+      }
+
+      // Fallback search to media provider if backend currently has 0 uploaded songs
       const queryTerm = searchQuery.trim() 
         ? searchQuery.trim() 
         : selectedSubCategory === 'All' 
           ? 'Gospel Worship Podcast Audio Sermon' 
           : `Gospel ${selectedSubCategory}`;
       
-      const res = await youtubeApi.searchGospelAudio(queryTerm);
+      const res = await youtubeApi.searchGospelAudio(queryTerm).catch(() => ({ tracks: [] }));
       if (active && res.tracks && res.tracks.length > 0) {
         setAudioList(res.tracks);
       }
       if (active) setIsLoadingAudio(false);
     };
 
-    fetchYoutubeAudio();
+    fetchAudio();
     return () => { active = false; };
   }, [searchQuery, selectedSubCategory]);
 
@@ -90,104 +103,106 @@ export default function AudioPodcastHub({
     return matchesCategory && matchesSearch;
   });
 
-  const featuredTrack = audioList.find((t) => t.category === 'Podcast') || audioList[0] || AUDIO_TRACKS[0];
+  const featuredTrack = audioList.find((t) => t.category === 'Podcast') || audioList[0];
 
   return (
     <div className="space-y-6 pb-28">
       {/* 🚀 FEATURED PODCAST BANNER */}
-      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-amber-950/80 via-slate-900 to-slate-950 border border-amber-500/30 p-6 sm:p-8 shadow-2xl">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-        
-        <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
-          <div className="relative shrink-0 group">
-            <img
-              src={featuredTrack.coverUrl}
-              alt={featuredTrack.title}
-              referrerPolicy="no-referrer"
-              className="w-36 h-36 sm:w-44 sm:h-44 rounded-2xl object-cover border-2 border-amber-500/40 shadow-2xl group-hover:scale-105 transition duration-300"
-            />
-            {currentTrack.id === featuredTrack.id && isPlaying && (
-              <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center gap-1">
-                <span className="w-1 bg-amber-400 h-6 rounded-full animate-bounce" />
-                <span className="w-1 bg-amber-300 h-8 rounded-full animate-bounce [animation-delay:0.15s]" />
-                <span className="w-1 bg-amber-400 h-5 rounded-full animate-bounce [animation-delay:0.3s]" />
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-3 text-center md:text-left flex-1">
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
-              <span className="px-3 py-1 rounded-full bg-amber-500 text-slate-950 font-black text-[10px] uppercase tracking-wider flex items-center gap-1 shadow-md">
-                <Sparkles className="w-3 h-3" /> Featured Kingdom Podcast
-              </span>
-              <span className="px-2.5 py-1 rounded-full bg-slate-800/80 text-amber-300 border border-slate-700 text-[10px] font-mono">
-                Ep. {featuredTrack.episodeNumber || 42} • S{featuredTrack.seasonNumber || 3}
-              </span>
-              <span className="text-amber-400 text-xs font-bold flex items-center gap-1">
-                <Star className="w-3.5 h-3.5 fill-amber-400" /> {featuredTrack.rating || 4.9} (12.4K Ratings)
-              </span>
+      {featuredTrack ? (
+        <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-amber-950/80 via-slate-900 to-slate-950 border border-amber-500/30 p-6 sm:p-8 shadow-2xl">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+          
+          <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
+            <div className="relative shrink-0 group">
+              <img
+                src={featuredTrack.coverUrl}
+                alt={featuredTrack.title}
+                referrerPolicy="no-referrer"
+                className="w-36 h-36 sm:w-44 sm:h-44 rounded-2xl object-cover border-2 border-amber-500/40 shadow-2xl group-hover:scale-105 transition duration-300"
+              />
+              {currentTrack && currentTrack.id === featuredTrack.id && isPlaying && (
+                <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center gap-1">
+                  <span className="w-1 bg-amber-400 h-6 rounded-full animate-bounce" />
+                  <span className="w-1 bg-amber-300 h-8 rounded-full animate-bounce [animation-delay:0.15s]" />
+                  <span className="w-1 bg-amber-400 h-5 rounded-full animate-bounce [animation-delay:0.3s]" />
+                </div>
+              )}
             </div>
 
-            <h1 className="text-xl sm:text-2xl font-black text-white font-serif leading-tight">
-              {featuredTrack.title}
-            </h1>
+            <div className="space-y-3 text-center md:text-left flex-1">
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                <span className="px-3 py-1 rounded-full bg-amber-500 text-slate-950 font-black text-[10px] uppercase tracking-wider flex items-center gap-1 shadow-md">
+                  <Sparkles className="w-3 h-3" /> Featured Kingdom Podcast
+                </span>
+                <span className="px-2.5 py-1 rounded-full bg-slate-800/80 text-amber-300 border border-slate-700 text-[10px] font-mono">
+                  Ep. {featuredTrack.episodeNumber || 42} • S{featuredTrack.seasonNumber || 3}
+                </span>
+                <span className="text-amber-400 text-xs font-bold flex items-center gap-1">
+                  <Star className="w-3.5 h-3.5 fill-amber-400" /> {featuredTrack.rating || 4.9} (12.4K Ratings)
+                </span>
+              </div>
 
-            <p className="text-xs text-slate-300 line-clamp-2 max-w-2xl leading-relaxed">
-              {featuredTrack.lyricsOrNotes}
-            </p>
+              <h1 className="text-xl sm:text-2xl font-black text-white font-serif leading-tight">
+                {featuredTrack.title}
+              </h1>
 
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
-              <button
-                onClick={() => onPlayTrack(featuredTrack)}
-                className="px-5 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-2 transition shadow-xl shadow-amber-500/20 transform hover:scale-105"
-              >
-                {currentTrack.id === featuredTrack.id && isPlaying ? (
-                  <>
-                    <Pause className="w-4 h-4 fill-slate-950" />
-                    <span>Pause Listening</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4 fill-slate-950 ml-0.5" />
-                    <span>Start Listening</span>
-                  </>
-                )}
-              </button>
+              <p className="text-xs text-slate-300 line-clamp-2 max-w-2xl leading-relaxed">
+                {featuredTrack.lyricsOrNotes}
+              </p>
 
-              <button
-                onClick={() => onAddToQueue(featuredTrack)}
-                className="px-4 py-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 flex items-center gap-1.5 transition"
-              >
-                {queuedTrackIds.includes(featuredTrack.id) ? (
-                  <>
-                    <Check className="w-4 h-4 text-emerald-400" />
-                    <span>In Queue</span>
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4" />
-                    <span>Add to Queue</span>
-                  </>
-                )}
-              </button>
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
+                <button
+                  onClick={() => onPlayTrack(featuredTrack)}
+                  className="px-5 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-2 transition shadow-xl shadow-amber-500/20 transform hover:scale-105"
+                >
+                  {currentTrack && currentTrack.id === featuredTrack.id && isPlaying ? (
+                    <>
+                      <Pause className="w-4 h-4 fill-slate-950" />
+                      <span>Pause Listening</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 fill-slate-950 ml-0.5" />
+                      <span>Start Listening</span>
+                    </>
+                  )}
+                </button>
 
-              <button
-                onClick={() => onOpenGivingModal({
-                  id: `podcast-${featuredTrack.id}`,
-                  name: featuredTrack.artistOrPreacher,
-                  avatar: featuredTrack.channelAvatar,
-                  type: 'church',
-                  categoryTitle: `Support ${featuredTrack.artistOrPreacher}`
-                })}
-                className="px-4 py-2.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 font-bold text-xs flex items-center gap-1 transition"
-              >
-                <DollarSign className="w-3.5 h-3.5" />
-                <span>Sow Seed</span>
-              </button>
+                <button
+                  onClick={() => onAddToQueue(featuredTrack)}
+                  className="px-4 py-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 flex items-center gap-1.5 transition"
+                >
+                  {queuedTrackIds.includes(featuredTrack.id) ? (
+                    <>
+                      <Check className="w-4 h-4 text-emerald-400" />
+                      <span>In Queue</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      <span>Add to Queue</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => onOpenGivingModal({
+                    id: `podcast-${featuredTrack.id}`,
+                    name: featuredTrack.artistOrPreacher,
+                    avatar: featuredTrack.channelAvatar,
+                    type: 'church',
+                    categoryTitle: `Support ${featuredTrack.artistOrPreacher}`
+                  })}
+                  className="px-4 py-2.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 font-bold text-xs flex items-center gap-1 transition"
+                >
+                  <DollarSign className="w-3.5 h-3.5" />
+                  <span>Sow Seed</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       {/* 🔍 SEARCH & CATEGORY FILTERS */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">

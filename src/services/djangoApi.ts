@@ -1,12 +1,5 @@
 // Production-ready Django REST Framework / Django Ninja API Client Service
-// Compatible with Django 4.2+ / Django 5.x, DRF (Django REST Framework), and JWT Authentication (SimpleJWT)
-
-import { 
-  VideoStream, 
-  AudioTrack, 
-  LIVE_VIDEO_STREAMS, 
-  AUDIO_TRACKS, 
-} from '../data/gospelData';
+// Connected directly to Django 5.x / DRF endpoints with JWT Authentication (SimpleJWT)
 
 export interface ChurchCampusLocation {
   id?: string;
@@ -25,6 +18,7 @@ export interface ChurchCampusLocation {
 export interface ChurchLocation {
   id: string;
   name: string;
+  slug?: string;
   address: string;
   cityState: string;
   distance?: string;
@@ -36,6 +30,7 @@ export interface ChurchLocation {
   googleMapsUrl?: string;
   verified: boolean;
   avatar: string;
+  coverImage?: string;
   category: string;
   weeklyScheduleCount: number;
   campuses?: ChurchCampusLocation[];
@@ -68,8 +63,60 @@ export interface UserProfileData {
   badges?: FaithBadgeAward[];
 }
 
-// Base API URL configuration from environment or local fallback
-export const DJANGO_API_BASE_URL = import.meta.env.VITE_DJANGO_API_URL || 'http://localhost:8000/api/v1';
+export interface VideoStream {
+  id: string;
+  title: string;
+  speakerOrArtist: string;
+  churchOrMinistry: string;
+  channelAvatar: string;
+  subscribersCount: string;
+  likesCount: string;
+  category: 'Live Worship' | 'Sermon' | 'Choir Special' | 'Bible Study' | 'Gospel Music';
+  isLive: boolean;
+  viewersCount?: number;
+  viewsText?: string;
+  duration?: string;
+  thumbnail: string;
+  description: string;
+  bibleVerse?: string;
+  date: string;
+  videoUrl?: string;
+  streamUrl?: string;
+}
+
+export interface AudioChapter {
+  time: string;
+  seconds: number;
+  title: string;
+  scriptureRef?: string;
+}
+
+export interface AudioTrack {
+  id: string;
+  title: string;
+  artistOrPreacher: string;
+  albumOrSeries: string;
+  channelAvatar: string;
+  category: 'Praise & Worship' | 'Audio Sermon' | '24/7 Gospel Radio' | 'Podcast' | 'Devotional';
+  coverUrl: string;
+  duration: string;
+  isLiveRadio?: boolean;
+  listenersCount?: number;
+  lyricsOrNotes?: string;
+  publishedDate?: string;
+  episodeNumber?: number;
+  seasonNumber?: number;
+  chapters?: AudioChapter[];
+  sermonOutline?: string[];
+  scriptureVerses?: { reference: string; text: string }[];
+  tags?: string[];
+  downloadsCount?: string;
+  rating?: number;
+  audioUrl?: string;
+}
+
+// Base API URL configuration from environment or direct default
+export const DJANGO_API_BASE_URL = import.meta.env.VITE_DJANGO_API_URL || '/api/v1';
 
 // Token Storage Keys
 const JWT_ACCESS_KEY = 'gospread_django_jwt_access';
@@ -130,9 +177,35 @@ export interface CommunityPostApi {
   tags: string[];
 }
 
+export interface ScriptureApi {
+  id: number;
+  reference: string;
+  text: string;
+  translation: string;
+}
+
+export interface PrayerRequestApi {
+  id: number;
+  author_name: string;
+  church?: number;
+  body: string;
+  tag?: string;
+  is_anonymous: boolean;
+  is_public: boolean;
+  prayed_count: number;
+  comment_count: number;
+  comments: Array<{
+    id: number;
+    author_name: string;
+    body: string;
+    created_at: string;
+  }>;
+  has_prayed: boolean;
+  created_at: string;
+}
+
 class DjangoApiClient {
   private baseUrl: string;
-  private fallbackToMock: boolean = true;
 
   constructor() {
     this.baseUrl = DJANGO_API_BASE_URL.replace(/\/$/, '');
@@ -149,6 +222,10 @@ class DjangoApiClient {
   // Auth Token Management
   public getAccessToken(): string | null {
     return localStorage.getItem(JWT_ACCESS_KEY);
+  }
+
+  public getRefreshToken(): string | null {
+    return localStorage.getItem(JWT_REFRESH_KEY);
   }
 
   public setTokens(access: string, refresh?: string): void {
@@ -170,9 +247,10 @@ class DjangoApiClient {
     return localStorage.getItem(CSRF_TOKEN_KEY);
   }
 
-  // Core HTTP Fetcher with Timeout, DRF Headers & Fallback Handling
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<{ data: T; fromCacheOrMock: boolean }> {
-    const url = `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  // Core HTTP Fetcher connecting directly to DRF backend endpoints
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = `${this.baseUrl}${cleanEndpoint}`;
     const token = this.getAccessToken();
     const csrfToken = this.getCsrfToken();
 
@@ -191,7 +269,7 @@ class DjangoApiClient {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
     try {
       const response = await fetch(url, {
@@ -202,22 +280,20 @@ class DjangoApiClient {
 
       clearTimeout(timeoutId);
 
+      if (response.status === 204) {
+        return null as unknown as T;
+      }
+
       if (!response.ok) {
         const errorData: DjangoApiError = await response.json().catch(() => ({ detail: response.statusText }));
-        throw new Error(errorData.detail || errorData.non_field_errors?.[0] || `Django API Error: ${response.status}`);
+        const errorMessage = errorData.detail || errorData.non_field_errors?.[0] || Object.values(errorData)[0] || `Django API Error: ${response.status}`;
+        throw new Error(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage));
       }
 
-      const data = await response.json();
-      return { data, fromCacheOrMock: false };
+      return await response.json();
     } catch (err: any) {
       clearTimeout(timeoutId);
-
-      if (this.fallbackToMock) {
-        console.warn(`[Django API Client] ${url} unreachable (${err.message}). Seamlessly utilizing fallback response.`);
-      } else {
-        throw err;
-      }
-      return { data: null as unknown as T, fromCacheOrMock: true };
+      throw err;
     }
   }
 
@@ -255,49 +331,26 @@ class DjangoApiClient {
         connected: false,
         baseUrl: targetUrl,
         latencyMs: 0,
-        message: `Unable to reach Django backend at ${targetUrl}. Client is running in active mock-resilient mode.`
+        message: `Unable to reach Django backend at ${targetUrl} (${e.message}).`
       };
     }
   }
 
   // === 1. AUTHENTICATION & USER PROFILE ===
   public async login(credentials: { username?: string; email?: string; password?: string }): Promise<DjangoAuthResponse> {
+    const payload = {
+      username: credentials.username || credentials.email,
+      password: credentials.password,
+    };
     const res = await this.request<DjangoAuthResponse>('/auth/login/', {
       method: 'POST',
-      body: JSON.stringify(credentials)
+      body: JSON.stringify(payload)
     });
 
-    if (res.fromCacheOrMock) {
-      const mockAuth: DjangoAuthResponse = {
-        access: 'mock-jwt-access-token-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
-        refresh: 'mock-jwt-refresh-token',
-        user: {
-          id: 1,
-          username: credentials.email ? credentials.email.split('@')[0] : 'david_lawson',
-          email: credentials.email || 'david.lawson@gospread.org',
-          first_name: 'David',
-          last_name: 'Lawson',
-          bio: 'Fellowship Servant & Worship Leader',
-          church_name: 'Grace City Cathedral',
-          praise_xp: 1450,
-          streak_days: 7,
-          role: 'believer',
-          badges: [
-            { id: 'b1', name: 'Diligent Sower', icon: '🌾', tier: 'Gold', category: 'Momentum', description: 'Consistently sowing into kingdom works', earnedDate: 'May 10' },
-            { id: 'b2', name: 'Faithful Reach', icon: '🌱', tier: 'Silver', category: 'Discipleship', description: 'Shared ministry content with 10+ believers', earnedDate: 'Aug 02' },
-            { id: 'b3', name: '7-Day Overcomer', icon: '🔥', tier: 'Gold', category: 'Streak', description: '7 consecutive days of devotion and prayer', earnedDate: 'Aug 09' },
-            { id: 'b4', name: 'Kingdom Ambassador', icon: '👑', tier: 'Gold', category: 'Ambassador', description: 'Active promoter of the gospel', earnedDate: 'Jun 10' }
-          ]
-        }
-      };
-      this.setTokens(mockAuth.access, mockAuth.refresh);
-      return mockAuth;
+    if (res?.access) {
+      this.setTokens(res.access, res.refresh);
     }
-
-    if (res.data?.access) {
-      this.setTokens(res.data.access, res.data.refresh);
-    }
-    return res.data;
+    return res;
   }
 
   public async register(payload: {
@@ -305,21 +358,41 @@ class DjangoApiClient {
     email: string;
     password?: string;
     church_name?: string;
+    name?: string;
     first_name?: string;
     last_name?: string;
+    role?: string;
   }): Promise<DjangoAuthResponse> {
     const res = await this.request<DjangoAuthResponse>('/auth/register/', {
       method: 'POST',
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        ...payload,
+        name: payload.name || `${payload.first_name || ''} ${payload.last_name || ''}`.trim() || payload.username,
+      })
     });
 
-    if (res.fromCacheOrMock) {
-      return this.login({ email: payload.email, username: payload.username });
+    if (res?.access) {
+      this.setTokens(res.access, res.refresh);
     }
-    return res.data;
+    return res;
   }
 
-  public logout(): void {
+  public async getMe(): Promise<UserProfileData> {
+    return await this.request<UserProfileData>('/auth/me/');
+  }
+
+  public async logout(): Promise<void> {
+    const refresh = this.getRefreshToken();
+    if (refresh) {
+      try {
+        await this.request('/auth/logout/', {
+          method: 'POST',
+          body: JSON.stringify({ refresh })
+        });
+      } catch (e) {
+        console.warn('[Django API] Logout notification error:', e);
+      }
+    }
     this.clearTokens();
     try {
       localStorage.removeItem('gospread_user_session');
@@ -331,42 +404,83 @@ class DjangoApiClient {
   // === 2. DAILY GRACE STREAK & PRAISE XP CHECKIN ===
   public async checkInDailyStreak(): Promise<{
     success: boolean;
-    streakDays: number;
-    praiseXpEarned: number;
-    newBadgeUnlocked?: FaithBadgeAward;
+    streak_days: number;
+    praise_xp_earned: number;
+    total_praise_xp: number;
+    already_checked_in: boolean;
     message: string;
   }> {
-    const res = await this.request<any>('/auth/streak/checkin/', {
+    return await this.request<any>('/auth/streak/checkin/', {
       method: 'POST'
     });
-
-    if (res.fromCacheOrMock || !res.data) {
-      return {
-        success: true,
-        streakDays: 8,
-        praiseXpEarned: 50,
-        message: 'Daily grace streak recorded (+50 Praise XP)!'
-      };
-    }
-    return res.data;
   }
 
   // === 3. VIDEO STREAMS & SERMONS ===
   public async getVideos(category?: string, isLive?: boolean): Promise<VideoStream[]> {
     const params = new URLSearchParams();
     if (category && category !== 'all') params.append('category', category);
-    if (isLive !== undefined) params.append('is_live', String(isLive));
 
-    const endpoint = `/videos/${params.toString() ? `?${params.toString()}` : ''}`;
-    const res = await this.request<VideoStream[]>(endpoint);
+    const streamsPromise = this.request<any[] | { results: any[] }>(`/streams/${params.toString() ? `?${params.toString()}` : ''}`).catch(() => []);
+    const sermonsPromise = this.request<any[] | { results: any[] }>(`/sermons/${params.toString() ? `?${params.toString()}` : ''}`).catch(() => []);
 
-    if (res.fromCacheOrMock || !res.data) {
-      let filtered = [...LIVE_VIDEO_STREAMS];
-      if (category && category !== 'all') filtered = filtered.filter(v => v.category.toLowerCase().includes(category.toLowerCase()));
-      if (isLive !== undefined) filtered = filtered.filter(v => v.isLive === isLive);
-      return filtered;
+    const [streamsRes, sermonsRes] = await Promise.all([streamsPromise, sermonsPromise]);
+
+    const streamsData = Array.isArray(streamsRes) ? streamsRes : (streamsRes?.results || []);
+    const sermonsData = Array.isArray(sermonsRes) ? sermonsRes : (sermonsRes?.results || []);
+
+    const videoList: VideoStream[] = [];
+
+    // Map live streams
+    for (const s of streamsData) {
+      videoList.push({
+        id: String(s.id),
+        title: s.title,
+        speakerOrArtist: s.church_name || 'Ministry Leader',
+        churchOrMinistry: s.church_name || 'Gospread Church',
+        channelAvatar: s.thumbnail_url || 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=120&q=80',
+        subscribersCount: 'Live',
+        likesCount: `${s.viewer_count || 0}`,
+        category: 'Live Worship',
+        isLive: s.status === 'live',
+        viewersCount: s.viewer_count || 0,
+        viewsText: s.status === 'live' ? `${s.viewer_count || 1} watching now` : 'Recorded Broadcast',
+        thumbnail: s.thumbnail_url || 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
+        description: s.description || 'Live congregational worship and preaching.',
+        date: s.scheduled_for ? new Date(s.scheduled_for).toLocaleDateString() : 'Today',
+        streamUrl: s.stream_url || s.recording_url,
+      });
     }
-    return res.data;
+
+    // Map sermons
+    for (const s of sermonsData) {
+      videoList.push({
+        id: String(s.id),
+        title: s.title,
+        speakerOrArtist: s.speaker || s.church_name || 'Pastor',
+        churchOrMinistry: s.church_name || 'Grace Ministry',
+        channelAvatar: s.thumbnail_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+        subscribersCount: 'Verified',
+        likesCount: `${s.view_count || 0}`,
+        category: s.category || 'Sermon',
+        isLive: false,
+        viewersCount: s.view_count || 0,
+        viewsText: `${s.view_count || 0} views`,
+        duration: s.duration_seconds ? `${Math.floor(s.duration_seconds / 60)}:${String(s.duration_seconds % 60).padStart(2, '0')}` : '45:00',
+        thumbnail: s.thumbnail_url || 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&w=800&q=80',
+        description: s.description || '',
+        date: s.published_at ? new Date(s.published_at).toLocaleDateString() : 'Recent',
+        videoUrl: s.media_url,
+      });
+    }
+
+    if (isLive !== undefined) {
+      return videoList.filter(v => v.isLive === isLive);
+    }
+    return videoList;
+  }
+
+  public async getLiveStreams(category?: string): Promise<VideoStream[]> {
+    return this.getVideos(category, true);
   }
 
   // === 4. AUDIO & PODCASTS ===
@@ -374,201 +488,140 @@ class DjangoApiClient {
     const params = new URLSearchParams();
     if (category && category !== 'all') params.append('category', category);
 
-    const endpoint = `/podcasts/${params.toString() ? `?${params.toString()}` : ''}`;
-    const res = await this.request<AudioTrack[]>(endpoint);
+    const endpoint = `/worship-songs/${params.toString() ? `?${params.toString()}` : ''}`;
+    const res = await this.request<any[] | { results: any[] }>(endpoint).catch(() => []);
+    const items = Array.isArray(res) ? res : (res?.results || []);
 
-    if (res.fromCacheOrMock || !res.data) {
-      if (category && category !== 'all') {
-        return AUDIO_TRACKS.filter(t => t.category.toLowerCase().includes(category.toLowerCase()));
-      }
-      return AUDIO_TRACKS;
-    }
-    return res.data;
+    return items.map((song: any) => ({
+      id: String(song.id),
+      title: song.title,
+      artistOrPreacher: song.author || song.church_name || 'Worship Leader',
+      albumOrSeries: song.church_name || 'Worship Collection',
+      channelAvatar: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=120&q=80',
+      category: 'Praise & Worship',
+      coverUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=800&q=80',
+      duration: '4:30',
+      lyricsOrNotes: song.slides?.map((s: any) => s.text).join('\n\n') || '',
+      publishedDate: song.created_at ? new Date(song.created_at).toLocaleDateString() : 'Recent',
+    }));
   }
 
-  // === 5. CHURCH DIRECTORY & MULTI-CAMPUS REGISTRATION ===
+  // === 5. CHURCH DIRECTORY & REGISTRATION ===
   public async getChurchLocations(query?: string): Promise<ChurchLocation[]> {
-    const mockChurches: ChurchLocation[] = [
-      {
-        id: 'ch-1',
-        name: 'Living Waters Sanctuary',
-        address: '777 Living Waters Blvd, Southwest Campus',
-        cityState: 'Houston, TX',
-        distance: '0.8 miles away',
-        serviceTimes: 'Sun 8:30 AM, 11:00 AM | Wed 7:00 PM',
-        leadPastor: 'Pastor Johnathan Cole',
-        phone: '(713) 555-0182',
-        email: 'info@livingwaters.org',
-        website: 'https://livingwaterssanctuary.org',
-        googleMapsUrl: 'https://maps.google.com/?q=Living+Waters+Sanctuary+Houston',
-        verified: true,
-        avatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=120&q=80',
-        category: 'Charismatic Worship & Apostolic Centre',
-        weeklyScheduleCount: 5,
-        campuses: [
-          {
-            campusName: 'Main Sanctuary (Southwest)',
-            address: '777 Living Waters Blvd',
-            cityState: 'Houston, TX',
-            googleMapsUrl: 'https://maps.google.com/?q=Living+Waters+Houston',
-            serviceTimes: 'Sun 8:30 AM & 11:00 AM',
-            isMainCampus: true
-          },
-          {
-            campusName: 'North Woodlands Branch',
-            address: '420 Woodlands Parkway',
-            cityState: 'The Woodlands, TX',
-            googleMapsUrl: 'https://maps.google.com/?q=Woodlands+Parkway+Houston',
-            serviceTimes: 'Sun 10:30 AM',
-            isMainCampus: false
-          }
-        ]
-      },
-      {
-        id: 'ch-2',
-        name: 'Grace City Cathedral',
-        address: '100 Grace Way, Midtown',
-        cityState: 'Atlanta, GA',
-        distance: '1.2 miles away',
-        serviceTimes: 'Sun 9:00 AM & 11:30 AM',
-        leadPastor: 'Pastor Mark Anthony',
-        phone: '(404) 555-0192',
-        email: 'fellowship@gracecity.org',
-        website: 'https://gracecitycathedral.org',
-        googleMapsUrl: 'https://maps.google.com/?q=Grace+City+Cathedral+Atlanta',
-        verified: true,
-        avatar: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=120&q=80',
-        category: 'Cathedral / Charismatic Worship',
-        weeklyScheduleCount: 4,
-        campuses: [
-          {
-            campusName: 'Midtown Main Cathedral',
-            address: '100 Grace Way, Midtown',
-            cityState: 'Atlanta, GA',
-            googleMapsUrl: 'https://maps.google.com/?q=Grace+City+Atlanta',
-            serviceTimes: 'Sun 9:00 AM & 11:30 AM',
-            isMainCampus: true
-          },
-          {
-            campusName: 'London UK Fellowship Sanctuary',
-            address: '24 Kensington Grace Square',
-            cityState: 'London, UK',
-            googleMapsUrl: 'https://maps.google.com/?q=Kensington+London',
-            serviceTimes: 'Sun 11:00 AM GMT',
-            isMainCampus: false
-          }
-        ]
-      }
-    ];
-
     const params = new URLSearchParams();
-    if (query) params.append('q', query);
+    if (query) params.append('search', query);
 
     const endpoint = `/churches/${params.toString() ? `?${params.toString()}` : ''}`;
-    const res = await this.request<ChurchLocation[]>(endpoint);
+    const res = await this.request<any[] | { results: any[] }>(endpoint).catch(() => []);
+    const list = Array.isArray(res) ? res : (res?.results || []);
 
-    if (res.fromCacheOrMock || !res.data) {
-      if (query) {
-        const q = query.toLowerCase();
-        return mockChurches.filter(c => c.name.toLowerCase().includes(q) || c.cityState.toLowerCase().includes(q));
-      }
-      return mockChurches;
-    }
-    return res.data;
+    return list.map((c: any) => ({
+      id: String(c.id),
+      name: c.name,
+      slug: c.slug,
+      address: c.location || 'Sanctuary Campus',
+      cityState: c.location || 'Global Fellowship',
+      distance: 'Available Online',
+      serviceTimes: c.schedule?.[0]?.starts_at ? new Date(c.schedule[0].starts_at).toLocaleString() : 'Sundays 9:00 AM & 11:30 AM',
+      leadPastor: c.head_pastor?.name || c.owner_name || 'Pastor',
+      phone: c.phone || '',
+      email: c.email || '',
+      website: c.website || '',
+      googleMapsUrl: c.location ? `https://maps.google.com/?q=${encodeURIComponent(c.location)}` : undefined,
+      verified: c.is_featured || true,
+      avatar: c.logo_url || 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=120&q=80',
+      coverImage: c.cover_image_url || 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
+      category: c.denomination || c.ministry_focus || 'Sanctuary Worship Center',
+      weeklyScheduleCount: c.schedule?.length || 2,
+    }));
   }
 
   public async registerMinistry(ministryData: {
-    ministryName: string;
-    category: string;
-    leadPastor: string;
+    name: string;
+    description?: string;
+    location?: string;
+    denomination?: string;
+    ministry_focus?: string;
     phone?: string;
     email?: string;
     website?: string;
-    campuses: Array<{
-      campusName: string;
-      address: string;
-      cityState: string;
-      googleMapsUrl?: string;
-      serviceTimes: string;
-      isMainCampus: boolean;
-    }>;
-  }): Promise<{ success: boolean; churchId: string; message: string }> {
-    const res = await this.request<any>('/churches/register/', {
+  }): Promise<{ id: number; name: string; slug: string }> {
+    return await this.request<any>('/churches/', {
       method: 'POST',
       body: JSON.stringify(ministryData)
     });
-
-    if (res.fromCacheOrMock || !res.data) {
-      return {
-        success: true,
-        churchId: `ch-reg-${Date.now()}`,
-        message: 'Ministry registered successfully with multi-campus locations!'
-      };
-    }
-    return res.data;
   }
 
-  // === 6. SUBMIT DONATION / TITHE VIA DJANGO PAYMENT PIPELINE ===
+  // === 6. SUBMIT DONATION / TITHE VIA DJANGO PAYMENT GATEWAY ===
   public async submitDonation(donation: {
     amount: number;
-    ministryName: string;
-    fundType: string;
-    isRecurring: boolean;
-    paymentMethod: string;
+    currency?: string;
+    ministryName?: string;
+    churchId?: number;
+    fundType?: string;
+    fundId?: number;
+    isRecurring?: boolean;
+    paymentMethod?: string;
     donorName?: string;
     donorEmail?: string;
     prayerNote?: string;
-  }): Promise<{ success: boolean; transactionId: string; receiptUrl: string; message: string; isRealDjango: boolean }> {
-    const res = await this.request<any>('/giving/donate/', {
+  }): Promise<{ success: boolean; transactionId: string; receiptUrl: string; message: string }> {
+    const res = await this.request<any>('/donations/checkout/', {
       method: 'POST',
       body: JSON.stringify({
         amount: donation.amount,
-        ministry_name: donation.ministryName,
-        fund_type: donation.fundType,
-        is_recurring: donation.isRecurring,
-        payment_method: donation.paymentMethod,
-        donor_name: donation.donorName || 'Anonymous Partner',
+        currency: donation.currency || 'UGX',
+        church: donation.churchId,
+        fund: donation.fundId,
+        fund_name: donation.fundType || 'General Kingdom Fund',
+        donor_name: donation.donorName || 'Anonymous Giver',
         donor_email: donation.donorEmail || '',
-        prayer_note: donation.prayerNote || ''
+        frequency: donation.isRecurring ? 'monthly' : 'one_time',
+        provider: donation.paymentMethod === 'mtn_momo' ? 'mtn_momo' : donation.paymentMethod === 'airtel_money' ? 'airtel_money' : 'card',
+        return_url: window.location.href,
       })
     });
 
-    if (res.fromCacheOrMock || !res.data) {
-      const mockTxn = `TXN-DJ-${Math.floor(100000 + Math.random() * 900000)}`;
-      return {
-        success: true,
-        transactionId: mockTxn,
-        receiptUrl: `https://gospread.org/receipts/${mockTxn}`,
-        message: 'Donation recorded successfully via Django REST service!',
-        isRealDjango: false
-      };
-    }
+    const gatewayReference = res?.gateway_reference || `REF-${Date.now()}`;
     return {
-      ...res.data,
-      isRealDjango: true
+      success: true,
+      transactionId: gatewayReference,
+      receiptUrl: res?.checkout_url || '',
+      message: 'Donation registered successfully in Django backend.'
     };
   }
 
-  // === 7. PRAYER REQUESTS & LIVE ALTAR CHAT ===
+  // === 7. PRAYER REQUESTS & ALTAR INTERCESSION ===
+  public async getPrayerRequests(search?: string): Promise<PrayerRequestApi[]> {
+    const params = new URLSearchParams();
+    if (search?.trim()) params.append('search', search.trim());
+    const endpoint = `/prayers/${params.toString() ? `?${params.toString()}` : ''}`;
+    const res = await this.request<PrayerRequestApi[] | { results: PrayerRequestApi[] }>(endpoint);
+    return Array.isArray(res) ? res : (res?.results || []);
+  }
+
   public async submitPrayerRequest(prayerData: {
-    streamId?: string;
-    name: string;
-    prayerText: string;
-    isUrgent?: boolean;
-  }): Promise<{ success: boolean; prayerId: string; message: string }> {
-    const res = await this.request<any>('/interactivity/prayers/', {
+    body: string;
+    tag?: string;
+    is_anonymous?: boolean;
+  }): Promise<PrayerRequestApi> {
+    return await this.request<PrayerRequestApi>('/prayers/', {
       method: 'POST',
       body: JSON.stringify(prayerData)
     });
+  }
 
-    if (res.fromCacheOrMock || !res.data) {
-      return {
-        success: true,
-        prayerId: `pr-${Date.now()}`,
-        message: 'Prayer request placed upon the global altar!'
-      };
-    }
-    return res.data;
+  public async togglePrayer(prayerId: number | string): Promise<{ prayed: boolean; prayed_count: number }> {
+    return await this.request<{ prayed: boolean; prayed_count: number }>(`/prayers/${prayerId}/pray/`, {
+      method: 'POST'
+    });
+  }
+
+  public async addPrayerComment(prayerId: number | string, body: string): Promise<any> {
+    return await this.request(`/prayers/${prayerId}/comment/`, {
+      method: 'POST',
+      body: JSON.stringify({ body })
+    });
   }
 
   // === 8. FELLOWSHIP & VOICES COMMUNITY ===
@@ -578,8 +631,7 @@ class DjangoApiClient {
     if (search?.trim()) params.append('search', search.trim());
     const endpoint = `/community/posts/${params.toString() ? `?${params.toString()}` : ''}`;
     const res = await this.request<CommunityPostApi[] | { results: CommunityPostApi[] }>(endpoint);
-    if (res.fromCacheOrMock || !res.data) return [];
-    return Array.isArray(res.data) ? res.data : res.data.results;
+    return Array.isArray(res) ? res : (res?.results || []);
   }
 
   public async createCommunityPost(payload: {
@@ -595,26 +647,56 @@ class DjangoApiClient {
     tags?: string[];
     is_anonymous?: boolean;
   }): Promise<CommunityPostApi> {
-    const res = await this.request<CommunityPostApi>('/community/posts/', {
+    return await this.request<CommunityPostApi>('/community/posts/', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
-    if (res.fromCacheOrMock || !res.data) throw new Error('The fellowship service is unavailable.');
-    return res.data;
   }
 
-  public async toggleCommunityPost(postId: string, action: 'amen' | 'pray' | 'glory' | 'bookmark'): Promise<void> {
-    const res = await this.request(`/community/posts/${postId}/${action}/`, { method: 'POST' });
-    if (res.fromCacheOrMock) throw new Error('The fellowship service is unavailable.');
+  public async toggleCommunityPost(postId: string | number, action: 'amen' | 'pray' | 'glory' | 'bookmark'): Promise<any> {
+    return await this.request(`/community/posts/${postId}/${action}/`, { method: 'POST' });
   }
 
-  public async addCommunityComment(postId: string, content: string): Promise<CommunityCommentApi> {
-    const res = await this.request<CommunityCommentApi>(`/community/posts/${postId}/comment/`, {
+  public async addCommunityComment(postId: string | number, content: string): Promise<CommunityCommentApi> {
+    return await this.request<CommunityCommentApi>(`/community/posts/${postId}/comment/`, {
       method: 'POST',
       body: JSON.stringify({ content }),
     });
-    if (res.fromCacheOrMock || !res.data) throw new Error('The fellowship service is unavailable.');
-    return res.data;
+  }
+
+  // === 9. SCRIPTURES & SAVED SERMONS ===
+  public async getRandomScripture(exclude?: string): Promise<ScriptureApi> {
+    const params = new URLSearchParams();
+    if (exclude) params.append('exclude', exclude);
+    const endpoint = `/scriptures/random/${params.toString() ? `?${params.toString()}` : ''}`;
+    return await this.request<ScriptureApi>(endpoint);
+  }
+
+  public async getSavedSermons(): Promise<any[]> {
+    const res = await this.request<any[] | { results: any[] }>('/saved/');
+    return Array.isArray(res) ? res : (res?.results || []);
+  }
+
+  public async saveSermon(sermonId: number | string): Promise<{ saved: boolean }> {
+    return await this.request<{ saved: boolean }>(`/sermons/${sermonId}/save/`, {
+      method: 'POST'
+    });
+  }
+
+  public async getWatchProgress(): Promise<any[]> {
+    const res = await this.request<any[] | { results: any[] }>('/progress/');
+    return Array.isArray(res) ? res : (res?.results || []);
+  }
+
+  public async updateWatchProgress(sermonId: number | string, positionSeconds: number, completed: boolean = false): Promise<any> {
+    return await this.request('/progress/', {
+      method: 'POST',
+      body: JSON.stringify({
+        sermon: sermonId,
+        position_seconds: positionSeconds,
+        completed
+      })
+    });
   }
 }
 

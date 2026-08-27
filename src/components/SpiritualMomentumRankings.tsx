@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Trophy, 
   Sparkles, 
@@ -29,6 +29,7 @@ import {
   Heart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { djangoApi, CommunityPostApi } from '../services/djangoApi';
 
 export type RankingCategory = 'users' | 'creators' | 'churches' | 'artistes';
 
@@ -48,13 +49,13 @@ export interface LeaderboardEntity {
   avatar: string;
   verifiedFollowers?: number;
   totalFollowers?: number;
-  growthRatePercent?: number; // Growth rate e.g., 24%
-  engagementQualityScore?: number; // 0-100 scale based on active participation vs passive views
-  primaryMetricVal: number; // e.g. usage time (hours) or artistes count or media count
+  growthRatePercent?: number;
+  engagementQualityScore?: number;
+  primaryMetricVal: number;
   primaryMetricLabel: string;
-  secondaryMetricVal: number; // e.g. active referrals or interaction depth
+  secondaryMetricVal: number;
   secondaryMetricLabel: string;
-  momentumScore: number; // Combined weighted momentum index (0 - 100)
+  momentumScore: number;
   unlockedBadge: {
     name: string;
     description: string;
@@ -62,7 +63,6 @@ export interface LeaderboardEntity {
     bgClass: string;
     icon: string;
   };
-  // For users who have gained multiple badges:
   userBadges?: UnlockedBadgeInfo[];
   streakDays?: number;
   praiseXp?: number;
@@ -74,570 +74,7 @@ export interface LeaderboardEntity {
   locationOrHandle: string;
 }
 
-export const INITIAL_LEADERBOARD_DATA: LeaderboardEntity[] = [
-  // --- 👑 1. GLOBAL BELIEVERS & USERS WHO HAVE GAINED BADGES (EXCLUSIVE) ---
-  {
-    id: 'u-1',
-    name: 'Sister Sarah Jenkins',
-    category: 'users',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=240&q=80',
-    primaryMetricVal: 3250,
-    primaryMetricLabel: 'Praise XP Earned',
-    secondaryMetricVal: 32,
-    secondaryMetricLabel: 'Consecutive Grace Streak',
-    streakDays: 32,
-    praiseXp: 3250,
-    homeChurch: 'Living Waters Sanctuary',
-    momentumScore: 99.1,
-    unlockedBadge: {
-      name: 'Global Intercessor',
-      description: '5 Faith Badges Unlocked: Global Intercessor, Overcomer 30D, Kingdom Ambassador, Seed Sower, Pillar of Light.',
-      colorClass: 'text-amber-400 border-amber-500/50',
-      bgClass: 'bg-amber-500/10',
-      icon: '⚡'
-    },
-    userBadges: [
-      { name: 'Global Intercessor', icon: '⚡', tier: 'Gold', earnedDate: 'Aug 02', category: 'Intercession' },
-      { name: '30-Day Overcomer', icon: '🔥', tier: 'Gold', earnedDate: 'Jul 28', category: 'Streak' },
-      { name: 'Kingdom Ambassador', icon: '👑', tier: 'Silver', earnedDate: 'Jun 15', category: 'Milestone' },
-      { name: 'Seed Sower', icon: '🌱', tier: 'Bronze', earnedDate: 'Jul 10', category: 'Giving' },
-      { name: 'Pillar of Light', icon: '🏛️', tier: 'Gold', earnedDate: 'May 30', category: 'Fellowship' }
-    ],
-    rank: 1,
-    rankChange: 'up',
-    rankChangeAmount: 1,
-    locationOrHandle: 'Dallas, TX • @sarah_jenkins'
-  },
-  {
-    id: 'u-2',
-    name: 'Brother David Lawson (You)',
-    category: 'users',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=240&q=80',
-    primaryMetricVal: 1450,
-    primaryMetricLabel: 'Praise XP Earned',
-    secondaryMetricVal: 7,
-    secondaryMetricLabel: 'Consecutive Grace Streak',
-    streakDays: 7,
-    praiseXp: 1450,
-    homeChurch: 'Grace City Cathedral',
-    isCurrentUser: true,
-    momentumScore: 96.8,
-    unlockedBadge: {
-      name: 'Kingdom Ambassador',
-      description: '8 Faith Badges Unlocked: Diligent Sower, Faithful Reach, Rising Voice, Pillar of Light, Psalmist Voice, Overcomer 7D, Amen Warrior, Kingdom Ambassador.',
-      colorClass: 'text-amber-300 border-amber-400/50',
-      bgClass: 'bg-amber-400/10',
-      icon: '👑'
-    },
-    userBadges: [
-      { name: 'Diligent Sower', icon: '🌾', tier: 'Gold', earnedDate: 'May 10', category: 'Momentum' },
-      { name: 'Faithful Reach', icon: '🌱', tier: 'Silver', earnedDate: 'Aug 02', category: 'Discipleship' },
-      { name: 'Rising Voice', icon: '✨', tier: 'Silver', earnedDate: 'Jul 18', category: 'Growth' },
-      { name: 'Pillar of Light', icon: '🏛️', tier: 'Gold', earnedDate: 'Jun 22', category: 'Fellowship' },
-      { name: 'Psalmist Voice', icon: '🎻', tier: 'Bronze', earnedDate: 'Jul 01', category: 'Worship' },
-      { name: '7-Day Overcomer', icon: '🔥', tier: 'Gold', earnedDate: 'Aug 09', category: 'Streak' },
-      { name: 'Amen Warrior', icon: '🙌', tier: 'Silver', earnedDate: 'May 14', category: 'Altar Reaction' },
-      { name: 'Kingdom Ambassador', icon: '👑', tier: 'Gold', earnedDate: 'Jun 10', category: 'Ambassador' }
-    ],
-    rank: 2,
-    rankChange: 'up',
-    rankChangeAmount: 2,
-    locationOrHandle: 'London, UK & Atlanta • @david_lawson'
-  },
-  {
-    id: 'u-3',
-    name: 'Deacon Samuel Mwangi',
-    category: 'users',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=240&q=80',
-    primaryMetricVal: 2400,
-    primaryMetricLabel: 'Praise XP Earned',
-    secondaryMetricVal: 24,
-    secondaryMetricLabel: 'Consecutive Grace Streak',
-    streakDays: 24,
-    praiseXp: 2400,
-    homeChurch: 'Nairobi Revival Fellowship',
-    momentumScore: 95.2,
-    unlockedBadge: {
-      name: 'Pillar of Light',
-      description: '4 Faith Badges Unlocked: Kingdom Ambassador, Amen Warrior, 14-Day Overcomer, Seed Sower.',
-      colorClass: 'text-emerald-400 border-emerald-500/50',
-      bgClass: 'bg-emerald-500/10',
-      icon: '🏛️'
-    },
-    userBadges: [
-      { name: 'Kingdom Ambassador', icon: '👑', tier: 'Silver', earnedDate: 'Jul 15', category: 'Milestone' },
-      { name: '14-Day Overcomer', icon: '🔥', tier: 'Gold', earnedDate: 'Aug 01', category: 'Streak' },
-      { name: 'Amen Warrior', icon: '🙌', tier: 'Silver', earnedDate: 'Jun 20', category: 'Altar' },
-      { name: 'Seed Sower', icon: '🌱', tier: 'Bronze', earnedDate: 'Jul 04', category: 'Giving' }
-    ],
-    rank: 3,
-    rankChange: 'same',
-    locationOrHandle: 'Nairobi, Kenya • @samuel_mwangi'
-  },
-  {
-    id: 'u-4',
-    name: 'Sister Maria Rodriguez',
-    category: 'users',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=240&q=80',
-    primaryMetricVal: 1980,
-    primaryMetricLabel: 'Praise XP Earned',
-    secondaryMetricVal: 18,
-    secondaryMetricLabel: 'Consecutive Grace Streak',
-    streakDays: 18,
-    praiseXp: 1980,
-    homeChurch: 'Covenant Life Sanctuary',
-    momentumScore: 93.6,
-    unlockedBadge: {
-      name: 'Global Intercessor',
-      description: '4 Faith Badges Unlocked: Global Intercessor, 14-Day Overcomer, Amen Warrior, Psalmist Voice.',
-      colorClass: 'text-cyan-400 border-cyan-500/50',
-      bgClass: 'bg-cyan-500/10',
-      icon: '⚡'
-    },
-    userBadges: [
-      { name: 'Global Intercessor', icon: '⚡', tier: 'Gold', earnedDate: 'Jul 29', category: 'Prayer' },
-      { name: '14-Day Overcomer', icon: '🔥', tier: 'Gold', earnedDate: 'Jul 18', category: 'Streak' },
-      { name: 'Amen Warrior', icon: '🙌', tier: 'Silver', earnedDate: 'May 30', category: 'Altar' },
-      { name: 'Psalmist Voice', icon: '🎻', tier: 'Bronze', earnedDate: 'Jun 12', category: 'Worship' }
-    ],
-    rank: 4,
-    rankChange: 'down',
-    rankChangeAmount: 1,
-    locationOrHandle: 'São Paulo, Brazil • @maria_rod'
-  },
-  {
-    id: 'u-5',
-    name: 'Brother Emmanuel Adeyemi',
-    category: 'users',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=240&q=80',
-    primaryMetricVal: 1620,
-    primaryMetricLabel: 'Praise XP Earned',
-    secondaryMetricVal: 14,
-    secondaryMetricLabel: 'Consecutive Grace Streak',
-    streakDays: 14,
-    praiseXp: 1620,
-    homeChurch: 'Grace City Fellowship Lagos',
-    momentumScore: 91.4,
-    unlockedBadge: {
-      name: 'Kingdom Ambassador',
-      description: '3 Faith Badges Unlocked: Kingdom Ambassador, 7-Day Overcomer, Amen Warrior.',
-      colorClass: 'text-purple-400 border-purple-500/50',
-      bgClass: 'bg-purple-500/10',
-      icon: '👑'
-    },
-    userBadges: [
-      { name: 'Kingdom Ambassador', icon: '👑', tier: 'Silver', earnedDate: 'Jul 10', category: 'Milestone' },
-      { name: '7-Day Overcomer', icon: '🔥', tier: 'Silver', earnedDate: 'Jul 22', category: 'Streak' },
-      { name: 'Amen Warrior', icon: '🙌', tier: 'Silver', earnedDate: 'Jun 05', category: 'Altar' }
-    ],
-    rank: 5,
-    rankChange: 'up',
-    rankChangeAmount: 2,
-    locationOrHandle: 'Lagos, Nigeria • @emmanuel_ade'
-  },
-  {
-    id: 'u-6',
-    name: 'Sister Hannah Grace',
-    category: 'users',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=240&q=80',
-    primaryMetricVal: 1280,
-    primaryMetricLabel: 'Praise XP Earned',
-    secondaryMetricVal: 10,
-    secondaryMetricLabel: 'Consecutive Grace Streak',
-    streakDays: 10,
-    praiseXp: 1280,
-    homeChurch: 'Toronto Revival Tabernacle',
-    momentumScore: 88.9,
-    unlockedBadge: {
-      name: 'Faithful Reach',
-      description: '3 Faith Badges Unlocked: Faithful Reach, 7-Day Overcomer, Amen Warrior.',
-      colorClass: 'text-pink-400 border-pink-500/50',
-      bgClass: 'bg-pink-500/10',
-      icon: '🌱'
-    },
-    userBadges: [
-      { name: 'Faithful Reach', icon: '🌱', tier: 'Bronze', earnedDate: 'Aug 04', category: 'Reach' },
-      { name: '7-Day Overcomer', icon: '🔥', tier: 'Silver', earnedDate: 'Jul 29', category: 'Streak' },
-      { name: 'Amen Warrior', icon: '🙌', tier: 'Bronze', earnedDate: 'Jul 01', category: 'Altar' }
-    ],
-    rank: 6,
-    rankChange: 'same',
-    locationOrHandle: 'Toronto, Canada • @hannah_grace'
-  },
-  {
-    id: 'u-7',
-    name: 'Brother Caleb Zhang',
-    category: 'users',
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=240&q=80',
-    primaryMetricVal: 980,
-    primaryMetricLabel: 'Praise XP Earned',
-    secondaryMetricVal: 8,
-    secondaryMetricLabel: 'Consecutive Grace Streak',
-    streakDays: 8,
-    praiseXp: 980,
-    homeChurch: 'Singapore Grace Chapel',
-    momentumScore: 86.5,
-    unlockedBadge: {
-      name: 'Kingdom Ambassador',
-      description: '2 Faith Badges Unlocked: Kingdom Ambassador, Amen Warrior.',
-      colorClass: 'text-amber-400 border-amber-500/50',
-      bgClass: 'bg-amber-500/10',
-      icon: '👑'
-    },
-    userBadges: [
-      { name: 'Kingdom Ambassador', icon: '👑', tier: 'Silver', earnedDate: 'Jun 28', category: 'Milestone' },
-      { name: 'Amen Warrior', icon: '🙌', tier: 'Bronze', earnedDate: 'Jun 14', category: 'Altar' }
-    ],
-    rank: 7,
-    rankChange: 'down',
-    rankChangeAmount: 1,
-    locationOrHandle: 'Singapore • @caleb_zhang'
-  },
-  {
-    id: 'u-8',
-    name: 'Sister Abigail Clark',
-    category: 'users',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=240&q=80',
-    primaryMetricVal: 820,
-    primaryMetricLabel: 'Praise XP Earned',
-    secondaryMetricVal: 7,
-    secondaryMetricLabel: 'Consecutive Grace Streak',
-    streakDays: 7,
-    praiseXp: 820,
-    homeChurch: 'Sydney Light Cathedral',
-    momentumScore: 84.1,
-    unlockedBadge: {
-      name: '7-Day Overcomer',
-      description: '2 Faith Badges Unlocked: 7-Day Overcomer, Amen Warrior.',
-      colorClass: 'text-emerald-400 border-emerald-500/50',
-      bgClass: 'bg-emerald-500/10',
-      icon: '🔥'
-    },
-    userBadges: [
-      { name: '7-Day Overcomer', icon: '🔥', tier: 'Silver', earnedDate: 'Aug 07', category: 'Streak' },
-      { name: 'Amen Warrior', icon: '🙌', tier: 'Bronze', earnedDate: 'Jul 20', category: 'Altar' }
-    ],
-    rank: 8,
-    rankChange: 'up',
-    rankChangeAmount: 1,
-    locationOrHandle: 'Sydney, Australia • @abigail_clark'
-  },
-
-  // --- CREATORS CATEGORY ---
-  {
-    id: 'c-1',
-    name: 'Grace Shorts Evangelism Team',
-    category: 'creators',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=240&q=80',
-    verifiedFollowers: 34500,
-    totalFollowers: 42000,
-    growthRatePercent: 38.5,
-    engagementQualityScore: 94,
-    primaryMetricVal: 4850,
-    primaryMetricLabel: 'Study & Discipleship Hours',
-    secondaryMetricVal: 1240,
-    secondaryMetricLabel: 'Kingdom Referrals',
-    momentumScore: 96.4,
-    unlockedBadge: {
-      name: 'Kingdom Catalyst',
-      description: 'Awarded for extraordinary spiritual growth rate and high disciple engagement depth.',
-      colorClass: 'text-amber-400 border-amber-500/50',
-      bgClass: 'bg-amber-500/10',
-      icon: '⚡'
-    },
-    rank: 1,
-    rankChange: 'up',
-    rankChangeAmount: 2,
-    locationOrHandle: '@GraceShortsTeam'
-  },
-  {
-    id: 'c-2',
-    name: 'Dr. Elizabeth Vance Teaching Channel',
-    category: 'creators',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=240&q=80',
-    verifiedFollowers: 182000,
-    totalFollowers: 210000,
-    growthRatePercent: 18.2,
-    engagementQualityScore: 91,
-    primaryMetricVal: 8900,
-    primaryMetricLabel: 'Study & Discipleship Hours',
-    secondaryMetricVal: 3420,
-    secondaryMetricLabel: 'Kingdom Referrals',
-    momentumScore: 93.8,
-    unlockedBadge: {
-      name: 'Faithful Reach',
-      description: 'Consistent daily exposition with high verified believer retention.',
-      colorClass: 'text-emerald-400 border-emerald-500/50',
-      bgClass: 'bg-emerald-500/10',
-      icon: '🌱'
-    },
-    rank: 2,
-    rankChange: 'same',
-    locationOrHandle: '@DrElizabethVance'
-  },
-  {
-    id: 'c-3',
-    name: 'Morning Manna Devotions',
-    category: 'creators',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=240&q=80',
-    verifiedFollowers: 12400,
-    totalFollowers: 15800,
-    growthRatePercent: 42.1,
-    engagementQualityScore: 88,
-    primaryMetricVal: 2100,
-    primaryMetricLabel: 'Study & Discipleship Hours',
-    secondaryMetricVal: 890,
-    secondaryMetricLabel: 'Kingdom Referrals',
-    momentumScore: 89.2,
-    unlockedBadge: {
-      name: 'Rising Voice',
-      description: 'Rapidly accelerating growth with strong community prayer involvement.',
-      colorClass: 'text-cyan-400 border-cyan-500/50',
-      bgClass: 'bg-cyan-500/10',
-      icon: '✨'
-    },
-    rank: 3,
-    rankChange: 'up',
-    rankChangeAmount: 4,
-    locationOrHandle: '@MorningMannaDevos'
-  },
-  {
-    id: 'c-4',
-    name: 'Kingdom Mindset Podcast Host',
-    category: 'creators',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=240&q=80',
-    verifiedFollowers: 68000,
-    totalFollowers: 85000,
-    growthRatePercent: 12.4,
-    engagementQualityScore: 85,
-    primaryMetricVal: 4200,
-    primaryMetricLabel: 'Study & Discipleship Hours',
-    secondaryMetricVal: 1850,
-    secondaryMetricLabel: 'Kingdom Referrals',
-    momentumScore: 84.6,
-    unlockedBadge: {
-      name: 'Diligent Sower',
-      description: 'Steadfast content output fostering deep biblical discussions.',
-      colorClass: 'text-purple-400 border-purple-500/50',
-      bgClass: 'bg-purple-500/10',
-      icon: '🌾'
-    },
-    rank: 4,
-    rankChange: 'down',
-    rankChangeAmount: 1,
-    locationOrHandle: '@KingdomMindset'
-  },
-
-  // --- CHURCHES CATEGORY ---
-  {
-    id: 'ch-1',
-    name: 'Living Waters Sanctuary',
-    category: 'churches',
-    avatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=240&q=80',
-    verifiedFollowers: 18500,
-    totalFollowers: 22000,
-    growthRatePercent: 46.2,
-    engagementQualityScore: 96,
-    primaryMetricVal: 14,
-    primaryMetricLabel: 'Affiliated Artistes & Ministries',
-    secondaryMetricVal: 98.2,
-    secondaryMetricLabel: 'Interaction Quality Index',
-    momentumScore: 97.1,
-    unlockedBadge: {
-      name: 'Vibrant Fellowship',
-      description: 'High engagement quality and rapid community fellowship growth rate.',
-      colorClass: 'text-amber-400 border-amber-500/50',
-      bgClass: 'bg-amber-500/10',
-      icon: '🔥'
-    },
-    rank: 1,
-    rankChange: 'up',
-    rankChangeAmount: 3,
-    locationOrHandle: 'Houston, TX'
-  },
-  {
-    id: 'ch-2',
-    name: 'Grace City Cathedral',
-    category: 'churches',
-    avatar: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=240&q=80',
-    verifiedFollowers: 395000,
-    totalFollowers: 482000,
-    growthRatePercent: 14.8,
-    engagementQualityScore: 92,
-    primaryMetricVal: 32,
-    primaryMetricLabel: 'Affiliated Artistes & Ministries',
-    secondaryMetricVal: 94.0,
-    secondaryMetricLabel: 'Interaction Quality Index',
-    momentumScore: 95.4,
-    unlockedBadge: {
-      name: 'Pillar of Light',
-      description: 'Outstanding global footprint and sanctuary fellowship scale.',
-      colorClass: 'text-amber-300 border-amber-400/50',
-      bgClass: 'bg-amber-400/10',
-      icon: '🏛️'
-    },
-    rank: 2,
-    rankChange: 'down',
-    rankChangeAmount: 1,
-    locationOrHandle: 'Atlanta, GA & London'
-  },
-  {
-    id: 'ch-3',
-    name: 'Covenant Life Ministries',
-    category: 'churches',
-    avatar: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&w=240&q=80',
-    verifiedFollowers: 178000,
-    totalFollowers: 210000,
-    growthRatePercent: 21.5,
-    engagementQualityScore: 89,
-    primaryMetricVal: 18,
-    primaryMetricLabel: 'Affiliated Artistes & Ministries',
-    secondaryMetricVal: 91.5,
-    secondaryMetricLabel: 'Interaction Quality Index',
-    momentumScore: 91.8,
-    unlockedBadge: {
-      name: 'Gathering Sanctuary',
-      description: 'Robust covenant prayer interaction and active discipleship.',
-      colorClass: 'text-emerald-400 border-emerald-500/50',
-      bgClass: 'bg-emerald-500/10',
-      icon: '🛡️'
-    },
-    rank: 3,
-    rankChange: 'same',
-    locationOrHandle: 'Dallas, TX & Lagos'
-  },
-  {
-    id: 'ch-4',
-    name: 'Victory Harvest Temple',
-    category: 'churches',
-    avatar: 'https://images.unsplash.com/photo-1519817650390-64a93db51149?auto=format&fit=crop&w=240&q=80',
-    verifiedFollowers: 8900,
-    totalFollowers: 11200,
-    growthRatePercent: 39.8,
-    engagementQualityScore: 91,
-    primaryMetricVal: 8,
-    primaryMetricLabel: 'Affiliated Artistes & Ministries',
-    secondaryMetricVal: 89.4,
-    secondaryMetricLabel: 'Interaction Quality Index',
-    momentumScore: 88.5,
-    unlockedBadge: {
-      name: 'Watchman Altar',
-      description: 'High momentum local community with exemplary prayer response times.',
-      colorClass: 'text-cyan-400 border-cyan-500/50',
-      bgClass: 'bg-cyan-500/10',
-      icon: '⛪'
-    },
-    rank: 4,
-    rankChange: 'up',
-    rankChangeAmount: 2,
-    locationOrHandle: 'Chicago, IL'
-  },
-
-  // --- ARTISTES CATEGORY ---
-  {
-    id: 'a-1',
-    name: 'Elena Rostova & Grace Collective',
-    category: 'artistes',
-    avatar: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=240&q=80',
-    verifiedFollowers: 42000,
-    totalFollowers: 51000,
-    growthRatePercent: 54.2,
-    engagementQualityScore: 98,
-    primaryMetricVal: 16,
-    primaryMetricLabel: 'Original Gospel Tracks & Sermons',
-    secondaryMetricVal: 28400,
-    secondaryMetricLabel: 'Listening & Worship Hours',
-    momentumScore: 98.2,
-    unlockedBadge: {
-      name: 'Psalmist Voice',
-      description: 'Profound worshiper engagement with high verified re-listen rate.',
-      colorClass: 'text-amber-400 border-amber-500/50',
-      bgClass: 'bg-amber-500/10',
-      icon: '🎻'
-    },
-    rank: 1,
-    rankChange: 'up',
-    rankChangeAmount: 2,
-    locationOrHandle: 'Nashville, TN'
-  },
-  {
-    id: 'a-2',
-    name: 'David & Kingdom Sound Worship',
-    category: 'artistes',
-    avatar: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=240&q=80',
-    verifiedFollowers: 245000,
-    totalFollowers: 310000,
-    growthRatePercent: 19.5,
-    engagementQualityScore: 94,
-    primaryMetricVal: 48,
-    primaryMetricLabel: 'Original Gospel Tracks & Sermons',
-    secondaryMetricVal: 92000,
-    secondaryMetricLabel: 'Listening & Worship Hours',
-    momentumScore: 95.8,
-    unlockedBadge: {
-      name: 'Anointed Melody',
-      description: 'Sustained international listening presence across live streams.',
-      colorClass: 'text-amber-300 border-amber-400/50',
-      bgClass: 'bg-amber-400/10',
-      icon: '🎺'
-    },
-    rank: 2,
-    rankChange: 'same',
-    locationOrHandle: 'Atlanta, GA'
-  },
-  {
-    id: 'a-3',
-    name: 'Selah Strings Devotional Ensemble',
-    category: 'artistes',
-    avatar: 'https://images.unsplash.com/photo-1520523839898-507125cd53c1?auto=format&fit=crop&w=240&q=80',
-    verifiedFollowers: 31200,
-    totalFollowers: 38000,
-    growthRatePercent: 36.4,
-    engagementQualityScore: 91,
-    primaryMetricVal: 12,
-    primaryMetricLabel: 'Original Gospel Tracks & Sermons',
-    secondaryMetricVal: 14200,
-    secondaryMetricLabel: 'Listening & Worship Hours',
-    momentumScore: 92.4,
-    unlockedBadge: {
-      name: 'Rising Melody',
-      description: 'Fast-rising instrumental psalmody inspiring prayer altars globally.',
-      colorClass: 'text-cyan-400 border-cyan-500/50',
-      bgClass: 'bg-cyan-500/10',
-      icon: '✨'
-    },
-    rank: 3,
-    rankChange: 'up',
-    rankChangeAmount: 3,
-    locationOrHandle: 'London, UK'
-  },
-  {
-    id: 'a-4',
-    name: 'Agape International Choir',
-    category: 'artistes',
-    avatar: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?auto=format&fit=crop&w=240&q=80',
-    verifiedFollowers: 89000,
-    totalFollowers: 98000,
-    growthRatePercent: 29.8,
-    engagementQualityScore: 89,
-    primaryMetricVal: 24,
-    primaryMetricLabel: 'Original Gospel Tracks & Sermons',
-    secondaryMetricVal: 18100,
-    secondaryMetricLabel: 'Listening & Worship Hours',
-    momentumScore: 89.1,
-    unlockedBadge: {
-      name: 'Harmonic Refuge',
-      description: 'High choir engagement depth encouraging daily meditation and reflection.',
-      colorClass: 'text-emerald-400 border-emerald-500/50',
-      bgClass: 'bg-emerald-500/10',
-      icon: '🕊️'
-    },
-    rank: 4,
-    rankChange: 'up',
-    rankChangeAmount: 1,
-    locationOrHandle: 'Global Online'
-  }
-];
+export const INITIAL_LEADERBOARD_DATA: LeaderboardEntity[] = [];
 
 interface SpiritualMomentumRankingsProps {
   onSelectChannelModal?: (channelName: string) => void;
@@ -654,22 +91,98 @@ export default function SpiritualMomentumRankings({
   streakDays = 7,
   praiseXp = 1450
 }: SpiritualMomentumRankingsProps) {
-  // Default to 'users' (Global Believers & Badge Earners) as requested
   const [activeCategory, setActiveCategory] = useState<RankingCategory>('users');
   const [showFormulaModal, setShowFormulaModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [timeFilter, setTimeFilter] = useState<'weekly' | 'monthly' | 'allTime'>('weekly');
   const [badgeFilter, setBadgeFilter] = useState<'all' | '3plus' | '5plus'>('all');
   const [selectedUserForBadges, setSelectedUserForBadges] = useState<LeaderboardEntity | null>(null);
+  const [leaderboardItems, setLeaderboardItems] = useState<LeaderboardEntity[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch live believer activity / rankings from Django backend
+  useEffect(() => {
+    let isMounted = true;
+    const fetchRankings = async () => {
+      setIsLoading(true);
+      try {
+        const posts = await djangoApi.getCommunityPosts();
+        if (isMounted && posts && posts.length > 0) {
+          const userMap = new Map<string, { author: string; avatar: string; church?: string; count: number; prayers: number }>();
+          posts.forEach(p => {
+            const current = userMap.get(p.author_name) || {
+              author: p.author_name,
+              avatar: p.author_avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=240&q=80',
+              church: p.author_church,
+              count: 0,
+              prayers: 0
+            };
+            current.count += 1;
+            current.prayers += (p.prayers_count || 0) + (p.amens_count || 0);
+            userMap.set(p.author_name, current);
+          });
+
+          const dynamicUsers: LeaderboardEntity[] = Array.from(userMap.values()).map((u, idx) => {
+            const calculatedXp = 1000 + (u.prayers * 50) + (u.count * 120);
+            const calculatedStreak = 5 + (u.count * 3);
+            const badges: UnlockedBadgeInfo[] = [
+              { name: 'Global Intercessor', icon: '⚡', tier: 'Gold', earnedDate: 'Live', category: 'Intercession' },
+              { name: 'Seed Sower', icon: '🌱', tier: 'Bronze', earnedDate: 'Live', category: 'Giving' }
+            ];
+            if (u.count >= 2) {
+              badges.push({ name: 'Amen Warrior', icon: '🙌', tier: 'Silver', earnedDate: 'Live', category: 'Altar' });
+            }
+            if (u.count >= 3) {
+              badges.push({ name: 'Kingdom Ambassador', icon: '👑', tier: 'Gold', earnedDate: 'Live', category: 'Milestone' });
+            }
+
+            return {
+              id: `live-user-${idx}`,
+              name: u.author,
+              category: 'users',
+              avatar: u.avatar,
+              primaryMetricVal: calculatedXp,
+              primaryMetricLabel: 'Praise XP Earned',
+              secondaryMetricVal: calculatedStreak,
+              secondaryMetricLabel: 'Consecutive Grace Streak',
+              streakDays: calculatedStreak,
+              praiseXp: calculatedXp,
+              homeChurch: u.church || 'Fellowship Sanctuary',
+              momentumScore: Math.min(99.9, +(85 + (u.count * 3.5)).toFixed(1)),
+              unlockedBadge: {
+                name: badges[0].name,
+                description: `${badges.length} Faith Badges Unlocked: ${badges.map(b => b.name).join(', ')}.`,
+                colorClass: 'text-amber-400 border-amber-500/50',
+                bgClass: 'bg-amber-500/10',
+                icon: badges[0].icon
+              },
+              userBadges: badges,
+              rank: idx + 1,
+              rankChange: 'same',
+              locationOrHandle: `@${u.author.toLowerCase().replace(/\s+/g, '_')}`
+            };
+          });
+
+          setLeaderboardItems(dynamicUsers);
+        }
+      } catch (err) {
+        console.error('Failed to load leaderboard from backend:', err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    fetchRankings();
+    return () => { isMounted = false; };
+  }, []);
 
   // Filter leaderboard items
-  const categoryItems = INITIAL_LEADERBOARD_DATA.filter(item => {
+  const categoryItems = leaderboardItems.filter(item => {
     if (item.category !== activeCategory) return false;
     
-    // In users category, ensure they have unlocked badges
     if (activeCategory === 'users') {
       const badgeCount = item.userBadges?.length || 0;
-      if (badgeCount === 0) return false; // Strictly users who have gained badges
+      if (badgeCount === 0) return false;
       if (badgeFilter === '3plus' && badgeCount < 3) return false;
       if (badgeFilter === '5plus' && badgeCount < 5) return false;
     }
@@ -682,7 +195,6 @@ export default function SpiritualMomentumRankings({
     (item.userBadges && item.userBadges.some(b => b.name.toLowerCase().includes(searchQuery.toLowerCase())))
   ).sort((a, b) => b.momentumScore - a.momentumScore);
 
-  // Current logged in user status
   const myUserMomentum = {
     rankName: 'Kingdom Ambassador & Diligent Sower',
     momentumScore: 96.8,
@@ -692,14 +204,14 @@ export default function SpiritualMomentumRankings({
     currentRankPosition: '#2 in Global Believers Ranking',
     growthRate: '+34.2% this month',
     unlockedBadges: [
-      { name: 'Diligent Sower', icon: '🌾', date: 'Earned May 10', tier: 'Gold' },
-      { name: 'Faithful Reach', icon: '🌱', date: 'Earned Aug 2', tier: 'Silver' },
-      { name: 'Rising Voice', icon: '✨', date: 'Earned Jul 18', tier: 'Silver' },
-      { name: 'Pillar of Light', icon: '🏛️', date: 'Earned Jun 22', tier: 'Gold' },
-      { name: 'Psalmist Voice', icon: '🎻', date: 'Earned Jul 01', tier: 'Bronze' },
-      { name: '7-Day Overcomer', icon: '🔥', date: 'Earned Aug 09', tier: 'Gold' },
-      { name: 'Amen Warrior', icon: '🙌', date: 'Earned May 14', tier: 'Silver' },
-      { name: 'Kingdom Ambassador', icon: '👑', date: 'Earned Jun 10', tier: 'Gold' }
+      { name: 'Diligent Sower', icon: '🌾', date: 'Active', tier: 'Gold' },
+      { name: 'Faithful Reach', icon: '🌱', date: 'Active', tier: 'Silver' },
+      { name: 'Rising Voice', icon: '✨', date: 'Active', tier: 'Silver' },
+      { name: 'Pillar of Light', icon: '🏛️', date: 'Active', tier: 'Gold' },
+      { name: 'Psalmist Voice', icon: '🎻', date: 'Active', tier: 'Bronze' },
+      { name: '7-Day Overcomer', icon: '🔥', date: 'Active', tier: 'Gold' },
+      { name: 'Amen Warrior', icon: '🙌', date: 'Active', tier: 'Silver' },
+      { name: 'Kingdom Ambassador', icon: '👑', date: 'Active', tier: 'Gold' }
     ]
   };
 
@@ -849,7 +361,6 @@ export default function SpiritualMomentumRankings({
       {/* 🏆 3. CATEGORY SELECTION TABS & FILTERS */}
       <div className="space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-900/90 p-2 rounded-2xl border border-slate-800">
-          {/* Category Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto p-1 scrollbar-none">
             {[
               { id: 'users', label: '👑 Global Believers (Badge Earners)', icon: Crown, desc: 'Rankings for users with unlocked badges' },
@@ -876,7 +387,6 @@ export default function SpiritualMomentumRankings({
             })}
           </div>
 
-          {/* User Badge Filter (When Users category active) */}
           {activeCategory === 'users' ? (
             <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 shrink-0 self-start md:self-auto">
               <span className="text-[10px] text-slate-500 font-bold px-2 flex items-center gap-1">
@@ -902,7 +412,6 @@ export default function SpiritualMomentumRankings({
               ))}
             </div>
           ) : (
-            /* Time Filter Toggle */
             <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 shrink-0 self-start md:self-auto">
               {(['weekly', 'monthly', 'allTime'] as const).map((tf) => (
                 <button
@@ -940,7 +449,9 @@ export default function SpiritualMomentumRankings({
 
       {/* 🥇 4. LEADERBOARD LISTING */}
       <div className="space-y-3">
-        {filteredItems.length === 0 ? (
+        {isLoading ? (
+          <div className="p-8 text-center text-xs text-slate-400">Loading rankings...</div>
+        ) : filteredItems.length === 0 ? (
           <div className="p-8 rounded-3xl bg-slate-900/60 border border-dashed border-slate-800 text-center space-y-3">
             <Award className="w-10 h-10 text-amber-400/50 mx-auto" />
             <h4 className="text-sm font-bold text-white">No Badge Earners Match Your Filter</h4>
@@ -980,7 +491,6 @@ export default function SpiritualMomentumRankings({
               >
                 {/* Rank & Profile Info */}
                 <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                  {/* Rank Badge */}
                   <div className={`w-10 h-10 rounded-2xl flex flex-col items-center justify-center font-black text-sm shrink-0 shadow-md ${
                     rankDisplay === 1
                       ? 'bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 shadow-amber-500/30'
@@ -993,7 +503,6 @@ export default function SpiritualMomentumRankings({
                     {rankDisplay === 1 ? '🥇' : rankDisplay === 2 ? '🥈' : rankDisplay === 3 ? '🥉' : `#${rankDisplay}`}
                   </div>
 
-                  {/* Avatar */}
                   <div className="relative shrink-0">
                     <img
                       src={entity.avatar}
@@ -1007,7 +516,6 @@ export default function SpiritualMomentumRankings({
                     )}
                   </div>
 
-                  {/* Name & Behavioral Badges */}
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       {entity.category === 'users' ? (
@@ -1023,7 +531,6 @@ export default function SpiritualMomentumRankings({
                         </button>
                       )}
 
-                      {/* Badge Count Pill */}
                       {entity.category === 'users' && (
                         <button
                           onClick={() => setSelectedUserForBadges(entity)}
@@ -1035,14 +542,12 @@ export default function SpiritualMomentumRankings({
                         </button>
                       )}
 
-                      {/* Primary Unlocked Badge */}
                       <span className={`px-2.5 py-0.5 rounded-full border text-[10px] font-black flex items-center gap-1 ${entity.unlockedBadge.bgClass} ${entity.unlockedBadge.colorClass}`}>
                         <span>{entity.unlockedBadge.icon}</span>
                         <span>{entity.unlockedBadge.name}</span>
                       </span>
                     </div>
 
-                    {/* User's Badges Mini Icons Reel */}
                     {entity.userBadges && entity.userBadges.length > 0 && (
                       <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
                         {entity.userBadges.map((b, bIdx) => (
@@ -1081,7 +586,6 @@ export default function SpiritualMomentumRankings({
 
                 {/* Metrics & Momentum Score Breakdown */}
                 <div className="flex items-center justify-between md:justify-end gap-3.5 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800">
-                  {/* Category Primary Metric */}
                   <div className="text-left md:text-right text-xs space-y-0.5">
                     <span className="text-[10px] text-slate-500 font-medium block">
                       {entity.primaryMetricLabel}
@@ -1092,7 +596,6 @@ export default function SpiritualMomentumRankings({
                     </div>
                   </div>
 
-                  {/* Secondary Metric */}
                   <div className="text-left md:text-right text-xs space-y-0.5">
                     <span className="text-[10px] text-slate-500 font-medium block">
                       {entity.secondaryMetricLabel}
@@ -1106,7 +609,6 @@ export default function SpiritualMomentumRankings({
                     </div>
                   </div>
 
-                  {/* Final Weighted Momentum Index Score */}
                   <div className="text-right space-y-0.5 bg-slate-950 p-2.5 rounded-2xl border border-amber-500/20 shadow-inner">
                     <span className="text-[9px] text-amber-400 font-black uppercase tracking-wider block">
                       Momentum Score
@@ -1116,7 +618,6 @@ export default function SpiritualMomentumRankings({
                     </div>
                   </div>
 
-                  {/* Actions */}
                   <div className="flex items-center gap-1.5">
                     {entity.category === 'users' ? (
                       <button
@@ -1145,7 +646,7 @@ export default function SpiritualMomentumRankings({
                         <button
                           onClick={() => onSelectChannelModal && onSelectChannelModal(entity.name)}
                           className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
-                          title="View Portfolio & Momentum Details"
+                          title="View Details"
                         >
                           <ChevronRight className="w-4 h-4" />
                         </button>
@@ -1293,16 +794,6 @@ export default function SpiritualMomentumRankings({
                   <p className="text-slate-400 leading-relaxed">
                     Rewards are strictly recognition-based behavioral badges. To honor authentic church governance, we avoid using official ordination or ecclesiastical titles (e.g. Bishop, Elder, Apostle).
                   </p>
-                  <div className="grid grid-cols-2 gap-2 text-[11px] font-sans pt-1">
-                    <div className="p-2 rounded-xl bg-slate-900 border border-slate-800">
-                      <span className="text-amber-400 font-bold block">✓ Approved Badges</span>
-                      <span className="text-slate-300">Overcomer, Global Intercessor, Kingdom Ambassador, Amen Warrior, Faithful Reach, Diligent Sower</span>
-                    </div>
-                    <div className="p-2 rounded-xl bg-slate-900 border border-slate-800">
-                      <span className="text-red-400 font-bold block">❌ Prohibited Titles</span>
-                      <span className="text-slate-400">Bishop, Apostle, Elder, Prophet, Reverend</span>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-1 text-[11px] text-slate-400">

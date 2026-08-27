@@ -86,203 +86,6 @@ export interface CommunityPost {
   recentIntercessors?: string[];
 }
 
-const FAITH_STORIES = [
-  {
-    id: 'story-1',
-    name: 'Sarah J.',
-    title: 'Healed of Cancer',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80',
-    type: 'testimony',
-    unread: true,
-    tag: 'Miracle'
-  },
-  {
-    id: 'story-2',
-    name: 'Pastor David',
-    title: 'Midnight Revival',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
-    type: 'live',
-    unread: true,
-    tag: 'Live Altar'
-  },
-  {
-    id: 'story-3',
-    name: 'Michael A.',
-    title: 'Campus Harvest',
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=120&q=80',
-    type: 'prayer',
-    unread: false,
-    tag: '3 Campuses'
-  },
-  {
-    id: 'story-4',
-    name: 'Hannah V.',
-    title: 'Worship Breakthrough',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-    type: 'testimony',
-    unread: false,
-    tag: 'Praise'
-  },
-  {
-    id: 'story-5',
-    name: 'Dr. Elizabeth',
-    title: 'Peace in Trial',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80',
-    type: 'reflection',
-    unread: false,
-    tag: 'Phil 4:6'
-  },
-  {
-    id: 'story-6',
-    name: 'Emmanuel O.',
-    title: 'Romans 8 Challenge',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
-    type: 'discussion',
-    unread: false,
-    tag: 'Word Focus'
-  }
-];
-
-const INITIAL_POSTS: CommunityPost[] = [
-  {
-    id: 'post-1',
-    authorName: 'Sarah Jenkins',
-    authorHandle: 'sarah_j_faith',
-    authorAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80',
-    authorRole: 'Global Intercessor',
-    authorChurch: 'Grace City Cathedral',
-    category: 'testimony',
-    title: 'Praise Report: Complete Remission & God’s Miraculous Healing!',
-    content: 'After 8 months of intense medical treatment and global prayer from this altar, yesterday my oncologist confirmed: complete remission! No signs of cancer remain. I want to thank every brother and sister who stood in faith with our family during the midnight worship streams. God is still in the miracle-working business today!',
-    scriptureReference: 'Psalm 103:2-3',
-    scriptureText: '“Bless the Lord, O my soul, and forget not all His benefits: Who forgives all your iniquities, Who heals all your diseases...”',
-    imageUrl: 'https://images.unsplash.com/photo-1499209974431-9dddcece7f88?auto=format&fit=crop&w=800&q=80',
-    audioSnippetDuration: '1:18',
-    audioSnippetTitle: 'Sarah’s Personal Audio Praise Testimony',
-    createdAt: '25m ago',
-    amensCount: 342,
-    prayersCount: 189,
-    gloryCount: 278,
-    sharesCount: 45,
-    tags: ['#HealingTestimony', '#MiraclesToday', '#PraiseGod', '#GraceCity'],
-    recentIntercessors: [
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=80&q=80',
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=80&q=80',
-      'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=80&q=80',
-    ],
-    comments: [
-      {
-        id: 'c-1',
-        authorName: 'Pastor David Wilson',
-        authorHandle: 'pastor_david',
-        authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
-        authorRole: 'Senior Pastor',
-        content: 'Glory to God in the highest! We rejoiced together on the live broadcast when your family first posted the request. May His name be forever praised!',
-        createdAt: '18m ago',
-        amensCount: 48,
-      },
-      {
-        id: 'c-2',
-        authorName: 'Hannah Vance',
-        authorHandle: 'hannah_v',
-        authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-        authorRole: 'Worship Leader',
-        content: 'Tears of joy reading this! God is so faithful. What He started in you He has perfected! 🙌🔥',
-        createdAt: '10m ago',
-        amensCount: 22,
-      }
-    ]
-  },
-  {
-    id: 'post-2',
-    authorName: 'Michael Adewale',
-    authorHandle: 'mike_adewale',
-    authorAvatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=120&q=80',
-    authorRole: 'Youth & Campus Minister',
-    authorChurch: 'Redeemed Christian Fellowship',
-    category: 'prayer',
-    title: 'Prayer Altar: Upcoming 3-Day University Campus Revival',
-    content: 'Brothers and sisters, we are launching an outdoor gospel revival across 3 campuses this Friday. Please join us in prayer for bold preaching of the Cross, conviction of hearts, and freedom from addictions for hundreds of students seeking purpose. We are believing for a genuine harvest!',
-    scriptureReference: 'Acts 4:29-30',
-    scriptureText: '“Now, Lord, look on their threats, and grant to Your servants that with all boldness they may speak Your word, by stretching out Your hand to heal...”',
-    createdAt: '1h ago',
-    amensCount: 198,
-    prayersCount: 412,
-    gloryCount: 86,
-    sharesCount: 32,
-    tags: ['#CampusRevival', '#YouthMinistry', '#Intercession', '#Salvation'],
-    recentIntercessors: [
-      'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=80&q=80',
-      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=80&q=80',
-      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=80&q=80',
-    ],
-    comments: [
-      {
-        id: 'c-3',
-        authorName: 'Ruth Mwangi',
-        authorHandle: 'ruth_mwangi',
-        authorAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80',
-        authorRole: 'Intercessor',
-        content: 'Standing in agreement from Nairobi! Praying for an outpouring of the Holy Spirit upon every student listener.',
-        createdAt: '42m ago',
-        amensCount: 16,
-      }
-    ]
-  },
-  {
-    id: 'post-3',
-    authorName: 'Dr. Elizabeth Taylor',
-    authorHandle: 'dr_elizabeth_t',
-    authorAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80',
-    authorRole: 'Bible Teacher & Author',
-    authorChurch: 'Elevation Worship Hub',
-    category: 'reflection',
-    title: 'The Peace That Transcends Understanding: A Midnight Meditation',
-    content: 'When Paul wrote Philippians 4 from a prison cell, he didn’t say “don’t worry because your circumstances are comfortable.” He said “The Lord is near.” The antidote to anxiety is not control over tomorrow; it is intimate awareness of the Lord’s presence in this very moment. Whatever storms you face today, breathe in His sovereign peace.',
-    scriptureReference: 'Philippians 4:6-7',
-    scriptureText: '“Be anxious for nothing, but in everything by prayer and supplication, with thanksgiving, let your requests be made known to God; and the peace of God... will guard your hearts.”',
-    imageUrl: 'https://images.unsplash.com/photo-1507692049790-de58290a4334?auto=format&fit=crop&w=800&q=80',
-    createdAt: '3h ago',
-    amensCount: 520,
-    prayersCount: 140,
-    gloryCount: 310,
-    sharesCount: 89,
-    tags: ['#SermonReflection', '#OvercomingAnxiety', '#PeaceOfGod', '#DailyWord'],
-    comments: []
-  },
-  {
-    id: 'post-4',
-    authorName: 'Emmanuel Osei',
-    authorHandle: 'emmanuel_osei',
-    authorAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
-    authorRole: 'Worship Psalmist',
-    authorChurch: 'Bethel Gospel Sanctuary',
-    category: 'discussion',
-    title: 'Discussion: How has daily Scripture memorization transformed your thought life?',
-    content: 'We’ve been doing the 30-day Romans 8 challenge in our young adult fellowship. I’m curious to hear from the global community: what spiritual disciplines or specific scriptures have helped you overcome negative self-talk and fear this year?',
-    scriptureReference: 'Romans 12:2',
-    scriptureText: '“And do not be conformed to this world, but be transformed by the renewing of your mind, that you may prove what is that good and acceptable and perfect will of God.”',
-    createdAt: '5h ago',
-    amensCount: 145,
-    prayersCount: 38,
-    gloryCount: 92,
-    sharesCount: 14,
-    tags: ['#BiblicalDiscipline', '#RenewingTheMind', '#FaithDiscussion', '#Fellowship'],
-    comments: [
-      {
-        id: 'c-4',
-        authorName: 'James Carter',
-        authorHandle: 'james_carter',
-        authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
-        authorRole: 'Believer',
-        content: 'Writing verses on 3x5 cards and reviewing them before touching my phone in the morning completely changed my anxiety levels!',
-        createdAt: '4h ago',
-        amensCount: 29,
-      }
-    ]
-  }
-];
-
 const POPULAR_SCRIPTURE_SUGGESTIONS = [
   { ref: 'Psalm 23:1', text: '“The Lord is my shepherd; I shall not want.”' },
   { ref: 'Psalm 91:1-2', text: '“He who dwells in the secret place of the Most High shall abide under the shadow of the Almighty.”' },
@@ -295,17 +98,11 @@ const POPULAR_SCRIPTURE_SUGGESTIONS = [
 ];
 
 const POPULAR_PRAYER_TOPICS = [
-  { tag: '#HealingMiracles', count: '1.4k prayers', isHot: true },
-  { tag: '#CampusRevival', count: '920 prayers', isHot: true },
-  { tag: '#FamilyRestoration', count: '840 prayers', isHot: false },
-  { tag: '#FinancialBreakthrough', count: '670 prayers', isHot: false },
-  { tag: '#MissionsAndOutreach', count: '510 prayers', isHot: false },
-];
-
-const FAITH_HEROES = [
-  { name: 'Sarah Jenkins', handle: '@sarah_j_faith', prayersSent: 142, streak: '24d', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80', badge: '🥇 1st' },
-  { name: 'Michael Adewale', handle: '@mike_adewale', prayersSent: 118, streak: '19d', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=120&q=80', badge: '🥈 2nd' },
-  { name: 'Hannah Vance', handle: '@hannah_v', prayersSent: 96, streak: '15d', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80', badge: '🥉 3rd' },
+  { tag: '#HealingMiracles', count: 'Active altar', isHot: true },
+  { tag: '#CampusRevival', count: 'Active altar', isHot: true },
+  { tag: '#FamilyRestoration', count: 'Active altar', isHot: false },
+  { tag: '#FinancialBreakthrough', count: 'Active altar', isHot: false },
+  { tag: '#MissionsAndOutreach', count: 'Active altar', isHot: false },
 ];
 
 interface FellowshipCommunityHubProps {
@@ -355,7 +152,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
     prayersCount: post.prayers_count,
     gloryCount: post.glory_count,
     sharesCount: post.shares_count,
-    comments: post.comments.map(mapComment),
+    comments: post.comments?.map(mapComment) || [],
     isAnonymous: post.is_anonymous,
     hasAmened: post.has_amened,
     hasPrayed: post.has_prayed,
@@ -364,16 +161,9 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
     tags: post.tags || [],
   });
 
-  // Posts state
-  const [posts, setPosts] = useState<CommunityPost[]>(() => {
-    try {
-      const saved = localStorage.getItem('gospread_community_posts');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error(e);
-    }
-    return INITIAL_POSTS;
-  });
+  // Posts state initialized cleanly for backend integration
+  const [posts, setPosts] = useState<CommunityPost[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(true);
 
   const [activeCategory, setActiveCategory] = useState<PostCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -386,6 +176,42 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const [activeStorySpotlight, setActiveStorySpotlight] = useState<string | null>(null);
 
+  // Dynamic Stories & Heroes computed from real live posts
+  const faithStories = React.useMemo(() => {
+    return posts.slice(0, 8).map(p => ({
+      id: p.id,
+      name: p.isAnonymous ? 'Intercessor' : (p.authorName.split(' ')[0] || p.authorName),
+      title: p.title || (p.category === 'testimony' ? 'Testimony' : 'Prayer'),
+      avatar: p.authorAvatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80',
+      type: p.category,
+      unread: false,
+      tag: p.tags?.[0] || `#${p.category}`
+    }));
+  }, [posts]);
+
+  const faithHeroes = React.useMemo(() => {
+    const map = new Map<string, { name: string; handle: string; avatar: string; prayersSent: number; badge: string; streak: string }>();
+    posts.forEach(p => {
+      if (!p.isAnonymous && p.authorName) {
+        const existing = map.get(p.authorHandle) || {
+          name: p.authorName,
+          handle: p.authorHandle.startsWith('@') ? p.authorHandle : `@${p.authorHandle}`,
+          avatar: p.authorAvatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
+          prayersSent: 0,
+          badge: 'Faithful',
+          streak: 'Active'
+        };
+        existing.prayersSent += (p.prayersCount || 1) + (p.amensCount || 0);
+        map.set(p.authorHandle, existing);
+      }
+    });
+    const badges = ['🥇 1st', '🥈 2nd', '🥉 3rd', '⭐ Top'];
+    return Array.from(map.values()).slice(0, 4).map((h, i) => ({
+      ...h,
+      badge: badges[i] || '⭐ Top'
+    }));
+  }, [posts]);
+
   // New Post Form State
   const [postCategory, setPostCategory] = useState<'testimony' | 'prayer' | 'reflection' | 'discussion'>('testimony');
   const [postTitle, setPostTitle] = useState('');
@@ -397,20 +223,19 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
   const [postTags, setPostTags] = useState('');
   const [activeComposerTab, setActiveComposerTab] = useState<'write' | 'preview'>('write');
 
-  // Persist posts
-  useEffect(() => {
-    try {
-      localStorage.setItem('gospread_community_posts', JSON.stringify(posts));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [posts]);
-
   useEffect(() => {
     let mounted = true;
-    djangoApi.getCommunityPosts().then(apiPosts => {
-      if (mounted && apiPosts.length > 0) setPosts(apiPosts.map(mapPost));
-    }).catch(error => console.warn('[Community] Unable to load backend posts:', error));
+    setLoadingPosts(true);
+    djangoApi.getCommunityPosts()
+      .then(apiPosts => {
+        if (mounted) {
+          setPosts(apiPosts.map(mapPost));
+        }
+      })
+      .catch(error => console.warn('[Community] Backend posts fetch notice:', error))
+      .finally(() => {
+        if (mounted) setLoadingPosts(false);
+      });
     return () => { mounted = false; };
   }, []);
 
@@ -655,7 +480,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
           </button>
 
           {/* Stories List */}
-          {FAITH_STORIES.map(story => (
+          {faithStories.map(story => (
             <button
               key={story.id}
               onClick={() => {
@@ -673,11 +498,6 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
                     className="w-13 h-13 sm:w-15 sm:h-15 rounded-full object-cover"
                   />
                 </div>
-                {story.type === 'live' && (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-red-600 text-white text-[8px] font-black rounded-full uppercase tracking-tighter ring-2 ring-slate-900 animate-pulse">
-                    Live
-                  </span>
-                )}
                 {story.type === 'testimony' && (
                   <span className="absolute -bottom-1 -right-0.5 w-4.5 h-4.5 bg-amber-500 text-slate-950 text-[10px] font-black rounded-full flex items-center justify-center ring-2 ring-slate-900">
                     🙌
@@ -1379,25 +1199,31 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
             </div>
 
             <div className="space-y-2.5">
-              {FAITH_HEROES.map((hero, i) => (
-                <div key={i} className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-950/70 border border-slate-800">
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-xs font-bold text-amber-400">{hero.badge}</span>
-                    <img src={hero.avatar} alt={hero.name} className="w-8 h-8 rounded-xl object-cover ring-1 ring-amber-400" />
-                    <div>
-                      <h5 className="text-xs font-bold text-white">{hero.name}</h5>
-                      <span className="text-[10px] text-slate-400 font-mono">{hero.handle}</span>
+              {faithHeroes.length > 0 ? (
+                faithHeroes.map((hero, i) => (
+                  <div key={i} className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-950/70 border border-slate-800">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xs font-bold text-amber-400">{hero.badge}</span>
+                      <img src={hero.avatar} alt={hero.name} className="w-8 h-8 rounded-xl object-cover ring-1 ring-amber-400" />
+                      <div>
+                        <h5 className="text-xs font-bold text-white">{hero.name}</h5>
+                        <span className="text-[10px] text-slate-400 font-mono">{hero.handle}</span>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="text-right">
-                    <div className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                      <span>🙏 {hero.prayersSent}</span>
+                    <div className="text-right">
+                      <div className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                        <span>🙏 {hero.prayersSent}</span>
+                      </div>
+                      <span className="text-[9px] text-slate-400">{hero.streak}</span>
                     </div>
-                    <span className="text-[9px] text-slate-400">{hero.streak} streak</span>
                   </div>
+                ))
+              ) : (
+                <div className="text-center py-4 px-2 text-slate-400 text-xs">
+                  Be the first to share testimonies and intercede today!
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
