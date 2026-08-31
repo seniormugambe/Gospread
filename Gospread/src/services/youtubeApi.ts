@@ -1,7 +1,7 @@
 // Production YouTube Data API v3 Service for Gospread Platform
 // Integrates official YouTube Data API endpoints for live gospel streams, sermons, and channels.
 
-import { VideoStream, LIVE_VIDEO_STREAMS, AudioTrack, AUDIO_TRACKS } from '../data/gospelData';
+import { VideoStream, AudioTrack } from '../data/gospelData';
 
 // Access YouTube API Key from client environment variables or provided default
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY ;
@@ -81,7 +81,7 @@ class YouTubeApiService {
   }> {
     if (!this.hasApiKey()) {
       return {
-        videos: this.getFallbackVideos(query, isLiveOnly),
+        videos: [],
         isRealYoutubeData: false
       };
     }
@@ -107,7 +107,7 @@ class YouTubeApiService {
 
       if (items.length === 0) {
         return {
-          videos: this.getFallbackVideos(query, isLiveOnly),
+          videos: [],
           isRealYoutubeData: false
         };
       }
@@ -153,7 +153,7 @@ class YouTubeApiService {
     } catch (err: any) {
       console.warn('[YouTube API Service] Failed to fetch live data:', err.message);
       return {
-        videos: this.getFallbackVideos(query, isLiveOnly),
+        videos: [],
         isRealYoutubeData: false,
         error: err.message
       };
@@ -202,7 +202,7 @@ class YouTubeApiService {
   }> {
     if (!this.hasApiKey()) {
       return {
-        tracks: this.getFallbackAudio(query),
+        tracks: [],
         isRealYoutubeData: false
       };
     }
@@ -227,7 +227,7 @@ class YouTubeApiService {
 
       if (items.length === 0) {
         return {
-          tracks: this.getFallbackAudio(query),
+          tracks: [],
           isRealYoutubeData: false
         };
       }
@@ -279,7 +279,7 @@ class YouTubeApiService {
     } catch (err: any) {
       console.warn('[YouTube API Service] Failed to fetch audio tracks:', err.message);
       return {
-        tracks: this.getFallbackAudio(query),
+        tracks: [],
         isRealYoutubeData: false,
         error: err.message
       };
@@ -287,29 +287,14 @@ class YouTubeApiService {
   }
 
   private getFallbackAudio(query: string): AudioTrack[] {
-    let list = [...AUDIO_TRACKS];
-    if (query && query.toLowerCase() !== 'gospel worship podcast audio sermon') {
-      const q = query.toLowerCase();
-      const filtered = list.filter(a => a.title.toLowerCase().includes(q) || a.artistOrPreacher.toLowerCase().includes(q));
-      return filtered.length > 0 ? filtered : list;
-    }
-    return list;
+    return [];
   }
 
   /**
    * Fallback to curated gospel streams when API key is missing or quota limited
    */
   private getFallbackVideos(query: string, isLiveOnly: boolean): VideoStream[] {
-    let list = [...LIVE_VIDEO_STREAMS];
-    if (isLiveOnly) {
-      list = list.filter(v => v.isLive);
-    }
-    if (query && query.toLowerCase() !== 'gospel live worship sermon') {
-      const q = query.toLowerCase();
-      const filtered = list.filter(v => v.title.toLowerCase().includes(q) || v.speakerOrArtist.toLowerCase().includes(q));
-      return filtered.length > 0 ? filtered : list;
-    }
-    return list;
+    return [];
   }
 }
 

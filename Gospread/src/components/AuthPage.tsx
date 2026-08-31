@@ -90,7 +90,8 @@ const SPIRITUAL_ROLES = [
   { id: 'creator', label: 'Gospel Content Creator', icon: Tv, desc: 'Broadcasting messages & ministry media' },
 ];
 
-const DEMO_ACCOUNTS = [
+const DEMO_ACCOUNTS: Array<{ role: string; email: string; church: string; avatar: string; title: string }> = [];
+/*
   {
     role: 'Pastor David Wilson',
     email: 'pastor.david@gospread.org',
@@ -113,6 +114,7 @@ const DEMO_ACCOUNTS = [
     title: 'Youth Minister'
   }
 ];
+*/
 
 export const AuthPage: React.FC<AuthPageProps> = ({
   initialMode = 'signin',

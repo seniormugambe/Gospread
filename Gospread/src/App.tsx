@@ -181,11 +181,7 @@ export default function App() {
     } catch (e) {
       console.error('Failed to load watch history:', e);
     }
-    return [
-      { video: LIVE_VIDEO_STREAMS[0], watchedAt: Date.now() - 1000 * 60 * 20 },
-      { video: LIVE_VIDEO_STREAMS[1], watchedAt: Date.now() - 1000 * 60 * 60 * 3 },
-      { video: LIVE_VIDEO_STREAMS[2], watchedAt: Date.now() - 1000 * 60 * 60 * 26 }
-    ];
+      return [];
   });
 
   const addToWatchHistory = (video: VideoStream) => {
@@ -311,7 +307,7 @@ export default function App() {
     });
   };
 
-  const [likedVideos, setLikedVideos] = useState<string[]>(['v-live-1']);
+  const [likedVideos, setLikedVideos] = useState<string[]>([]);
   
   // Video player controls state
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
@@ -341,7 +337,7 @@ export default function App() {
   };
 
   // Saved / Prayer
-  const [savedIds, setSavedIds] = useState<string[]>(['v-live-1', 'a-1']);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
   const [prayerModalOpen, setPrayerModalOpen] = useState(false);
   const [prayerText, setPrayerText] = useState('');
   const [prayerSubmitted, setPrayerSubmitted] = useState(false);
@@ -1653,7 +1649,7 @@ export default function App() {
               </div>
 
               {/* 🎙️ PODCASTS & AUDIO HUB VIEW */}
-              {(selectedCategory === 'Podcasts' || selectedCategory === '24/7 Gospel Radio') && (
+                {currentAudio && (selectedCategory === 'Podcasts' || selectedCategory === '24/7 Gospel Radio') && (
                 <AudioPodcastHub
                   currentTrack={currentAudio}
                   isPlaying={isAudioPlaying}
@@ -1843,7 +1839,7 @@ export default function App() {
               )}
 
               {/* 24/7 Gospel Radio Visual Hero Card */}
-              {(selectedCategory === 'All' || selectedCategory === '24/7 Gospel Radio') && (
+                {currentAudio && (selectedCategory === 'All' || selectedCategory === '24/7 Gospel Radio') && (
                 <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-red-950/80 via-slate-900 to-slate-950 border border-red-900/40 p-4 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6 shadow-2xl">
                   <div className="flex items-center gap-3.5 sm:gap-5 w-full md:w-auto">
                     <div className="relative w-18 h-18 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shrink-0 ring-2 ring-red-500/40 shadow-xl group cursor-pointer" onClick={() => handlePlayAudioTrack(currentAudio)}>
@@ -2100,16 +2096,18 @@ export default function App() {
       </div>
 
       {/* 🔴 ADVANCED MEDIA AUDIO PLAYER */}
-      <AudioPodcastPlayer
-        currentTrack={currentAudio}
-        isPlaying={isAudioPlaying}
-        onTogglePlay={() => setIsAudioPlaying(!isAudioPlaying)}
-        isMuted={isAudioMuted}
-        onToggleMute={() => setIsAudioMuted(!isAudioMuted)}
-        audioQueue={audioQueue}
-        onSelectTrackFromQueue={handlePlayAudioTrack}
-        onOpenGivingModal={handleOpenGiving}
-      />
+        {currentAudio && (
+          <AudioPodcastPlayer
+            currentTrack={currentAudio}
+            isPlaying={isAudioPlaying}
+            onTogglePlay={() => setIsAudioPlaying(!isAudioPlaying)}
+            isMuted={isAudioMuted}
+            onToggleMute={() => setIsAudioMuted(!isAudioMuted)}
+            audioQueue={audioQueue}
+            onSelectTrackFromQueue={handlePlayAudioTrack}
+            onOpenGivingModal={handleOpenGiving}
+          />
+        )}
 
       {/* Prayer Request Modal */}
       <AnimatePresence>

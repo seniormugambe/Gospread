@@ -1,12 +1,7 @@
 // Production-ready Django REST Framework / Django Ninja API Client Service
 // Compatible with Django 4.2+ / Django 5.x, DRF (Django REST Framework), and JWT Authentication (SimpleJWT)
 
-import { 
-  VideoStream, 
-  AudioTrack, 
-  LIVE_VIDEO_STREAMS, 
-  AUDIO_TRACKS, 
-} from '../data/gospelData';
+import { VideoStream, AudioTrack } from '../data/gospelData';
 
 export interface ChurchCampusLocation {
   id?: string;
@@ -90,8 +85,6 @@ export interface DjangoAuthResponse {
 
 class DjangoApiClient {
   private baseUrl: string;
-  private fallbackToMock: boolean = true;
-
   constructor() {
     this.baseUrl = DJANGO_API_BASE_URL.replace(/\/$/, '');
   }
@@ -170,12 +163,7 @@ class DjangoApiClient {
     } catch (err: any) {
       clearTimeout(timeoutId);
 
-      if (this.fallbackToMock) {
-        console.warn(`[Django API Client] ${url} unreachable (${err.message}). Seamlessly utilizing fallback response.`);
-      } else {
-        throw err;
-      }
-      return { data: null as unknown as T, fromCacheOrMock: true };
+      throw err;
     }
   }
 
@@ -225,34 +213,7 @@ class DjangoApiClient {
       body: JSON.stringify(credentials)
     });
 
-    if (res.fromCacheOrMock) {
-      const mockAuth: DjangoAuthResponse = {
-        access: 'mock-jwt-access-token-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
-        refresh: 'mock-jwt-refresh-token',
-        user: {
-          id: 1,
-          username: credentials.email ? credentials.email.split('@')[0] : 'david_lawson',
-          email: credentials.email || 'david.lawson@gospread.org',
-          first_name: 'David',
-          last_name: 'Lawson',
-          bio: 'Fellowship Servant & Worship Leader',
-          church_name: 'Grace City Cathedral',
-          praise_xp: 1450,
-          streak_days: 7,
-          role: 'believer',
-          badges: [
-            { id: 'b1', name: 'Diligent Sower', icon: '🌾', tier: 'Gold', category: 'Momentum', description: 'Consistently sowing into kingdom works', earnedDate: 'May 10' },
-            { id: 'b2', name: 'Faithful Reach', icon: '🌱', tier: 'Silver', category: 'Discipleship', description: 'Shared ministry content with 10+ believers', earnedDate: 'Aug 02' },
-            { id: 'b3', name: '7-Day Overcomer', icon: '🔥', tier: 'Gold', category: 'Streak', description: '7 consecutive days of devotion and prayer', earnedDate: 'Aug 09' },
-            { id: 'b4', name: 'Kingdom Ambassador', icon: '👑', tier: 'Gold', category: 'Ambassador', description: 'Active promoter of the gospel', earnedDate: 'Jun 10' }
-          ]
-        }
-      };
-      this.setTokens(mockAuth.access, mockAuth.refresh);
-      return mockAuth;
-    }
-
-    if (res.data?.access) {
+    if (res.data.access) {
       this.setTokens(res.data.access, res.data.refresh);
     }
     return res.data;
@@ -271,9 +232,6 @@ class DjangoApiClient {
       body: JSON.stringify(payload)
     });
 
-    if (res.fromCacheOrMock) {
-      return this.login({ email: payload.email, username: payload.username });
-    }
     return res.data;
   }
 
@@ -298,14 +256,6 @@ class DjangoApiClient {
       method: 'POST'
     });
 
-    if (res.fromCacheOrMock || !res.data) {
-      return {
-        success: true,
-        streakDays: 8,
-        praiseXpEarned: 50,
-        message: 'Daily grace streak recorded (+50 Praise XP)!'
-      };
-    }
     return res.data;
   }
 
@@ -318,13 +268,7 @@ class DjangoApiClient {
     const endpoint = `/videos/${params.toString() ? `?${params.toString()}` : ''}`;
     const res = await this.request<VideoStream[]>(endpoint);
 
-    if (res.fromCacheOrMock || !res.data) {
-      let filtered = [...LIVE_VIDEO_STREAMS];
-      if (category && category !== 'all') filtered = filtered.filter(v => v.category.toLowerCase().includes(category.toLowerCase()));
-      if (isLive !== undefined) filtered = filtered.filter(v => v.isLive === isLive);
-      return filtered;
-    }
-    return res.data;
+    return res.data || [];
   }
 
   // === 4. AUDIO & PODCASTS ===
@@ -335,104 +279,18 @@ class DjangoApiClient {
     const endpoint = `/podcasts/${params.toString() ? `?${params.toString()}` : ''}`;
     const res = await this.request<AudioTrack[]>(endpoint);
 
-    if (res.fromCacheOrMock || !res.data) {
-      if (category && category !== 'all') {
-        return AUDIO_TRACKS.filter(t => t.category.toLowerCase().includes(category.toLowerCase()));
-      }
-      return AUDIO_TRACKS;
-    }
-    return res.data;
+    return res.data || [];
   }
 
   // === 5. CHURCH DIRECTORY & MULTI-CAMPUS REGISTRATION ===
   public async getChurchLocations(query?: string): Promise<ChurchLocation[]> {
-    const mockChurches: ChurchLocation[] = [
-      {
-        id: 'ch-1',
-        name: 'Living Waters Sanctuary',
-        address: '777 Living Waters Blvd, Southwest Campus',
-        cityState: 'Houston, TX',
-        distance: '0.8 miles away',
-        serviceTimes: 'Sun 8:30 AM, 11:00 AM | Wed 7:00 PM',
-        leadPastor: 'Pastor Johnathan Cole',
-        phone: '(713) 555-0182',
-        email: 'info@livingwaters.org',
-        website: 'https://livingwaterssanctuary.org',
-        googleMapsUrl: 'https://maps.google.com/?q=Living+Waters+Sanctuary+Houston',
-        verified: true,
-        avatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=120&q=80',
-        category: 'Charismatic Worship & Apostolic Centre',
-        weeklyScheduleCount: 5,
-        campuses: [
-          {
-            campusName: 'Main Sanctuary (Southwest)',
-            address: '777 Living Waters Blvd',
-            cityState: 'Houston, TX',
-            googleMapsUrl: 'https://maps.google.com/?q=Living+Waters+Houston',
-            serviceTimes: 'Sun 8:30 AM & 11:00 AM',
-            isMainCampus: true
-          },
-          {
-            campusName: 'North Woodlands Branch',
-            address: '420 Woodlands Parkway',
-            cityState: 'The Woodlands, TX',
-            googleMapsUrl: 'https://maps.google.com/?q=Woodlands+Parkway+Houston',
-            serviceTimes: 'Sun 10:30 AM',
-            isMainCampus: false
-          }
-        ]
-      },
-      {
-        id: 'ch-2',
-        name: 'Grace City Cathedral',
-        address: '100 Grace Way, Midtown',
-        cityState: 'Atlanta, GA',
-        distance: '1.2 miles away',
-        serviceTimes: 'Sun 9:00 AM & 11:30 AM',
-        leadPastor: 'Pastor Mark Anthony',
-        phone: '(404) 555-0192',
-        email: 'fellowship@gracecity.org',
-        website: 'https://gracecitycathedral.org',
-        googleMapsUrl: 'https://maps.google.com/?q=Grace+City+Cathedral+Atlanta',
-        verified: true,
-        avatar: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=120&q=80',
-        category: 'Cathedral / Charismatic Worship',
-        weeklyScheduleCount: 4,
-        campuses: [
-          {
-            campusName: 'Midtown Main Cathedral',
-            address: '100 Grace Way, Midtown',
-            cityState: 'Atlanta, GA',
-            googleMapsUrl: 'https://maps.google.com/?q=Grace+City+Atlanta',
-            serviceTimes: 'Sun 9:00 AM & 11:30 AM',
-            isMainCampus: true
-          },
-          {
-            campusName: 'London UK Fellowship Sanctuary',
-            address: '24 Kensington Grace Square',
-            cityState: 'London, UK',
-            googleMapsUrl: 'https://maps.google.com/?q=Kensington+London',
-            serviceTimes: 'Sun 11:00 AM GMT',
-            isMainCampus: false
-          }
-        ]
-      }
-    ];
-
     const params = new URLSearchParams();
     if (query) params.append('q', query);
 
     const endpoint = `/churches/${params.toString() ? `?${params.toString()}` : ''}`;
     const res = await this.request<ChurchLocation[]>(endpoint);
 
-    if (res.fromCacheOrMock || !res.data) {
-      if (query) {
-        const q = query.toLowerCase();
-        return mockChurches.filter(c => c.name.toLowerCase().includes(q) || c.cityState.toLowerCase().includes(q));
-      }
-      return mockChurches;
-    }
-    return res.data;
+    return res.data || [];
   }
 
   public async registerMinistry(ministryData: {
@@ -456,13 +314,6 @@ class DjangoApiClient {
       body: JSON.stringify(ministryData)
     });
 
-    if (res.fromCacheOrMock || !res.data) {
-      return {
-        success: true,
-        churchId: `ch-reg-${Date.now()}`,
-        message: 'Ministry registered successfully with multi-campus locations!'
-      };
-    }
     return res.data;
   }
 
@@ -491,16 +342,6 @@ class DjangoApiClient {
       })
     });
 
-    if (res.fromCacheOrMock || !res.data) {
-      const mockTxn = `TXN-DJ-${Math.floor(100000 + Math.random() * 900000)}`;
-      return {
-        success: true,
-        transactionId: mockTxn,
-        receiptUrl: `https://gospread.org/receipts/${mockTxn}`,
-        message: 'Donation recorded successfully via Django REST service!',
-        isRealDjango: false
-      };
-    }
     return {
       ...res.data,
       isRealDjango: true
@@ -519,13 +360,6 @@ class DjangoApiClient {
       body: JSON.stringify(prayerData)
     });
 
-    if (res.fromCacheOrMock || !res.data) {
-      return {
-        success: true,
-        prayerId: `pr-${Date.now()}`,
-        message: 'Prayer request placed upon the global altar!'
-      };
-    }
     return res.data;
   }
 }

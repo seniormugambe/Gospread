@@ -85,7 +85,8 @@ export interface CommunityPost {
   recentIntercessors?: string[];
 }
 
-const FAITH_STORIES = [
+const FAITH_STORIES = [];
+/*
   {
     id: 'story-1',
     name: 'Sarah J.',
@@ -142,7 +143,9 @@ const FAITH_STORIES = [
   }
 ];
 
-const INITIAL_POSTS: CommunityPost[] = [
+*/
+const INITIAL_POSTS: CommunityPost[] = [];
+/*
   {
     id: 'post-1',
     authorName: 'Sarah Jenkins',
@@ -282,6 +285,7 @@ const INITIAL_POSTS: CommunityPost[] = [
   }
 ];
 
+*/
 const POPULAR_SCRIPTURE_SUGGESTIONS = [
   { ref: 'Psalm 23:1', text: '“The Lord is my shepherd; I shall not want.”' },
   { ref: 'Psalm 91:1-2', text: '“He who dwells in the secret place of the Most High shall abide under the shadow of the Almighty.”' },
@@ -330,7 +334,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
     } catch (e) {
       console.error(e);
     }
-    return INITIAL_POSTS;
+    return [];
   });
 
   const [activeCategory, setActiveCategory] = useState<PostCategory>('all');

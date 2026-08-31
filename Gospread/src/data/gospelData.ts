@@ -47,7 +47,90 @@ export interface AudioTrack {
   rating?: number;
 }
 
-export const LIVE_VIDEO_STREAMS: VideoStream[] = [
+export type ReactionType = 'amen' | 'fire' | 'heart' | 'pray';
+export interface ChatMessage {
+  id: string;
+  user: string;
+  text: string;
+  time: string;
+  isPrayer?: boolean;
+  badge?: string;
+  reactionCount: number;
+  reactions?: Record<ReactionType, number>;
+  userReactions?: ReactionType[];
+}
+export interface ServiceScheduleItem {
+  id: string;
+  day: 'Sunday' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Weekly';
+  time: string;
+  title: string;
+  type: 'Worship Service' | 'Bible Study' | 'Midweek Prayer' | 'Youth Fellowship' | 'Choir Practice' | 'Special Event';
+  locationOrStream: string;
+  speakerOrLeader: string;
+  description: string;
+  isLiveNow?: boolean;
+  campusId?: string;
+}
+export interface ChurchLocation {
+  id: string;
+  churchName: string;
+  campusName: string;
+  isMainCampus?: boolean;
+  address: string;
+  city: string;
+  stateOrRegion: string;
+  country: string;
+  zipCode?: string;
+  leadPastor: string;
+  pastorAvatar?: string;
+  phone: string;
+  email: string;
+  googleMapsUrl: string;
+  serviceTimes: string[];
+  features: string[];
+  image: string;
+}
+export interface SocialLink {
+  platform: 'youtube' | 'instagram' | 'facebook' | 'twitter' | 'tiktok' | 'spotify' | 'applepodcasts' | 'telegram' | 'whatsapp' | 'website';
+  label: string;
+  url: string;
+  handle: string;
+  followers?: string;
+  isPrimary?: boolean;
+}
+export interface RhemaPromise {
+  id: string;
+  theme: string;
+  verse: string;
+  scripture: string;
+  declaration: string;
+  reflection: string;
+  badgeTag: string;
+}
+export interface GraceShort {
+  id: string;
+  title: string;
+  speaker: string;
+  church: string;
+  avatar: string;
+  likes: string;
+  amensCount: number;
+  videoUrl: string;
+  thumbnail: string;
+  duration: string;
+  tags: string[];
+}
+export interface FaithBadge {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  xpRequired: number;
+  unlocked: boolean;
+}
+
+export const LIVE_VIDEO_STREAMS: VideoStream[] = [];
+/*
   {
     id: 'v-live-1',
     title: 'Sunday Morning Worship & Word: Walking in Divine Purpose (Live)',
@@ -150,7 +233,9 @@ export const LIVE_VIDEO_STREAMS: VideoStream[] = [
   }
 ];
 
-export const AUDIO_TRACKS: AudioTrack[] = [
+*/
+export const AUDIO_TRACKS: AudioTrack[] = [];
+/*
   {
     id: 'a-1',
     title: '24/7 Global Gospel Praise & Worship Live Radio Station',
@@ -286,7 +371,9 @@ export interface ChatMessage {
   userReactions?: ReactionType[];
 }
 
-export const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
+*/
+export const INITIAL_CHAT_MESSAGES: ChatMessage[] = [];
+/*
   { 
     id: 'c1', 
     user: 'Sister Hannah', 
@@ -395,7 +482,9 @@ export interface ChurchProfile {
   socials?: SocialLink[];
 }
 
-export const CHURCH_LOCATIONS: Record<string, ChurchLocation[]> = {
+*/
+export const CHURCH_LOCATIONS: Record<string, ChurchLocation[]> = {};
+/*
   'Grace City Cathedral': [
     {
       id: 'loc-gcc-1',
@@ -550,7 +639,9 @@ export const CHURCH_LOCATIONS: Record<string, ChurchLocation[]> = {
   ]
 };
 
-export const CHURCH_SOCIALS: Record<string, SocialLink[]> = {
+*/
+export const CHURCH_SOCIALS: Record<string, SocialLink[]> = {};
+/*
   'Grace City Cathedral': [
     { platform: 'youtube', label: 'YouTube Live', url: 'https://youtube.com/@GraceCityCathedral', handle: '@GraceCityCathedral', followers: '482K Subscribers', isPrimary: true },
     { platform: 'instagram', label: 'Instagram', url: 'https://instagram.com/gracecitycathedral', handle: '@gracecitycathedral', followers: '195K Followers', isPrimary: true },
@@ -591,7 +682,9 @@ export const CHURCH_SOCIALS: Record<string, SocialLink[]> = {
   ]
 };
 
-export const CHURCH_SCHEDULES: Record<string, ServiceScheduleItem[]> = {
+*/
+export const CHURCH_SCHEDULES: Record<string, ServiceScheduleItem[]> = {};
+/*
   'Grace City Cathedral': [
     {
       id: 'sch-gcc-1',
@@ -693,7 +786,9 @@ export const CHURCH_SCHEDULES: Record<string, ServiceScheduleItem[]> = {
   ]
 };
 
-export const SUBSCRIPTION_CHANNELS = [
+*/
+export const SUBSCRIPTION_CHANNELS = [];
+/*
   { name: 'Grace City Cathedral', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80', liveNow: true },
   { name: 'Covenant Life', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80', liveNow: false },
   { name: 'Global Gospel Alliance', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80', liveNow: false },
@@ -710,7 +805,9 @@ export interface RhemaPromise {
   badgeTag: string;
 }
 
-export const DAILY_RHEMA_PROMISES: RhemaPromise[] = [
+*/
+export const DAILY_RHEMA_PROMISES: RhemaPromise[] = [];
+/*
   {
     id: 'rh-1',
     theme: 'Unstoppable Victory',
@@ -763,7 +860,9 @@ export interface GraceShort {
   tags: string[];
 }
 
-export const GRACE_SHORTS: GraceShort[] = [
+*/
+export const GRACE_SHORTS: GraceShort[] = [];
+/*
   {
     id: 'gs-1',
     title: '⚡ 45 Seconds of Pure Anointed High Praise!',
@@ -814,13 +913,16 @@ export interface FaithBadge {
   unlocked: boolean;
 }
 
-export const FAITH_BADGES: FaithBadge[] = [
+*/
+export const FAITH_BADGES: FaithBadge[] = [];
+/*
   { id: 'b-1', name: '7-Day Faithful Watcher', icon: '🔥', description: 'Log in and praise for 7 consecutive days', xpRequired: 100, unlocked: true },
   { id: 'b-2', name: 'Amen Warrior', icon: '🙌', description: 'Send over 50 Amen reactions in live streams', xpRequired: 250, unlocked: true },
   { id: 'b-3', name: 'Kingdom Ambassador', icon: '👑', description: 'Reach 500 Praise XP milestone', xpRequired: 500, unlocked: true },
   { id: 'b-4', name: 'Seed Sower', icon: '🌱', description: 'Sow a seed or offer a Super Amen in chat', xpRequired: 1000, unlocked: false },
   { id: 'b-5', name: 'Global Intercessor', icon: '⚡', description: 'Submit 5 prayer requests to the live altar', xpRequired: 1500, unlocked: false },
 ];
+*/
 
 export function registerChurchProfile(
   churchName: string, 

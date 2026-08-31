@@ -74,7 +74,8 @@ export interface LeaderboardEntity {
   locationOrHandle: string;
 }
 
-export const INITIAL_LEADERBOARD_DATA: LeaderboardEntity[] = [
+export const INITIAL_LEADERBOARD_DATA: LeaderboardEntity[] = [];
+/*
   // --- 👑 1. GLOBAL BELIEVERS & USERS WHO HAVE GAINED BADGES (EXCLUSIVE) ---
   {
     id: 'u-1',
@@ -639,6 +640,7 @@ export const INITIAL_LEADERBOARD_DATA: LeaderboardEntity[] = [
   }
 ];
 
+*/
 interface SpiritualMomentumRankingsProps {
   onSelectChannelModal?: (channelName: string) => void;
   joinedChurches?: string[];
