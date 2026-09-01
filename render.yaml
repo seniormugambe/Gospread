@@ -27,7 +27,6 @@ services:
   - type: web
     name: gospread
     runtime: static
-    region: oregon
     plan: free
     buildCommand: |
       npm install
