@@ -332,15 +332,6 @@ export default function AudioPodcastPlayer({
               <span>Sow Seed</span>
             </button>
 
-            {/* Like/Bookmark Heart */}
-            <button
-              onClick={() => setIsLiked(!isLiked)}
-              className={`p-1.5 rounded-full transition hidden xs:inline-block ${isLiked ? 'text-red-500 bg-red-500/10' : 'text-slate-400 hover:text-white'}`}
-              title={isLiked ? 'Saved to Favorites' : 'Save to Favorites'}
-            >
-              <Heart className={`w-4 h-4 ${isLiked ? 'fill-red-500' : ''}`} />
-            </button>
-
             {/* Volume Control with Popover */}
             <div className="relative">
               <button
