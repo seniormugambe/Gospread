@@ -56,254 +56,120 @@ export interface MinistryItem {
 }
 
 export const DISCOVER_MINISTRIES: MinistryItem[] = [
-  // ⛪ CHURCHES CATEGORY
   {
-    id: 'm-gcc',
+    id: 'min-gcc',
     name: 'Grace City Cathedral',
     category: 'churches',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=240&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
-    followersCount: 482000,
-    followersFormatted: '482K',
-    locationOrOrigin: 'Atlanta, GA (Global Campuses)',
-    leadPersonOrGenre: 'Pastor Mark Anthony & Sarah Jenkins',
-    description: 'Dynamic worship cathedral dedicated to atmospheric praise, divine destiny preaching, and global live streaming.',
+    avatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
+    bannerImage: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1600&q=80',
+    followersCount: 1480000,
+    followersFormatted: '1.48M',
+    locationOrOrigin: 'Atlanta, GA (HQ) • London • Lagos • Nairobi • Worldwide',
+    leadPersonOrGenre: 'Senior Pastor David & Pastor Sarah Williams',
+    description: 'Apostolic sanctuary dedicated to uncompromised gospel truth, revival worship, 24/7 prayer altar, and radical kingdom generosity.',
     isVerified: true,
     isLiveNow: true,
-    liveViewersCount: 14280,
-    featuredMediaTitle: 'Sunday Morning Worship & Word: Walking in Divine Purpose (Live)',
+    liveViewersCount: 12480,
+    featuredMediaTitle: 'Sunday Apostolic Communion & Prophetic Impartation',
     featuredMediaType: 'video',
-    featuredMediaId: 'v-live-1',
-    tags: ['Live Worship', 'Prophetic Word', 'Choir Praise', 'Global Cathedral'],
-    serviceTimesOrReleaseFreq: 'Sundays 8:00 AM & 10:30 AM EST',
-    socialHandle: '@GraceCityCathedral'
+    featuredMediaId: 'stream-gcc-live',
+    tags: ['Cathedral', 'Apostolic', 'Revival', 'Live Sanctuary'],
+    serviceTimesOrReleaseFreq: 'Sundays 9:00 AM & 11:30 AM EST • Wed 7 PM',
+    socialHandle: '@GraceCityCathedralLive'
   },
   {
-    id: 'm-clm',
-    name: 'Covenant Life Ministries',
+    id: 'min-elevation',
+    name: 'Elevation Praise Center',
     category: 'churches',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=240&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&w=1200&q=80',
-    followersCount: 210000,
-    followersFormatted: '210K',
-    locationOrOrigin: 'Dallas, TX & Lagos, Nigeria',
-    leadPersonOrGenre: 'Dr. Elizabeth Vance',
-    description: 'A covenant faith ministry empowering believers through verse-by-verse Bible exposition and supernatural faith.',
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
+    bannerImage: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1600&q=80',
+    followersCount: 2800000,
+    followersFormatted: '2.8M',
+    locationOrOrigin: 'Charlotte, NC • Global Broadcasts',
+    leadPersonOrGenre: 'Pastor Steven & Holly Furtick',
+    description: 'Empowering believers to see what God can do through dynamic worship, faith teachings, and world-class media.',
     isVerified: true,
     isLiveNow: false,
-    featuredMediaTitle: 'The Power of Unshakeable Faith in Uncertain Seasons',
+    featuredMediaTitle: 'Elevation Worship & Praise Celebration',
     featuredMediaType: 'video',
-    featuredMediaId: 'v-2',
-    tags: ['Expositional Sermons', 'Covenant Faith', 'Deliverance', 'Bible Institute'],
-    serviceTimesOrReleaseFreq: 'Sundays 9:30 AM EST',
-    socialHandle: '@CovenantLifeGlobal'
+    featuredMediaId: 'stream-elevation-live',
+    tags: ['Contemporary Praise', 'Elevation Worship', 'Youth'],
+    serviceTimesOrReleaseFreq: 'Sundays 9:30 AM & 11:45 AM EST',
+    socialHandle: '@ElevationChurch'
   },
   {
-    id: 'm-gga',
-    name: 'Global Gospel Alliance',
+    id: 'min-dunamis',
+    name: 'Dunamis International Gospel Centre',
     category: 'churches',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=240&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80',
-    followersCount: 890000,
-    followersFormatted: '890K',
-    locationOrOrigin: 'Chicago, IL (Global Network)',
-    leadPersonOrGenre: 'Bishop Thomas Miller',
-    description: 'An apostolic movement uniting churches globally through 100-voice mass choir broadcasts and mission outreach.',
+    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&q=80',
+    bannerImage: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1600&q=80',
+    followersCount: 1950000,
+    followersFormatted: '1.95M',
+    locationOrOrigin: 'Abuja, Nigeria • The Glory Dome',
+    leadPersonOrGenre: 'Dr. Pastor Paul & Dr. Becky Enenche',
+    description: 'Apostolic breakthrough center hosting the 100,000-seat Glory Dome sanctuary with healing, miracles, and intense revival fire.',
     isVerified: true,
     isLiveNow: false,
-    featuredMediaTitle: 'Mass Gospel Choir Festival: Victory Praise Symphony 2026',
+    featuredMediaTitle: 'Nights of Holy Fire & Deliverance Altar',
     featuredMediaType: 'video',
-    featuredMediaId: 'v-3',
-    tags: ['Mass Choir', 'Apostolic Network', 'Global Prayer', 'Revival'],
-    serviceTimesOrReleaseFreq: 'Sundays 11:00 AM EST',
-    socialHandle: '@GlobalGospelAlliance'
+    featuredMediaId: 'stream-dunamis-live',
+    tags: ['Glory Dome', 'Deliverance', 'Miracles', 'Fire Altar'],
+    serviceTimesOrReleaseFreq: 'Sundays 6:30 AM to 2:00 PM (6 Services)',
+    socialHandle: '@DrPaulEnenche'
   },
   {
-    id: 'm-lws',
-    name: 'Living Waters Sanctuary',
-    category: 'churches',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=240&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1200&q=80',
-    followersCount: 310000,
-    followersFormatted: '310K',
-    locationOrOrigin: 'Miami, FL',
-    leadPersonOrGenre: 'Pastor Sarah Jenkins & Daniel Reed',
-    description: 'Family-centered church community with acoustic worship, beachside baptisms, and vibrant youth fellowship.',
+    id: 'min-sinach',
+    name: 'Sinach Global Ministry',
+    category: 'artistes',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+    bannerImage: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1600&q=80',
+    followersCount: 2100000,
+    followersFormatted: '2.1M',
+    locationOrOrigin: 'Lagos • Houston • Global Tour',
+    leadPersonOrGenre: 'Global Worship Leader & Songwriter',
+    description: 'International gospel psalmist and author of "Way Maker" and "I Know Who I Am", leading millions in global adoration.',
     isVerified: true,
     isLiveNow: false,
-    featuredMediaTitle: 'Atmosphere of Healing & Miracles Worship Night',
+    featuredMediaTitle: 'Way Maker & I Know Who I Am Concert',
     featuredMediaType: 'video',
-    featuredMediaId: 'v-5',
-    tags: ['Acoustic Praise', 'Youth Elevation', 'Miami Worship', 'Family Church'],
-    serviceTimesOrReleaseFreq: 'Sundays 10:00 AM EST',
-    socialHandle: '@LivingWatersMiami'
+    featuredMediaId: 'stream-sinach-waymaker',
+    tags: ['Way Maker', 'Global Worship', 'Gospel Hits'],
+    serviceTimesOrReleaseFreq: 'Monthly Worship Encounters & Concerts',
+    socialHandle: '@therealsinach'
   },
   {
-    id: 'm-vht',
-    name: 'Victory Harvest Temple',
-    category: 'churches',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=240&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1447069387593-a5de0862481e?auto=format&fit=crop&w=1200&q=80',
-    followersCount: 175000,
-    followersFormatted: '175K',
-    locationOrOrigin: 'Houston, TX',
-    leadPersonOrGenre: 'Apostle Marcus Thorne',
-    description: 'Pioneering prophetic deliverance, financial stewardship teachings, and community transformation.',
+    id: 'min-bibleproject',
+    name: 'The Bible Project & Kingdom Creators',
+    category: 'creators',
+    avatar: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=300&q=80',
+    bannerImage: 'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&w=1600&q=80',
+    followersCount: 1420000,
+    followersFormatted: '1.42M',
+    locationOrOrigin: 'Portland, OR • Global Translations',
+    leadPersonOrGenre: 'Dr. Tim Mackie & Jon Collins',
+    description: 'Visual animation studio helping the world experience the Bible as a unified story that leads to Jesus.',
     isVerified: true,
     isLiveNow: false,
-    tags: ['Prophetic Harvest', 'Financial Discipleship', 'Deliverance'],
-    serviceTimesOrReleaseFreq: 'Sundays 10:00 AM CST',
-    socialHandle: '@VictoryHarvestTemple'
-  },
-
-  // 🎵 ARTISTES CATEGORY
-  {
-    id: 'm-kcve',
-    name: 'Kingdom Celebration Vocal Ensemble',
-    category: 'artistes',
-    avatar: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=240&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1200&q=80',
-    followersCount: 890000,
-    followersFormatted: '890K',
-    locationOrOrigin: 'International Collective',
-    leadPersonOrGenre: 'Mass Gospel Choir & Live Symphony',
-    description: 'Renowned 100-voice gospel vocal collective producing soaring choral anthems, high praise, and symphonic worship.',
-    isVerified: true,
-    featuredMediaTitle: 'Mass Gospel Choir Festival: Victory Praise Symphony 2026',
-    featuredMediaType: 'video',
-    featuredMediaId: 'v-3',
-    tags: ['Mass Choir', 'Symphonic Worship', 'Gospel Anthems', 'Orchestra'],
-    serviceTimesOrReleaseFreq: 'Monthly Concert Recordings',
-    socialHandle: '@KingdomChoirGlobal'
+    tags: ['Animation', 'Biblical Theology', 'Visual Exegesis'],
+    serviceTimesOrReleaseFreq: 'Bi-weekly Animated Releases',
+    socialHandle: '@bibleproject'
   },
   {
-    id: 'm-dsj',
-    name: 'David & Sarah Jenkins Worship Band',
-    category: 'artistes',
-    avatar: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=240&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80',
-    followersCount: 310000,
-    followersFormatted: '310K',
-    locationOrOrigin: 'Nashville, TN & Miami, FL',
-    leadPersonOrGenre: 'Contemporary Praise & Prophetic Acoustic',
-    description: 'Anointed acoustic worship leaders bringing heartfelt praise medleys, soaking instrumental sessions, and live albums.',
+    id: 'min-hillsong',
+    name: 'Hillsong Global Fellowship',
+    category: 'churches',
+    avatar: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=300&q=80',
+    bannerImage: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1600&q=80',
+    followersCount: 3200000,
+    followersFormatted: '3.2M',
+    locationOrOrigin: 'Sydney • London • New York • Global',
+    leadPersonOrGenre: 'Global Pastoral & Creative Team',
+    description: 'Connecting communities worldwide through praise, creative storytelling, and local church campus fellowships.',
     isVerified: true,
-    featuredMediaTitle: 'Way Maker & Great Are You Lord (Live Worship Medley)',
-    featuredMediaType: 'audio',
-    featuredMediaId: 'a-3',
-    tags: ['Acoustic Worship', 'Prophetic Soaking', 'Live Medleys', 'Gospel Duo'],
-    serviceTimesOrReleaseFreq: 'New Worship Singles Monthly',
-    socialHandle: '@DavidSarahWorship'
-  },
-  {
-    id: 'm-gsc',
-    name: 'Grace Sanctuary Choir',
-    category: 'artistes',
-    avatar: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=240&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
-    followersCount: 520000,
-    followersFormatted: '520K',
-    locationOrOrigin: 'Atlanta, GA',
-    leadPersonOrGenre: 'Choral Praise & Gospel Hymns',
-    description: 'Spiritual vocal ensemble weaving timeless gospel hymns with modern high-praise arrangements.',
-    isVerified: true,
-    featuredMediaTitle: 'Atmosphere of Praise Vol. 4',
-    featuredMediaType: 'audio',
-    featuredMediaId: 'a-3',
-    tags: ['Gospel Hymns', 'Sanctuary Worship', 'Anointed Harmonies'],
-    serviceTimesOrReleaseFreq: 'Weekly Sunday Rehearsal Streams',
-    socialHandle: '@GraceSanctuaryChoir'
-  },
-  {
-    id: 'm-epb',
-    name: 'Ephraim Praise Band & AfroGospel',
-    category: 'artistes',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=240&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80',
-    followersCount: 380000,
-    followersFormatted: '380K',
-    locationOrOrigin: 'Lagos, Nigeria & London, UK',
-    leadPersonOrGenre: 'Gospel Afrobeat & High Praise',
-    description: 'High-energy West African praise band fusing Afrobeat rhythms, brass horns, and joyful kingdom declarations.',
-    isVerified: true,
-    tags: ['AfroGospel', 'High Praise', 'Joyful Rhythms', 'Live Band'],
-    serviceTimesOrReleaseFreq: 'Bi-weekly Praise Sessions',
-    socialHandle: '@EphraimAfroGospel'
-  },
-
-  // 🎙️ CREATORS CATEGORY
-  {
-    id: 'm-kmp',
-    name: 'Kingdom Mindset Podcast Host',
-    category: 'creators',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=240&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&w=1200&q=80',
-    followersCount: 180000,
-    followersFormatted: '180K',
-    locationOrOrigin: 'Atlanta, GA',
-    leadPersonOrGenre: 'Pastor Mark Anthony & David Lawson',
-    description: 'Top-ranking Christian podcast unpacking mental health, faith in the digital age, and young adult discipleship.',
-    isVerified: true,
-    featuredMediaTitle: 'Ep. 42: Faith in the Digital Age & Overcoming Anxiety',
-    featuredMediaType: 'audio',
-    featuredMediaId: 'a-2',
-    tags: ['Sermon Podcast', 'Mental Peace', 'Digital Discipleship', 'Weekly Show'],
-    serviceTimesOrReleaseFreq: 'New Episodes Every Tuesday',
-    socialHandle: '@KingdomMindsetPodcast'
-  },
-  {
-    id: 'm-devv',
-    name: 'Dr. Elizabeth Vance Teaching Channel',
-    category: 'creators',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=240&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1447069387593-a5de0862481e?auto=format&fit=crop&w=1200&q=80',
-    followersCount: 210000,
-    followersFormatted: '210K',
-    locationOrOrigin: 'Dallas, TX',
-    leadPersonOrGenre: 'Expository Bible Teaching & Faith Declarations',
-    description: 'Transformative digital Bible study channel offering verse-by-verse teachings, audio sermons, and daily prayer declarations.',
-    isVerified: true,
-    featuredMediaTitle: 'Unlocking Supernatural Breakthrough & Open Heavens',
-    featuredMediaType: 'audio',
-    featuredMediaId: 'a-5',
-    tags: ['Audio Sermon', 'Bible Study', 'Prophetic Declarations'],
-    serviceTimesOrReleaseFreq: 'Weekly Expository Teaching',
-    socialHandle: '@DrElizabethVance'
-  },
-  {
-    id: 'm-mmd',
-    name: 'Morning Manna Devotions with Pastor Sarah',
-    category: 'creators',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=240&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1509021436468-d51039746b20?auto=format&fit=crop&w=1200&q=80',
-    followersCount: 320000,
-    followersFormatted: '320K',
-    locationOrOrigin: 'Miami, FL',
-    leadPersonOrGenre: 'Daily Morning Devotionals & Prayer',
-    description: '14-minute daily audio devotional to start your morning with focused scripture, family blessing, and peace.',
-    isVerified: true,
-    featuredMediaTitle: 'Morning Manna: Overcoming Weariness Through Prayer',
-    featuredMediaType: 'audio',
-    featuredMediaId: 'a-4',
-    tags: ['Daily Devotional', 'Morning Prayer', 'Scripture Meditation'],
-    serviceTimesOrReleaseFreq: 'Daily at 6:00 AM EST',
-    socialHandle: '@MorningMannaSarah'
-  },
-  {
-    id: 'm-gsed',
-    name: 'Grace Shorts Evangelism Team',
-    category: 'creators',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=240&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
-    followersCount: 420000,
-    followersFormatted: '420K',
-    locationOrOrigin: 'Worldwide Digital Missions',
-    leadPersonOrGenre: 'Short-Form Gospel Creators & Street Evangelism',
-    description: 'Creating 60-second viral sermon clips, street prayer encounters, and college campus revival shorts.',
-    isVerified: true,
-    tags: ['Grace Shorts', 'Street Evangelism', 'Youth Fire', 'Viral Sermon Clips'],
-    serviceTimesOrReleaseFreq: '3 Clips Daily',
-    socialHandle: '@GraceShortsOfficial'
+    isLiveNow: false,
+    tags: ['Worship', 'Global Fellowship', 'Acoustic Praise'],
+    serviceTimesOrReleaseFreq: 'Sundays Worldwide',
+    socialHandle: '@hillsong'
   }
 ];
 
@@ -520,6 +386,112 @@ export default function DiscoverMinistriesHub({
         />
       ) : (
         <div className="space-y-8">
+          {/* 🏛️ FLAGSHIP FEATURED MINISTRY SPOTLIGHT (GRACE CITY CATHEDRAL) */}
+          <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-red-950/70 via-slate-950 to-slate-950 border-2 border-red-500/50 p-6 sm:p-8 shadow-2xl">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center relative z-10">
+              <div className="lg:col-span-8 space-y-4">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="px-3 py-1 rounded-full bg-red-600 text-white font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-red-600/40 animate-pulse">
+                    <span className="w-2.5 h-2.5 rounded-full bg-white" />
+                    <span>🔴 LIVE NOW</span>
+                  </span>
+                  <span className="px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-amber-300 text-xs font-mono font-bold">
+                    12,480 worshippers joined in the Spirit
+                  </span>
+                  <span className="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-xs font-bold">
+                    Featured Digital Church Home
+                  </span>
+                </div>
+
+                <div>
+                  <h2 
+                    onClick={() => onSelectChannelModal('Grace City Cathedral')}
+                    className="text-2xl sm:text-3xl font-black text-white font-serif tracking-tight cursor-pointer hover:text-amber-300 transition"
+                  >
+                    Grace City Cathedral
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-300 mt-1">
+                    Senior Pastor David & Pastor Sarah Williams • Apostolic Overseers • 1.48M Followers
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div>
+                    <span className="text-amber-400 font-bold block">Upcoming Gathering:</span>
+                    <span className="text-white font-semibold">Sunday Service — 9:00 AM EST (Sanctuary & Global Broadcast)</span>
+                  </div>
+                  <button
+                    onClick={() => onSelectChannelModal('Grace City Cathedral')}
+                    className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold border border-slate-700 self-start sm:self-auto transition"
+                  >
+                    View Schedule
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-3 flex-wrap pt-1">
+                  <button
+                    onClick={() => {
+                      const gccLive = allVideos.find(v => v.id === 'stream-gcc-live') || allVideos[0];
+                      if (gccLive) onSelectVideo(gccLive);
+                    }}
+                    className="px-5 py-2.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-xs transition flex items-center gap-2 shadow-xl shadow-red-600/30"
+                  >
+                    <Play className="w-4 h-4 fill-current" />
+                    <span>Watch Live Sanctuary</span>
+                  </button>
+
+                  <button
+                    onClick={() => onSelectChannelModal('Grace City Cathedral')}
+                    className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 font-black text-xs transition flex items-center gap-2 shadow-xl shadow-amber-500/20"
+                  >
+                    <Building2 className="w-4 h-4" />
+                    <span>Explore Digital Home</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onOpenGivingModal({
+                        id: 'target-gcc',
+                        name: 'Grace City Cathedral',
+                        avatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
+                        type: 'church',
+                        categoryTitle: 'Grace City Cathedral Kingdom Stewardship'
+                      });
+                    }}
+                    className="px-4 py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/40 font-bold text-xs transition flex items-center gap-1.5"
+                  >
+                    <DollarSign className="w-4 h-4" />
+                    <span>Give / Tithe</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="lg:col-span-4">
+                <div 
+                  onClick={() => onSelectChannelModal('Grace City Cathedral')}
+                  className="relative aspect-video lg:aspect-square rounded-2xl overflow-hidden bg-slate-900 border-2 border-red-500/40 shadow-2xl cursor-pointer group"
+                >
+                  <img 
+                    src="https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=800&q=80" 
+                    alt="Grace City Cathedral Live" 
+                    className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                  />
+                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-full bg-red-600 text-white flex items-center justify-center shadow-xl group-hover:scale-110 transition">
+                      <Play className="w-5 h-5 fill-current ml-0.5" />
+                    </div>
+                  </div>
+                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-[10px] text-white bg-black/70 px-2.5 py-1 rounded-lg backdrop-blur-md">
+                    <span>Main Cathedral Live</span>
+                    <span className="text-red-400 font-mono font-bold">12,480 Online</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* 🎯 CATEGORY SELECTOR TABS & SEARCH BAR */}
           <div className="space-y-4">
         

@@ -67,7 +67,7 @@ export default function UserProfilePage({
   onPlayVideo,
   onPlayAudio,
   subscribedChannels,
-  joinedChurches = ['Grace City Cathedral'],
+  joinedChurches = [],
   churchMemberCounts = {},
   onSelectChannelModal,
   onToggleJoinChurch,
@@ -84,27 +84,31 @@ export default function UserProfilePage({
 
   // Editable Profile Information State
   const [isEditing, setIsEditing] = useState(false);
-  const [userName, setUserName] = useState('David Lawson');
-  const [userHandle, setUserHandle] = useState('@david_lawson');
-  const [userBio, setUserBio] = useState('Choir Leader, Gospel Media Enthusiast & Believer at Grace City Cathedral. Seeking daily spiritual revival.');
-  const [homeChurch, setHomeChurch] = useState('Grace City Cathedral (London, UK)');
-  const [userEmail, setUserEmail] = useState('david.lawson@gospread.org');
+  const [userName, setUserName] = useState(currentUser?.fullName || 'Kingdom Believer');
+  const [userHandle, setUserHandle] = useState(currentUser?.username ? `@${currentUser.username}` : '@believer');
+  const [userBio, setUserBio] = useState('Gospel Media Enthusiast & Believer. Seeking daily spiritual revival.');
+  const [homeChurch, setHomeChurch] = useState(currentUser?.churchName || 'Independent / Online Sanctuary');
+  const [userEmail, setUserEmail] = useState(currentUser?.email || '');
   const [showSavedToast, setShowSavedToast] = useState(false);
 
   // Giving History Log
-  const [givingLogs, setGivingLogs] = useState([
-    { id: 'g-101', target: 'Grace City Cathedral', date: 'Aug 04, 2026', amount: 500, category: 'Sunday Tithe & Offering', status: 'Completed' },
-    { id: 'g-102', target: 'Pastor Mark Anthony', date: 'Aug 01, 2026', amount: 150, category: 'Prophetic Anointing Seed', status: 'Completed' },
-    { id: 'g-103', target: 'Gospread Global Satellite Fund', date: 'Jul 28, 2026', amount: 1000, category: 'Kingdom Pillar Monthly Seed', status: 'Completed' },
-    { id: 'g-104', target: 'Grace Sanctuary Choir', date: 'Jul 20, 2026', amount: 200, category: 'Sound Equipment Love Offering', status: 'Completed' }
-  ]);
+  const [givingLogs, setGivingLogs] = useState<Array<{
+    id: string;
+    target: string;
+    date: string;
+    amount: number;
+    category: string;
+    status: string;
+  }>>([]);
 
   // Personal Prayer Requests Log
-  const [myPrayers, setMyPrayers] = useState([
-    { id: 'p-1', title: 'Healing & Total Restoration for Family', date: 'Aug 02, 2026', status: 'Answered', praiseReport: 'God restored health miraculously during Sunday worship!' },
-    { id: 'p-2', title: 'Wisdom & Open Doors for Career Elevation', date: 'Jul 29, 2026', status: 'Active Prayer', praiseReport: null },
-    { id: 'p-3', title: 'Grace for Daily Morning Quiet Time', date: 'Jul 15, 2026', status: 'Answered', praiseReport: 'Maintained 7-day consistency in Morning Manna devotions!' }
-  ]);
+  const [myPrayers, setMyPrayers] = useState<Array<{
+    id: string;
+    title: string;
+    date: string;
+    status: string;
+    praiseReport: string | null;
+  }>>([]);
 
   // Settings Toggles
   const [notifServiceAlerts, setNotifServiceAlerts] = useState(true);
@@ -638,7 +642,7 @@ export default function UserProfilePage({
                   >
                     <div className="flex items-center gap-3 overflow-hidden">
                       <img
-                        src={track.coverUrl}
+                        src={track.coverUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80'}
                         alt={track.title}
                         className="w-12 h-12 rounded-xl object-cover shrink-0"
                       />
@@ -691,40 +695,48 @@ export default function UserProfilePage({
               </button>
             </div>
 
-            <div className="space-y-2">
-              {givingLogs.map((log) => (
-                <div
-                  key={log.id}
-                  className="p-4 rounded-2xl bg-[#181818] border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold shrink-0">
-                      <DollarSign className="w-5 h-5" />
+            {givingLogs.length === 0 ? (
+              <div className="p-8 text-center bg-[#181818] rounded-3xl border border-slate-800 text-slate-500 text-xs space-y-2">
+                <DollarSign className="w-8 h-8 text-slate-600 mx-auto" />
+                <p>No giving history yet.</p>
+                <p className="text-[10px]">Your digital receipts and offering contributions will appear here once you sow a seed.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {givingLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="p-4 rounded-2xl bg-[#181818] border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold shrink-0">
+                        <DollarSign className="w-5 h-5" />
+                      </div>
+
+                      <div>
+                        <h4 className="text-xs font-bold text-white">{log.target}</h4>
+                        <p className="text-[10px] text-slate-400">{log.category} • {log.date}</p>
+                      </div>
                     </div>
 
-                    <div>
-                      <h4 className="text-xs font-bold text-white">{log.target}</h4>
-                      <p className="text-[10px] text-slate-400">{log.category} • {log.date}</p>
+                    <div className="flex items-center justify-between sm:justify-end gap-4 border-t sm:border-0 border-slate-800 pt-2 sm:pt-0">
+                      <div className="text-right">
+                        <p className="text-sm font-black text-emerald-400 font-serif">${log.amount}</p>
+                        <span className="text-[9px] text-emerald-300 font-mono">Receipt #{log.id}</span>
+                      </div>
+
+                      <button
+                        onClick={() => alert(`Official Kingdom Giving Receipt #${log.id} copied to clipboard!`)}
+                        className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-bold flex items-center gap-1"
+                        title="Copy Digital Receipt"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center justify-between sm:justify-end gap-4 border-t sm:border-0 border-slate-800 pt-2 sm:pt-0">
-                    <div className="text-right">
-                      <p className="text-sm font-black text-emerald-400 font-serif">${log.amount}</p>
-                      <span className="text-[9px] text-emerald-300 font-mono">Receipt #{log.id}</span>
-                    </div>
-
-                    <button
-                      onClick={() => alert(`Official Kingdom Giving Receipt #${log.id} copied to clipboard!`)}
-                      className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-bold flex items-center gap-1"
-                      title="Copy Digital Receipt"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -745,36 +757,44 @@ export default function UserProfilePage({
               </button>
             </div>
 
-            <div className="space-y-3">
-              {myPrayers.map((prayer) => (
-                <div
-                  key={prayer.id}
-                  className="p-4 rounded-2xl bg-[#181818] border border-slate-800 space-y-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-slate-400">{prayer.date}</span>
-                    <button
-                      onClick={() => togglePrayerStatus(prayer.id)}
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition ${
-                        prayer.status === 'Answered'
-                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                          : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                      }`}
-                    >
-                      {prayer.status} (Click to toggle)
-                    </button>
-                  </div>
-
-                  <h4 className="text-xs font-bold text-white">{prayer.title}</h4>
-
-                  {prayer.praiseReport && (
-                    <div className="p-3 rounded-xl bg-amber-950/20 border border-amber-500/30 text-xs text-amber-200 font-serif italic">
-                      🙌 {prayer.praiseReport}
+            {myPrayers.length === 0 ? (
+              <div className="p-8 text-center bg-[#181818] rounded-3xl border border-slate-800 text-slate-500 text-xs space-y-2">
+                <Heart className="w-8 h-8 text-slate-600 mx-auto" />
+                <p>No prayer requests submitted yet.</p>
+                <p className="text-[10px]">Click &ldquo;Submit Prayer&rdquo; to record personal prayer petitions and track answered testimonies.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {myPrayers.map((prayer) => (
+                  <div
+                    key={prayer.id}
+                    className="p-4 rounded-2xl bg-[#181818] border border-slate-800 space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono text-slate-400">{prayer.date}</span>
+                      <button
+                        onClick={() => togglePrayerStatus(prayer.id)}
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition ${
+                          prayer.status === 'Answered'
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                            : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                        }`}
+                      >
+                        {prayer.status} (Click to toggle)
+                      </button>
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
+
+                    <h4 className="text-xs font-bold text-white">{prayer.title}</h4>
+
+                    {prayer.praiseReport && (
+                      <div className="p-3 rounded-xl bg-amber-950/20 border border-amber-500/30 text-xs text-amber-200 font-serif italic">
+                        🙌 {prayer.praiseReport}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -785,28 +805,36 @@ export default function UserProfilePage({
               Followed Ministry Channels ({subscribedChannels.length})
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {subscribedChannels.map((channelName) => (
-                <div
-                  key={channelName}
-                  className="p-3.5 rounded-2xl bg-[#181818] border border-slate-800 flex items-center justify-between gap-3"
-                >
-                  <div className="flex items-center gap-2.5 overflow-hidden">
-                    <div className="w-9 h-9 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold text-xs shrink-0">
-                      {channelName.charAt(0)}
-                    </div>
-                    <span className="text-xs font-bold text-white truncate">{channelName}</span>
-                  </div>
-
-                  <button
-                    onClick={() => onToggleSubscribe(channelName)}
-                    className="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold"
+            {subscribedChannels.length === 0 ? (
+              <div className="p-8 text-center bg-[#181818] rounded-3xl border border-slate-800 text-slate-500 text-xs space-y-2">
+                <Tv className="w-8 h-8 text-slate-600 mx-auto" />
+                <p>You haven&apos;t followed any ministry channels yet.</p>
+                <p className="text-[10px]">Follow churches or ministries across the platform to stay updated with live broadcasts.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {subscribedChannels.map((channelName) => (
+                  <div
+                    key={channelName}
+                    className="p-3.5 rounded-2xl bg-[#181818] border border-slate-800 flex items-center justify-between gap-3"
                   >
-                    Unfollow
-                  </button>
-                </div>
-              ))}
-            </div>
+                    <div className="flex items-center gap-2.5 overflow-hidden">
+                      <div className="w-9 h-9 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold text-xs shrink-0">
+                        {channelName.charAt(0)}
+                      </div>
+                      <span className="text-xs font-bold text-white truncate">{channelName}</span>
+                    </div>
+
+                    <button
+                      onClick={() => onToggleSubscribe(channelName)}
+                      className="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold"
+                    >
+                      Unfollow
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

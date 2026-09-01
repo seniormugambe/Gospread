@@ -90,30 +90,6 @@ const SPIRITUAL_ROLES = [
   { id: 'creator', label: 'Gospel Content Creator', icon: Tv, desc: 'Broadcasting messages & ministry media' },
 ];
 
-const DEMO_ACCOUNTS = [
-  {
-    role: 'Pastor David Wilson',
-    email: 'pastor.david@gospread.org',
-    church: 'Grace City Cathedral',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
-    title: 'Senior Pastor'
-  },
-  {
-    role: 'Sarah Jenkins',
-    email: 'sarah.jenkins@gospread.org',
-    church: 'Grace City Cathedral',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80',
-    title: 'Global Intercessor'
-  },
-  {
-    role: 'Michael Adewale',
-    email: 'michael.adewale@gospread.org',
-    church: 'Redeemed Christian Fellowship',
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=120&q=80',
-    title: 'Youth Minister'
-  }
-];
-
 export const AuthPage: React.FC<AuthPageProps> = ({
   initialMode = 'signin',
   currentUser,
@@ -129,14 +105,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [selectedScriptureIdx, setSelectedScriptureIdx] = useState(0);
 
   // Sign In Inputs
-  const [loginIdentifier, setLoginIdentifier] = useState('david.lawson@gospread.org');
-  const [loginPassword, setLoginPassword] = useState('KingdomPass2026!');
+  const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
 
   // Sign Up Inputs
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
-  const [churchName, setChurchName] = useState('Grace City Cathedral');
+  const [churchName, setChurchName] = useState(POPULAR_CHURCHES[0] || 'Grace City Cathedral');
   const [customChurch, setCustomChurch] = useState('');
   const [spiritualRole, setSpiritualRole] = useState('believer');
   const [password, setPassword] = useState('');
@@ -305,14 +281,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Quick Demo Login
-  const handleQuickDemoLogin = (demo: typeof DEMO_ACCOUNTS[0]) => {
-    setLoginIdentifier(demo.email);
-    setLoginPassword('KingdomPass2026!');
-    setErrorMessage(null);
-    setSuccessMessage(`Loaded ${demo.role} credentials! Click Sign In to enter.`);
   };
 
   // Handle Social Fast Auth
@@ -648,34 +616,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                   </>
                 )}
               </button>
-
-              {/* Quick Demo Test Logins */}
-              <div className="pt-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    ⚡ Quick Demo Accounts
-                  </span>
-                  <span className="text-[10px] text-amber-400/90 font-medium">1-Click Test Drive</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {DEMO_ACCOUNTS.map((demo, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleQuickDemoLogin(demo)}
-                      className="p-2 rounded-xl bg-slate-950/80 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/40 text-left transition flex items-center gap-2 group"
-                    >
-                      <img src={demo.avatar} alt={demo.role} className="w-7 h-7 rounded-full object-cover shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-[11px] font-bold text-slate-200 group-hover:text-amber-300 truncate">
-                          {demo.role}
-                        </div>
-                        <div className="text-[9px] text-slate-400 truncate">{demo.title}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               {/* Fast Social Login Dividers */}
               <div className="relative my-4">

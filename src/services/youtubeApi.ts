@@ -2,6 +2,7 @@
 // Integrates official YouTube Data API endpoints for live gospel streams, sermons, and channels.
 
 import { VideoStream, LIVE_VIDEO_STREAMS, AudioTrack, AUDIO_TRACKS } from '../data/gospelData';
+import { decodeHtml } from '../lib/utils';
 
 // Access YouTube API Key from client environment variables or provided default
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY ;
@@ -128,9 +129,9 @@ class YouTubeApiService {
 
         return {
           id: videoId,
-          title: snippet.title,
-          speakerOrArtist: snippet.channelTitle,
-          churchOrMinistry: `${snippet.channelTitle} Official`,
+          title: decodeHtml(snippet.title),
+          speakerOrArtist: decodeHtml(snippet.channelTitle),
+          churchOrMinistry: `${decodeHtml(snippet.channelTitle)} Official`,
           channelAvatar: snippet.thumbnails.default?.url || snippet.thumbnails.medium?.url || '',
           subscribersCount: 'Verified YouTube Channel',
           likesCount: this.formatCount(details?.statistics?.likeCount || 4500),
@@ -140,7 +141,7 @@ class YouTubeApiService {
           viewsText: isLive ? `${this.formatCount(viewers)} watching now` : `${this.formatCount(details?.statistics?.viewCount || 15000)} views`,
           duration: details?.contentDetails?.duration ? this.formatIsoDuration(details.contentDetails.duration) : '45:00',
           thumbnail: snippet.thumbnails.high?.url || snippet.thumbnails.medium?.url || '',
-          description: snippet.description || 'Watch live gospel worship and biblical preaching.',
+          description: decodeHtml(snippet.description) || 'Watch live gospel worship and biblical preaching.',
           date: new Date(snippet.publishedAt).toLocaleDateString()
         };
       });

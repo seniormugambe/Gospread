@@ -32,10 +32,11 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AudioTrack, AudioChapter } from '../data/gospelData';
+import { decodeHtml } from '../lib/utils';
 import { GivingTarget } from './GivingModal';
 
 interface AudioPodcastPlayerProps {
-  currentTrack: AudioTrack;
+  currentTrack?: AudioTrack | null;
   isPlaying: boolean;
   onTogglePlay: () => void;
   isMuted: boolean;
@@ -74,7 +75,7 @@ export default function AudioPodcastPlayer({
 
   // Time & Progress State (Simulated interactive seeker)
   const [currentTimeSec, setCurrentTimeSec] = useState(145);
-  const totalDurationSec = currentTrack.isLiveRadio ? 0 : 2295; // ~38:15
+  const totalDurationSec = currentTrack?.isLiveRadio ? 0 : 2295; // ~38:15
 
   // Saved / Copied State
   const [copiedText, setCopiedText] = useState(false);
@@ -222,6 +223,8 @@ export default function AudioPodcastPlayer({
     }, 300);
   };
 
+  if (!currentTrack) return null;
+
   const progressPercent = currentTrack.isLiveRadio ? 100 : Math.min(100, (currentTimeSec / (totalDurationSec || 1)) * 100);
 
   return (
@@ -247,7 +250,7 @@ export default function AudioPodcastPlayer({
           >
             <div className="relative shrink-0">
               <img
-                src={currentTrack.coverUrl}
+                src={currentTrack.coverUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80'}
                 alt={currentTrack.title}
                 referrerPolicy="no-referrer"
                 className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-cover border border-amber-500/30 group-hover:scale-105 transition shadow-lg"
@@ -264,7 +267,7 @@ export default function AudioPodcastPlayer({
             <div className="overflow-hidden min-w-0 pr-2">
               <div className="flex items-center gap-1.5">
                 <h4 className="text-xs font-bold text-white truncate group-hover:text-amber-300 transition">
-                  {currentTrack.title}
+                  {decodeHtml(currentTrack.title)}
                 </h4>
                 {currentTrack.isLiveRadio && (
                   <span className="px-1.5 py-0.2 rounded bg-red-600 text-white text-[8px] font-black uppercase shrink-0 animate-pulse">
@@ -273,7 +276,7 @@ export default function AudioPodcastPlayer({
                 )}
               </div>
               <p className="text-[10px] text-amber-400/90 truncate font-medium">
-                {currentTrack.artistOrPreacher}
+                {decodeHtml(currentTrack.artistOrPreacher)}
               </p>
             </div>
           </div>
@@ -404,7 +407,7 @@ export default function AudioPodcastPlayer({
             {/* Ambient Blurred Background Art */}
             <div className="absolute inset-0 pointer-events-none opacity-20 filter blur-3xl">
               <img
-                src={currentTrack.coverUrl}
+                src={currentTrack.coverUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80'}
                 alt=""
                 className="w-full h-full object-cover"
               />
@@ -471,7 +474,7 @@ export default function AudioPodcastPlayer({
                 {/* Large Album Art with Animated Frequency Visualizer */}
                 <div className="relative w-56 h-56 sm:w-64 sm:h-64 rounded-3xl overflow-hidden shadow-2xl border-2 border-amber-500/40 group">
                   <img
-                    src={currentTrack.coverUrl}
+                    src={currentTrack.coverUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80'}
                     alt={currentTrack.title}
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover"
@@ -499,10 +502,10 @@ export default function AudioPodcastPlayer({
                 {/* Track Info */}
                 <div className="space-y-1.5 max-w-md">
                   <h2 className="text-base sm:text-lg font-black font-serif text-white leading-snug">
-                    {currentTrack.title}
+                    {decodeHtml(currentTrack.title)}
                   </h2>
                   <p className="text-xs text-amber-300 font-medium">
-                    {currentTrack.artistOrPreacher} • {currentTrack.albumOrSeries}
+                    {decodeHtml(currentTrack.artistOrPreacher)} • {decodeHtml(currentTrack.albumOrSeries)}
                   </p>
                   {currentTrack.publishedDate && (
                     <p className="text-[10px] text-slate-400">
@@ -842,7 +845,7 @@ export default function AudioPodcastPlayer({
                           <div className="flex items-center gap-3 overflow-hidden">
                             <span className="font-mono text-[10px] text-slate-500 w-4">#{idx + 1}</span>
                             <img
-                              src={track.coverUrl}
+                              src={track.coverUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80'}
                               alt={track.title}
                               className="w-9 h-9 rounded-xl object-cover shrink-0"
                             />

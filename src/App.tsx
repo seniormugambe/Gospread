@@ -81,6 +81,7 @@ import PictureInPictureWindow from './components/PictureInPictureWindow';
 import LiveViewerTrendSparkline from './components/LiveViewerTrendSparkline';
 import AudioPodcastPlayer from './components/AudioPodcastPlayer';
 import AudioPodcastHub from './components/AudioPodcastHub';
+import KingdomHomeFeed from './components/KingdomHomeFeed';
 import { SearchEngineOverlay } from './components/SearchEngineOverlay';
 import { WatchHistoryView, WatchHistoryItem } from './components/WatchHistoryView';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -93,7 +94,8 @@ import {
   VideoStream, 
   AudioTrack,
   ChatMessage,
-  ReactionType
+  ReactionType,
+  LIVE_VIDEO_STREAMS
 } from './data/gospelData';
 import { youtubeApi } from './services/youtubeApi';
 
@@ -131,7 +133,7 @@ export default function App() {
     setIsPipDocked(false);
     setActiveVideo(null);
   };
-  const [videoStreams, setVideoStreams] = useState<VideoStream[]>([]);
+  const [videoStreams, setVideoStreams] = useState<VideoStream[]>(LIVE_VIDEO_STREAMS);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -246,49 +248,21 @@ export default function App() {
   // Watch view state & Channel Following state
   const [activeVideo, setActiveVideo] = useState<VideoStream | null>(null);
   const [isPipDocked, setIsPipDocked] = useState(false);
-  const [subscribedChannels, setSubscribedChannels] = useState<string[]>([
-    'Grace City Cathedral',
-    'Covenant Life Ministries'
-  ]);
-  const [followerCounts, setFollowerCounts] = useState<Record<string, number>>({
-    'Grace City Cathedral': 482000,
-    'Covenant Life Ministries': 210000,
-    'Global Gospel Alliance': 890000,
-    'Living Waters Sanctuary': 310000,
-    'Grace & Truth Institute': 150000,
-    'Sermons of Hope Ministries': 640000,
-    'Covenant Life': 210000
-  });
-  const [bellSettings, setBellSettings] = useState<Record<string, 'all' | 'personalized' | 'none'>>({
-    'Grace City Cathedral': 'all',
-    'Covenant Life Ministries': 'personalized'
-  });
+  const [subscribedChannels, setSubscribedChannels] = useState<string[]>([]);
+  const [followerCounts, setFollowerCounts] = useState<Record<string, number>>({});
+  const [bellSettings, setBellSettings] = useState<Record<string, 'all' | 'personalized' | 'none'>>({});
   const [selectedChannelModal, setSelectedChannelModal] = useState<string | null>(null);
   const [followToast, setFollowToast] = useState<string | null>(null);
 
   // Church Membership & Member Count State
   const [joinedChurches, setJoinedChurches] = useState<string[]>(() => {
     const saved = localStorage.getItem('gospread_joined_churches');
-    return saved ? JSON.parse(saved) : ['Grace City Cathedral'];
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [churchMemberCounts, setChurchMemberCounts] = useState<Record<string, number>>(() => {
     const saved = localStorage.getItem('gospread_church_member_counts');
-    return saved ? JSON.parse(saved) : {
-      'Grace City Cathedral': 1248,
-      'Covenant Life Ministries': 890,
-      'Global Gospel Alliance': 3420,
-      'Living Waters Sanctuary': 645,
-      'Victory Harvest Temple': 412,
-      'Kingdom Celebration Vocal Ensemble': 1850,
-      'David & Sarah Jenkins Worship Band': 920,
-      'Grace Sanctuary Choir': 1100,
-      'Ephraim Praise Band & AfroGospel': 780,
-      'Kingdom Mindset Podcast Host': 530,
-      'Dr. Elizabeth Vance Teaching Channel': 1410,
-      'Morning Manna Devotions with Pastor Sarah': 1680,
-      'Grace Shorts Evangelism Team': 2100
-    };
+    return saved ? JSON.parse(saved) : {};
   });
 
   const [dualJoinNotification, setDualJoinNotification] = useState<{
@@ -308,7 +282,7 @@ export default function App() {
 
       // Update church member count
       setChurchMemberCounts(mc => {
-        const current = mc[churchName] || 1248;
+        const current = mc[churchName] || 0;
         const newCount = Math.max(0, current + (isAlreadyJoined ? -1 : 1));
         const updatedMc = { ...mc, [churchName]: newCount };
         localStorage.setItem('gospread_church_member_counts', JSON.stringify(updatedMc));
@@ -336,7 +310,7 @@ export default function App() {
     });
   };
 
-  const [likedVideos, setLikedVideos] = useState<string[]>(['v-live-1']);
+  const [likedVideos, setLikedVideos] = useState<string[]>([]);
   
   // Video player controls state
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
@@ -366,7 +340,7 @@ export default function App() {
   };
 
   // Saved / Prayer
-  const [savedIds, setSavedIds] = useState<string[]>(['v-live-1', 'a-1']);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
   const [prayerModalOpen, setPrayerModalOpen] = useState(false);
   const [prayerText, setPrayerText] = useState('');
   const [prayerSubmitted, setPrayerSubmitted] = useState(false);
@@ -375,7 +349,7 @@ export default function App() {
   // 💳 Giving & Payments State
   const [showGivingModal, setShowGivingModal] = useState(false);
   const [givingModalTarget, setGivingModalTarget] = useState<GivingTarget | null>(null);
-  const [totalGivingAmount, setTotalGivingAmount] = useState(12450);
+  const [totalGivingAmount, setTotalGivingAmount] = useState(0);
   const [givingToast, setGivingToast] = useState<string | null>(null);
 
   // 🔥 Gamification & UI/UX Psychology Engagement State
@@ -402,18 +376,18 @@ export default function App() {
       console.error(e);
     }
     return {
-      id: 'usr-101',
-      username: 'david_lawson',
-      email: 'david.lawson@gospread.org',
-      fullName: 'David Lawson',
-      churchName: 'Grace City Cathedral',
-      avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
-      isLoggedIn: true,
-      token: 'jwt-access-token-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'
+      id: '',
+      username: '',
+      email: '',
+      fullName: '',
+      churchName: '',
+      avatarUrl: '',
+      isLoggedIn: false,
+      token: ''
     };
   });
-  const [streakDays, setStreakDays] = useState(5);
-  const [praiseXp, setPraiseXp] = useState(650);
+  const [streakDays, setStreakDays] = useState(0);
+  const [praiseXp, setPraiseXp] = useState(0);
 
   const handleClaimDailyReward = (xpGained: number) => {
     setPraiseXp(prev => prev + xpGained);
@@ -860,7 +834,6 @@ export default function App() {
                   { id: 'community', label: 'Fellowship & Voices', icon: MessageSquareHeart, badge: 'COMMUNITY', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
                   { id: 'discover', label: 'Discover Ministries', icon: Building2, badge: 'EXPLORE', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
                   { id: 'history', label: 'Watch History', icon: History, badge: watchHistory.length > 0 ? `${watchHistory.length}` : undefined, badgeStyle: 'bg-amber-500/20 text-amber-400 border border-amber-500/30' },
-                  { id: 'auth', label: userSession.isLoggedIn ? 'Kingdom Login' : 'Login / Register', icon: ShieldCheck, badge: userSession.isLoggedIn ? 'SECURE' : 'AUTH', badgeStyle: userSession.isLoggedIn ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500 text-slate-950 font-black' },
                   { id: 'profile', label: 'My Profile', icon: User, badge: 'YOU', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
                   { id: 'settings', label: 'Account Settings', icon: Settings, badge: 'PREFS', badgeStyle: 'bg-slate-800 text-amber-400 border border-slate-700' },
                 ],
@@ -1104,8 +1077,8 @@ export default function App() {
                           { id: 'community', label: 'Fellowship & Testimonies', icon: MessageSquareHeart, badge: 'COMMUNITY', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
                           { id: 'discover', label: 'Discover Ministries', icon: Building2, badge: 'EXPLORE', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
                           { id: 'history', label: 'Watch History', icon: History, badge: watchHistory.length > 0 ? `${watchHistory.length}` : undefined, badgeStyle: 'bg-amber-500/20 text-amber-400 border border-amber-500/30' },
-                          { id: 'auth', label: userSession.isLoggedIn ? 'Kingdom Login' : 'Login / Register', icon: ShieldCheck, badge: userSession.isLoggedIn ? 'SECURE' : 'AUTH', badgeStyle: userSession.isLoggedIn ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500 text-slate-950 font-black' },
                           { id: 'profile', label: 'My Kingdom Profile', icon: User, badge: 'YOU', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
+                          { id: 'settings', label: 'Account Settings', icon: Settings, badge: 'PREFS', badgeStyle: 'bg-slate-800 text-amber-400 border border-slate-700' },
                         ],
                       },
                       {
@@ -1704,7 +1677,18 @@ export default function App() {
                   </div>
 
                   <div className="space-y-6">
-                    {Object.entries(CHURCH_SCHEDULES).map(([churchName, schedules]) => (
+                    {Object.entries(CHURCH_SCHEDULES).length === 0 ? (
+                      <div className="p-12 rounded-3xl bg-[#0f0f0f] border border-dashed border-slate-800 text-center space-y-3">
+                        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto">
+                          <Calendar className="w-6 h-6" />
+                        </div>
+                        <h3 className="text-base font-bold text-white">No Church Schedules Found</h3>
+                        <p className="text-xs text-slate-400 max-w-md mx-auto">
+                          Church broadcasting schedules and weekly service times will be listed here once registered by verified ministries.
+                        </p>
+                      </div>
+                    ) : (
+                      Object.entries(CHURCH_SCHEDULES).map(([churchName, schedules]) => (
                       <div
                         key={churchName}
                         className="bg-[#0f0f0f] border border-slate-800 rounded-3xl p-4 sm:p-5 space-y-5 hover:border-amber-500/30 transition shadow-xl"
@@ -1797,7 +1781,7 @@ export default function App() {
                           </div>
                         </div>
                       </div>
-                    ))}
+                    )))}
                   </div>
                 </div>
               )}
@@ -1814,65 +1798,99 @@ export default function App() {
                     </div>
 
                     {/* Single-column on mobile, multi-column on tablet and desktop */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-3">
-                      {SUBSCRIPTION_CHANNELS.map((ch) => {
-                        const isFollowed = subscribedChannels.includes(ch.name);
-                        return (
-                          <motion.div
-                            key={ch.name}
-                            whileHover={{ scale: 1.02, y: -2, boxShadow: "0 15px 30px -5px rgba(245, 158, 11, 0.2)" }}
-                            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                            className={`p-3.5 sm:p-3 rounded-2xl border transition flex flex-row sm:flex-col items-center justify-between sm:justify-start text-left sm:text-center gap-3 relative ${
-                              isFollowed ? 'bg-slate-900/90 border-amber-500/30' : 'bg-slate-900/40 border-slate-800'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3 sm:flex-col sm:gap-2 flex-1 min-w-0">
-                              <motion.img
-                                src={ch.avatar}
-                                alt={ch.name}
-                                whileHover={{ scale: 1.15 }}
-                                transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-                                onClick={() => setSelectedChannelModal(ch.name)}
-                                className="w-13 h-13 sm:w-12 sm:h-12 rounded-full object-cover cursor-pointer ring-2 ring-slate-700 hover:ring-amber-400 transition shrink-0"
-                              />
-                              <div className="overflow-hidden min-w-0">
-                                <h4
-                                  onClick={() => setSelectedChannelModal(ch.name)}
-                                  className="text-xs sm:text-xs font-bold text-white truncate cursor-pointer hover:text-amber-400"
-                                >
-                                  {ch.name}
-                                </h4>
-                                <p className="text-[11px] sm:text-[10px] text-slate-400 mt-0.5">
-                                  {((followerCounts[ch.name] || 482000) / 1000).toFixed(1)}K followers
-                                </p>
-                              </div>
-                            </div>
-
-                            <button
-                              onClick={() => toggleSubscribe(ch.name)}
-                              className={`px-4 py-2 sm:w-full sm:py-1.5 rounded-xl text-xs sm:text-[10px] font-bold transition flex items-center justify-center gap-1.5 shrink-0 min-h-[40px] sm:min-h-[32px] ${
-                                isFollowed
-                                  ? 'bg-slate-800 text-slate-300 hover:bg-slate-700 active:bg-slate-600'
-                                  : 'bg-red-600 text-white hover:bg-red-500 active:bg-red-700'
+                    {SUBSCRIPTION_CHANNELS.length === 0 ? (
+                      <div className="p-8 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800 text-center space-y-2">
+                        <UserCheck className="w-6 h-6 text-slate-600 mx-auto" />
+                        <p className="text-xs font-semibold text-slate-300">No Channels Available</p>
+                        <p className="text-[11px] text-slate-500 max-w-sm mx-auto">Verified gospel channels and ministries will appear here once connected.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-3">
+                        {SUBSCRIPTION_CHANNELS.map((ch) => {
+                          const isFollowed = subscribedChannels.includes(ch.name);
+                          return (
+                            <motion.div
+                              key={ch.name}
+                              whileHover={{ scale: 1.02, y: -2, boxShadow: "0 15px 30px -5px rgba(245, 158, 11, 0.2)" }}
+                              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                              className={`p-3.5 sm:p-3 rounded-2xl border transition flex flex-row sm:flex-col items-center justify-between sm:justify-start text-left sm:text-center gap-3 relative ${
+                                isFollowed ? 'bg-slate-900/90 border-amber-500/30' : 'bg-slate-900/40 border-slate-800'
                               }`}
                             >
-                              {isFollowed ? <UserCheck className="w-3.5 h-3.5 text-emerald-400" /> : <UserPlus className="w-3.5 h-3.5" />}
-                              <span>{isFollowed ? 'Following' : 'Follow'}</span>
-                            </button>
-                          </motion.div>
-                        );
-                      })}
-                    </div>
+                              <div className="flex items-center gap-3 sm:flex-col sm:gap-2 flex-1 min-w-0">
+                                <motion.img
+                                  src={ch.avatar}
+                                  alt={ch.name}
+                                  whileHover={{ scale: 1.15 }}
+                                  transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+                                  onClick={() => setSelectedChannelModal(ch.name)}
+                                  className="w-13 h-13 sm:w-12 sm:h-12 rounded-full object-cover cursor-pointer ring-2 ring-slate-700 hover:ring-amber-400 transition shrink-0"
+                                />
+                                <div className="overflow-hidden min-w-0">
+                                  <h4
+                                    onClick={() => setSelectedChannelModal(ch.name)}
+                                    className="text-xs sm:text-xs font-bold text-white truncate cursor-pointer hover:text-amber-400"
+                                  >
+                                    {ch.name}
+                                  </h4>
+                                  <p className="text-[11px] sm:text-[10px] text-slate-400 mt-0.5">
+                                    {((followerCounts[ch.name] || 482000) / 1000).toFixed(1)}K followers
+                                  </p>
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => toggleSubscribe(ch.name)}
+                                className={`px-4 py-2 sm:w-full sm:py-1.5 rounded-xl text-xs sm:text-[10px] font-bold transition flex items-center justify-center gap-1.5 shrink-0 min-h-[40px] sm:min-h-[32px] ${
+                                  isFollowed
+                                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700 active:bg-slate-600'
+                                    : 'bg-red-600 text-white hover:bg-red-500 active:bg-red-700'
+                                }`}
+                              >
+                                {isFollowed ? <UserCheck className="w-3.5 h-3.5 text-emerald-400" /> : <UserPlus className="w-3.5 h-3.5" />}
+                                <span>{isFollowed ? 'Following' : 'Follow'}</span>
+                              </button>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* 24/7 Gospel Radio Visual Hero Card */}
-              {(selectedCategory === 'All' || selectedCategory === '24/7 Gospel Radio') && (
+              {/* 🌟 KINGDOM EXPERIENCE HOME FEED (What's happening NOW -> What to watch -> Who to follow -> How to grow) */}
+              {selectedCategory === 'All' && searchQuery.trim() === '' && (
+                <KingdomHomeFeed
+                  videoStreams={videoStreams}
+                  audioQueue={audioQueue}
+                  currentAudio={currentAudio}
+                  isAudioPlaying={isAudioPlaying}
+                  onSelectVideo={handleSelectVideo}
+                  onPlayAudioTrack={handlePlayAudioTrack}
+                  subscribedChannels={subscribedChannels}
+                  onToggleFollow={toggleSubscribe}
+                  onOpenChannelModal={(ch) => setSelectedChannelModal(ch)}
+                  onOpenGivingModal={handleOpenGiving}
+                  onOpenDailyPromise={() => setShowPromiseModal(true)}
+                  onOpenDailyStreak={() => setShowStreakModal(true)}
+                  onOpenPrayerModal={() => setPrayerModalOpen(true)}
+                  onNavigateTab={(tab) => {
+                    setActiveTab(tab);
+                    setActiveVideo(null);
+                  }}
+                  followerCounts={followerCounts}
+                  streakDays={streakDays}
+                  praiseXp={praiseXp}
+                />
+              )}
+
+              {/* 24/7 Gospel Radio Visual Hero Card (When category is selected or searched) */}
+              {currentAudio && (selectedCategory === '24/7 Gospel Radio') && (
                 <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-red-950/80 via-slate-900 to-slate-950 border border-red-900/40 p-4 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6 shadow-2xl">
                   <div className="flex items-center gap-3.5 sm:gap-5 w-full md:w-auto">
                     <div className="relative w-18 h-18 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shrink-0 ring-2 ring-red-500/40 shadow-xl group cursor-pointer" onClick={() => handlePlayAudioTrack(currentAudio)}>
-                      <img src={currentAudio.coverUrl} alt={currentAudio.title} className="w-full h-full object-cover" />
+                      <img src={currentAudio.coverUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80'} alt={currentAudio.title} className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                         <Radio className="w-7 h-7 sm:w-8 sm:h-8 text-white animate-pulse" />
                       </div>
@@ -1906,217 +1924,221 @@ export default function App() {
                 </div>
               )}
 
-              {/* Audio Tracks Media Carousel / Single-Column Mobile Strip */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                    <Music className="w-4 h-4 text-amber-400" /> Praise & Worship Audio Tracks
-                  </h2>
-                </div>
+              {/* Dedicated Filtered Video & Audio Lists (Shown when user searches or picks specific categories other than All) */}
+              {(selectedCategory !== 'All' || searchQuery.trim() !== '') && selectedCategory !== 'Podcasts' && selectedCategory !== 'Church Schedules' && selectedCategory !== 'Following' && (
+                <>
+                  {/* Audio Tracks Strip (Only for Music/Radio category or search) */}
+                  {(selectedCategory === 'Worship Music' || selectedCategory === '24/7 Gospel Radio') && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                          <Music className="w-4 h-4 text-amber-400" /> Praise & Worship Audio Tracks
+                        </h2>
+                      </div>
 
-                {/* Single column horizontal row card on mobile, grid card on sm/md/lg */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-3">
-                  {audioQueue.map((track) => (
-                    <motion.div
-                      key={track.id}
-                      whileHover={{ scale: 1.02, y: -2 }}
-                      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                      onClick={() => handlePlayAudioTrack(track)}
-                      className={`p-3 sm:p-2.5 rounded-2xl border transition cursor-pointer group flex flex-row sm:flex-col items-center sm:items-stretch justify-between gap-3 sm:gap-0 ${
-                        currentAudio?.id === track.id && isAudioPlaying
-                          ? 'bg-red-950/40 border-red-600 shadow-md shadow-red-900/20'
-                          : 'bg-slate-900/80 border-slate-800 hover:border-slate-700 active:bg-slate-850'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 sm:flex-col sm:items-stretch sm:gap-0 flex-1 min-w-0">
-                        <div className="relative w-14 h-14 sm:w-full sm:aspect-square rounded-xl overflow-hidden sm:mb-2 shrink-0 bg-slate-950">
-                          <img src={track.coverUrl} alt={track.title} className="w-full h-full object-cover group-hover:scale-105 transition" />
-                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                            <div className="w-9 h-9 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg">
-                              <Play className="w-4 h-4 fill-white ml-0.5" />
+                      <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-3">
+                        {audioQueue.map((track) => (
+                          <motion.div
+                            key={track.id}
+                            whileHover={{ scale: 1.02, y: -2 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                            onClick={() => handlePlayAudioTrack(track)}
+                            className={`p-3 sm:p-2.5 rounded-2xl border transition cursor-pointer group flex flex-row sm:flex-col items-center sm:items-stretch justify-between gap-3 sm:gap-0 ${
+                              currentAudio?.id === track.id && isAudioPlaying
+                                ? 'bg-red-950/40 border-red-600 shadow-md shadow-red-900/20'
+                                : 'bg-slate-900/80 border-slate-800 hover:border-slate-700 active:bg-slate-850'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 sm:flex-col sm:items-stretch sm:gap-0 flex-1 min-w-0">
+                              <div className="relative w-14 h-14 sm:w-full sm:aspect-square rounded-xl overflow-hidden sm:mb-2 shrink-0 bg-slate-950">
+                                <img src={track.coverUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80'} alt={track.title} className="w-full h-full object-cover group-hover:scale-105 transition" />
+                                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                                  <div className="w-9 h-9 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg">
+                                    <Play className="w-4 h-4 fill-white ml-0.5" />
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="overflow-hidden min-w-0">
+                                <h4 className="text-xs sm:text-xs font-bold text-white truncate group-hover:text-amber-300 transition">{track.title}</h4>
+                                <p className="text-[11px] sm:text-[10px] text-slate-400 truncate mt-0.5">{track.artistOrPreacher}</p>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-
-                        <div className="overflow-hidden min-w-0">
-                          <h4 className="text-xs sm:text-xs font-bold text-white truncate group-hover:text-amber-300 transition">{track.title}</h4>
-                          <p className="text-[11px] sm:text-[10px] text-slate-400 truncate mt-0.5">{track.artistOrPreacher}</p>
-                        </div>
-                      </div>
-
-                      {/* Mobile Instant Play Action Button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePlayAudioTrack(track);
-                        }}
-                        className={`sm:hidden w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition ${
-                          currentAudio.id === track.id && isAudioPlaying
-                            ? 'bg-amber-500 text-slate-950'
-                            : 'bg-slate-800 text-slate-200 active:bg-red-600 active:text-white'
-                        }`}
-                        title="Play audio track"
-                      >
-                        {currentAudio.id === track.id && isAudioPlaying ? (
-                          <Pause className="w-4 h-4 fill-slate-950" />
-                        ) : (
-                          <Play className="w-4 h-4 fill-current ml-0.5" />
-                        )}
-                      </button>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Visual Main Stream Grid - Single-column on mobile, responsive multi-column on sm/lg */}
-              <div className="space-y-4 sm:space-y-3">
-                {searchQuery.trim() !== '' && (
-                  <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-4 flex-wrap">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold shrink-0">
-                        <Search className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h3 className="text-xs font-bold text-white flex items-center gap-1.5 flex-wrap">
-                          Search results for <span className="text-amber-400 font-mono font-bold">"{searchQuery}"</span>
-                        </h3>
-                        <p className="text-[10px] text-slate-400">
-                          Showing {filteredVideos.length} matching video streams and sermons
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setSearchQuery('')}
-                      className="px-3.5 py-1.5 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 shrink-0 min-h-[36px]"
-                    >
-                      <X className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Clear Search</span>
-                    </button>
-                  </div>
-                )}
-
-                <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                  <Tv className="w-4 h-4 text-red-500" /> Video Streams & Sermons
-                </h2>
-
-                {filteredVideos.length === 0 ? (
-                  <div className="py-12 px-4 text-center rounded-3xl bg-slate-900/60 border border-slate-800 space-y-3">
-                    <div className="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center mx-auto text-amber-400">
-                      <Search className="w-6 h-6" />
-                    </div>
-                    <h3 className="text-base font-bold text-white">No video streams match "{searchQuery}"</h3>
-                    <p className="text-xs text-slate-400 max-w-md mx-auto">
-                      Try adjusting your query, checking spelling, or resetting your filter category to find divine worship broadcasts.
-                    </p>
-                    <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
-                      <button
-                        onClick={() => setSearchQuery('')}
-                        className="px-4 py-2.5 sm:py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-full transition shadow-md min-h-[40px]"
-                      >
-                        Clear Search Query
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSearchQuery('');
-                          setSelectedCategory('All');
-                        }}
-                        className="px-4 py-2.5 sm:py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-full transition min-h-[40px]"
-                      >
-                        Reset All Filters
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  /* Mobile-first single column with generous gaps, expanding to 2 and 3 columns on tablet/desktop */
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-5">
-                    {filteredVideos.map((video) => (
-                      <motion.div
-                        key={video.id}
-                        whileHover={{ y: -4 }}
-                        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                        onClick={() => handleSelectVideo(video)}
-                        className="flex flex-col space-y-2.5 cursor-pointer group bg-slate-900/30 sm:bg-transparent p-2.5 sm:p-0 rounded-3xl sm:rounded-none border border-slate-800/50 sm:border-none"
-                      >
-                      {/* Media Card Preview */}
-                      <motion.div
-                        whileHover={{ scale: 1.02, boxShadow: "0 20px 30px -5px rgba(0, 0, 0, 0.7), 0 10px 20px -5px rgba(239, 68, 68, 0.25)" }}
-                        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                        className="relative aspect-video rounded-2xl overflow-hidden bg-slate-900 border border-slate-800/80 shadow-md"
-                      >
-                        <img
-                          src={video.thumbnail}
-                          alt={video.title}
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                          <div className="w-12 h-12 rounded-full bg-red-600 text-white flex items-center justify-center shadow-xl transform group-hover:scale-110 transition">
-                            <Play className="w-6 h-6 fill-white ml-0.5" />
-                          </div>
-                        </div>
-
-                        {video.isLive ? (
-                          <span className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-md bg-red-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-lg">
-                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> LIVE
-                          </span>
-                        ) : (
-                          <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/85 text-white text-[11px] sm:text-[10px] font-mono shadow-lg">
-                            {video.duration}
-                          </span>
-                        )}
-                      </motion.div>
-
-                      {/* Info Row */}
-                      <div className="flex items-start space-x-3 pt-0.5">
-                        <motion.img
-                          src={video.channelAvatar}
-                          alt={video.speakerOrArtist}
-                          whileHover={{ scale: 1.15, rotate: 3, boxShadow: "0 4px 12px rgba(245, 158, 11, 0.4)" }}
-                          transition={{ type: 'spring', stiffness: 350, damping: 15 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedChannelModal(video.churchOrMinistry);
-                          }}
-                          className="w-10 h-10 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 mt-0.5 ring-1 ring-slate-700 hover:ring-2 hover:ring-amber-400 transition cursor-pointer"
-                          title="View channel profile"
-                        />
-                        <div className="flex-1 overflow-hidden min-w-0">
-                          <h3 className="text-sm sm:text-xs font-bold text-white line-clamp-2 leading-snug group-hover:text-red-400 transition">
-                            {video.title}
-                          </h3>
-                          <div className="flex items-center justify-between gap-2 mt-1.5 flex-wrap">
-                            <p 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedChannelModal(video.churchOrMinistry);
-                              }}
-                              className="text-xs sm:text-[11px] text-slate-400 flex items-center gap-1 cursor-pointer hover:text-amber-400 transition truncate"
-                            >
-                              <span>{video.churchOrMinistry}</span>
-                              <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
-                            </p>
 
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                toggleSubscribe(video.churchOrMinistry);
+                                handlePlayAudioTrack(track);
                               }}
-                              className={`px-3 py-1 sm:px-2 sm:py-0.5 rounded-full text-xs sm:text-[9px] font-bold transition shrink-0 min-h-[32px] sm:min-h-[24px] flex items-center justify-center ${
-                                subscribedChannels.includes(video.churchOrMinistry)
-                                  ? 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700'
-                                  : 'bg-red-600 hover:bg-red-500 text-white shadow-sm'
+                              className={`sm:hidden w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition ${
+                                currentAudio?.id === track.id && isAudioPlaying
+                                  ? 'bg-amber-500 text-slate-950'
+                                  : 'bg-slate-800 text-slate-200 active:bg-red-600 active:text-white'
                               }`}
+                              title="Play audio track"
                             >
-                              {subscribedChannels.includes(video.churchOrMinistry) ? 'Following' : '+ Follow'}
+                              {currentAudio?.id === track.id && isAudioPlaying ? (
+                                <Pause className="w-4 h-4 fill-slate-950" />
+                              ) : (
+                                <Play className="w-4 h-4 fill-current ml-0.5" />
+                              )}
                             </button>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Visual Main Stream Grid */}
+                  <div className="space-y-4 sm:space-y-3">
+                    {searchQuery.trim() !== '' && (
+                      <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-4 flex-wrap">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold shrink-0">
+                            <Search className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h3 className="text-xs font-bold text-white flex items-center gap-1.5 flex-wrap">
+                              Search results for <span className="text-amber-400 font-mono font-bold">"{searchQuery}"</span>
+                            </h3>
+                            <p className="text-[10px] text-slate-400">
+                              Showing {filteredVideos.length} matching video streams and sermons
+                            </p>
                           </div>
                         </div>
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="px-3.5 py-1.5 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 shrink-0 min-h-[36px]"
+                        >
+                          <X className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Clear Search</span>
+                        </button>
                       </div>
-                    </motion.div>
-                  ))}
-                </div>
-                )}
-              </div>
+                    )}
+
+                    <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                      <Tv className="w-4 h-4 text-red-500" /> {selectedCategory === 'All' ? 'Video Streams & Sermons' : `${selectedCategory} Streams`}
+                    </h2>
+
+                    {filteredVideos.length === 0 ? (
+                      <div className="py-12 px-4 text-center rounded-3xl bg-slate-900/60 border border-slate-800 space-y-3">
+                        <div className="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center mx-auto text-amber-400">
+                          <Search className="w-6 h-6" />
+                        </div>
+                        <h3 className="text-base font-bold text-white">No video streams match "{searchQuery}"</h3>
+                        <p className="text-xs text-slate-400 max-w-md mx-auto">
+                          Try adjusting your query, checking spelling, or resetting your filter category to find divine worship broadcasts.
+                        </p>
+                        <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
+                          <button
+                            onClick={() => setSearchQuery('')}
+                            className="px-4 py-2.5 sm:py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-full transition shadow-md min-h-[40px]"
+                          >
+                            Clear Search Query
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSearchQuery('');
+                              setSelectedCategory('All');
+                            }}
+                            className="px-4 py-2.5 sm:py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-full transition min-h-[40px]"
+                          >
+                            Reset All Filters
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-5">
+                        {filteredVideos.map((video) => (
+                          <motion.div
+                            key={video.id}
+                            whileHover={{ y: -4 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                            onClick={() => handleSelectVideo(video)}
+                            className="flex flex-col space-y-2.5 cursor-pointer group bg-slate-900/30 sm:bg-transparent p-2.5 sm:p-0 rounded-3xl sm:rounded-none border border-slate-800/50 sm:border-none"
+                          >
+                            {/* Media Card Preview */}
+                            <motion.div
+                              whileHover={{ scale: 1.02, boxShadow: "0 20px 30px -5px rgba(0, 0, 0, 0.7), 0 10px 20px -5px rgba(239, 68, 68, 0.25)" }}
+                              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                              className="relative aspect-video rounded-2xl overflow-hidden bg-slate-900 border border-slate-800/80 shadow-md"
+                            >
+                              <img
+                                src={video.thumbnail}
+                                alt={video.title}
+                                referrerPolicy="no-referrer"
+                                className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                                <div className="w-12 h-12 rounded-full bg-red-600 text-white flex items-center justify-center shadow-xl transform group-hover:scale-110 transition">
+                                  <Play className="w-6 h-6 fill-white ml-0.5" />
+                                </div>
+                              </div>
+
+                              {video.isLive ? (
+                                <span className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-md bg-red-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-lg">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> LIVE
+                                </span>
+                              ) : (
+                                <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/85 text-white text-[11px] sm:text-[10px] font-mono shadow-lg">
+                                  {video.duration}
+                                </span>
+                              )}
+                            </motion.div>
+
+                            {/* Info Row */}
+                            <div className="flex items-start space-x-3 pt-0.5">
+                              <motion.img
+                                src={video.channelAvatar}
+                                alt={video.speakerOrArtist}
+                                whileHover={{ scale: 1.15, rotate: 3, boxShadow: "0 4px 12px rgba(245, 158, 11, 0.4)" }}
+                                transition={{ type: 'spring', stiffness: 350, damping: 15 }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedChannelModal(video.churchOrMinistry);
+                                }}
+                                className="w-10 h-10 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 mt-0.5 ring-1 ring-slate-700 hover:ring-2 hover:ring-amber-400 transition cursor-pointer"
+                                title="View channel profile"
+                              />
+                              <div className="flex-1 overflow-hidden min-w-0">
+                                <h3 className="text-sm sm:text-xs font-bold text-white line-clamp-2 leading-snug group-hover:text-red-400 transition">
+                                  {video.title}
+                                </h3>
+                                <div className="flex items-center justify-between gap-2 mt-1.5 flex-wrap">
+                                  <p 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedChannelModal(video.churchOrMinistry);
+                                    }}
+                                    className="text-xs sm:text-[11px] text-slate-400 flex items-center gap-1 cursor-pointer hover:text-amber-400 transition truncate"
+                                  >
+                                    <span>{video.churchOrMinistry}</span>
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
+                                  </p>
+
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleSubscribe(video.churchOrMinistry);
+                                    }}
+                                    className={`px-3 py-1 sm:px-2 sm:py-0.5 rounded-full text-xs sm:text-[9px] font-bold transition shrink-0 min-h-[32px] sm:min-h-[24px] flex items-center justify-center ${
+                                      subscribedChannels.includes(video.churchOrMinistry)
+                                        ? 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700'
+                                        : 'bg-red-600 hover:bg-red-500 text-white shadow-sm'
+                                    }`}
+                                  >
+                                    {subscribedChannels.includes(video.churchOrMinistry) ? 'Following' : '+ Follow'}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
 
             </div>
           )}

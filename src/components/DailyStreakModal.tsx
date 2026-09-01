@@ -180,60 +180,69 @@ export default function DailyStreakModal({
 
           {/* Faith & Momentum Badges Gallery */}
           <div className="space-y-3 pt-3 border-t border-slate-800">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-                <Award className="w-4 h-4 text-amber-400" />
-                <span>Kingdom Achievements & Momentum Badges</span>
-              </h3>
-              <span className="text-[10px] text-amber-400 font-mono font-bold">
-                7 / 11 Unlocked
-              </span>
-            </div>
+            {(() => {
+              const badgesList = [
+                { name: '7-Day Grace Streak', icon: '🔥', desc: 'Log in and praise for 7 consecutive days', unlocked: streakDays >= 7, cat: 'Streak' },
+                { name: 'Amen Warrior', icon: '🙌', desc: 'Send over 50 Amen reactions in live streams', unlocked: praiseXp >= 100, cat: 'Streak' },
+                { name: 'Kingdom Ambassador', icon: '👑', desc: 'Reach 500 Praise XP milestone', unlocked: praiseXp >= 500, cat: 'Streak' },
+                { name: 'Diligent Sower', icon: '🌾', desc: 'Ranked in Creator Momentum with high study time.', unlocked: praiseXp >= 1000, cat: 'Momentum' },
+                { name: 'Faithful Reach', icon: '🌱', desc: 'Consistent daily study hours & active referrals.', unlocked: streakDays >= 14, cat: 'Momentum' },
+                { name: 'Rising Voice', icon: '✨', desc: 'Accelerating spiritual growth rate trajectory.', unlocked: praiseXp >= 2000, cat: 'Momentum' },
+                { name: 'Pillar of Light', icon: '🏛️', desc: 'Official registered fellowship member at church.', unlocked: praiseXp >= 3000, cat: 'Church' },
+                { name: 'Psalmist Voice', icon: '🎻', desc: 'Psalms & worship song meditation unlocked.', unlocked: praiseXp >= 4000, cat: 'Psalmody' },
+                { name: 'Kingdom Catalyst', icon: '⚡', desc: 'Top growth rate and disciple engagement depth', unlocked: praiseXp >= 5000, cat: 'Momentum' },
+                { name: 'Anointed Melody', icon: '🎺', desc: 'Listen to 100+ hours of anointed gospel worship', unlocked: praiseXp >= 6000, cat: 'Psalmody' },
+                { name: 'Vibrant Fellowship', icon: '🛡️', desc: 'Active participation in prayer circles', unlocked: praiseXp >= 7000, cat: 'Church' }
+              ];
+              const unlockedCount = badgesList.filter(b => b.unlocked).length;
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
-              {[
-                { name: 'Diligent Sower', icon: '🌾', desc: 'Ranked #12 in Creator Momentum. High study time.', unlocked: true, cat: 'Momentum' },
-                { name: 'Faithful Reach', icon: '🌱', desc: 'Consistent daily study hours & active referrals.', unlocked: true, cat: 'Momentum' },
-                { name: 'Rising Voice', icon: '✨', desc: 'Accelerating spiritual growth rate trajectory.', unlocked: true, cat: 'Momentum' },
-                { name: 'Pillar of Light', icon: '🏛️', desc: 'Official registered fellowship member at church.', unlocked: true, cat: 'Church' },
-                { name: 'Psalmist Voice', icon: '🎻', desc: 'Psalms & worship song meditation unlocked.', unlocked: true, cat: 'Psalmody' },
-                { name: '7-Day Grace Streak', icon: '🔥', desc: 'Log in and praise for 7 consecutive days', unlocked: true, cat: 'Streak' },
-                { name: 'Amen Warrior', icon: '🙌', desc: 'Send over 50 Amen reactions in live streams', unlocked: true, cat: 'Streak' },
-                { name: 'Kingdom Ambassador', icon: '👑', desc: 'Reach 500 Praise XP milestone', unlocked: true, cat: 'Streak' },
-                { name: 'Kingdom Catalyst', icon: '⚡', desc: 'Top 1% growth rate and disciple engagement depth', unlocked: false, cat: 'Momentum' },
-                { name: 'Anointed Melody', icon: '🎺', desc: 'Listen to 100+ hours of anointed gospel worship', unlocked: false, cat: 'Psalmody' },
-                { name: 'Vibrant Fellowship', icon: '🛡️', desc: 'Active participation in 5 prayer circles', unlocked: false, cat: 'Church' }
-              ].map((badge, idx) => (
-                <div
-                  key={idx}
-                  className={`p-2.5 rounded-2xl border flex items-center gap-2.5 transition ${
-                    badge.unlocked
-                      ? 'bg-slate-900/90 border-amber-500/40 text-white shadow-sm'
-                      : 'bg-slate-950/60 border-slate-900 text-slate-500 opacity-50'
-                  }`}
-                >
-                  <div className="text-xl p-1.5 rounded-xl bg-slate-800/80 shrink-0">
-                    {badge.icon}
+              return (
+                <>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Award className="w-4 h-4 text-amber-400" />
+                      <span>Kingdom Achievements & Momentum Badges</span>
+                    </h3>
+                    <span className="text-[10px] text-amber-400 font-mono font-bold">
+                      {unlockedCount} / {badgesList.length} Unlocked
+                    </span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-1">
-                      <h4 className="text-[11px] font-bold text-white truncate flex items-center gap-1">
-                        <span>{badge.name}</span>
-                        {badge.unlocked && (
-                          <CheckCircle2 className="w-3 h-3 text-amber-400 shrink-0 inline" />
-                        )}
-                      </h4>
-                      <span className="text-[8px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-mono shrink-0">
-                        {badge.cat}
-                      </span>
-                    </div>
-                    <p className="text-[9px] text-slate-400 leading-tight mt-0.5 line-clamp-2">
-                      {badge.desc}
-                    </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
+                    {badgesList.map((badge, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-2.5 rounded-2xl border flex items-center gap-2.5 transition ${
+                          badge.unlocked
+                            ? 'bg-slate-900/90 border-amber-500/40 text-white shadow-sm'
+                            : 'bg-slate-950/60 border-slate-900 text-slate-500 opacity-50'
+                        }`}
+                      >
+                        <div className="text-xl p-1.5 rounded-xl bg-slate-800/80 shrink-0">
+                          {badge.icon}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-1">
+                            <h4 className="text-[11px] font-bold text-white truncate flex items-center gap-1">
+                              <span>{badge.name}</span>
+                              {badge.unlocked && (
+                                <CheckCircle2 className="w-3 h-3 text-amber-400 shrink-0 inline" />
+                              )}
+                            </h4>
+                            <span className="text-[8px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-mono shrink-0">
+                              {badge.cat}
+                            </span>
+                          </div>
+                          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 line-clamp-2">
+                            {badge.desc}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              ))}
-            </div>
+                </>
+              );
+            })()}
           </div>
         </div>
 

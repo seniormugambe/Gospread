@@ -57,14 +57,14 @@ export default function GivingModal({ target, onClose, onPaymentSuccess }: Givin
   const [step, setStep] = useState<'select' | 'form' | 'processing_prompt' | 'success'>('select');
 
   // Input states
-  const [phoneNumber, setPhoneNumber] = useState('0772 123 456');
-  const [donorName, setDonorName] = useState('Senior Member');
-  const [donorEmail, setDonorEmail] = useState('seniormugambe@gmail.com');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [donorName, setDonorName] = useState('');
+  const [donorEmail, setDonorEmail] = useState('');
   const [momoPin, setMomoPin] = useState('');
-  const [cardHolder, setCardHolder] = useState('Senior Mugambe');
-  const [cardNumber, setCardNumber] = useState('5399 •••• •••• 4242');
-  const [cardExpiry, setCardExpiry] = useState('12/28');
-  const [cardCvv, setCardCvv] = useState('777');
+  const [cardHolder, setCardHolder] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
   const [prayerNote, setPrayerNote] = useState('');
   const [frequency, setFrequency] = useState<'one-time' | '3-month' | 'monthly'>('3-month');
 

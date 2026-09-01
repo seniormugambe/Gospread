@@ -74,14 +74,14 @@ export interface UserAccountSettings {
 }
 
 const DEFAULT_SETTINGS: UserAccountSettings = {
-  fullName: 'David Lawson',
-  username: 'david_lawson',
-  email: 'david.lawson@gospread.org',
-  bio: 'Choir Leader, Gospel Media Enthusiast & Believer at Grace City Cathedral. Seeking daily spiritual revival and kingdom purpose.',
-  homeChurch: 'Grace City Cathedral',
-  homeCampus: 'Central Sanctuary & Worship Center',
-  callingRole: 'Worship Leader / Psalmist',
-  avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
+  fullName: '',
+  username: '',
+  email: '',
+  bio: '',
+  homeChurch: '',
+  homeCampus: '',
+  callingRole: 'Global Believer & Intercessor',
+  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
   preferredTranslation: 'NKJV (New King James Version)',
 
   defaultVideoQuality: '1080p',

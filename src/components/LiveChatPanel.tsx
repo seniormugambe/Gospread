@@ -153,9 +153,10 @@ export default function LiveChatPanel({
       {/* Messages List Area */}
       <div className="flex-1 p-3 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-slate-800">
         {filteredMessages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-4 text-slate-500 text-xs">
+          <div className="h-full flex flex-col items-center justify-center text-center p-4 text-slate-500 text-xs space-y-1">
             <MessageSquare className="w-8 h-8 text-slate-600 mb-1" />
-            <p>No messages match this filter.</p>
+            <p className="font-semibold text-slate-400">No live chat messages yet</p>
+            <p className="text-[11px] text-slate-500">Be the first to share an Amen or prayer request below!</p>
           </div>
         ) : (
           filteredMessages.map((msg) => {

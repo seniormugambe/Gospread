@@ -15,6 +15,9 @@ export interface VideoStream {
   description: string;
   bibleVerse?: string;
   date: string;
+  videoUrl?: string;
+  streamUrl?: string;
+  seriesName?: string;
 }
 
 export interface AudioChapter {
@@ -45,232 +48,8 @@ export interface AudioTrack {
   tags?: string[];
   downloadsCount?: string;
   rating?: number;
+  audioUrl?: string;
 }
-
-export const LIVE_VIDEO_STREAMS: VideoStream[] = [
-  {
-    id: 'v-live-1',
-    title: 'Sunday Morning Worship & Word: Walking in Divine Purpose (Live)',
-    speakerOrArtist: 'Pastor Mark Anthony & Grace Choir',
-    churchOrMinistry: 'Grace City Cathedral',
-    channelAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-    subscribersCount: '482K',
-    likesCount: '12.4K',
-    category: 'Live Worship',
-    isLive: true,
-    viewersCount: 14280,
-    viewsText: '14.2K watching now',
-    thumbnail: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
-    description: 'Join thousands live from around the globe for spirit-filled praise, congregational worship, and an empowering message on stepping into your divine calling.',
-    bibleVerse: 'Ephesians 2:10 - "For we are God’s handiwork, created in Christ Jesus to do good works."',
-    date: 'Started streaming 42 minutes ago'
-  },
-  {
-    id: 'v-2',
-    title: 'The Power of Unshakeable Faith in Uncertain Seasons',
-    speakerOrArtist: 'Dr. Elizabeth Vance',
-    churchOrMinistry: 'Covenant Life Ministries',
-    channelAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80',
-    subscribersCount: '210K',
-    likesCount: '8.9K',
-    category: 'Sermon',
-    isLive: false,
-    viewsText: '184K views',
-    duration: '52:14',
-    thumbnail: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&w=800&q=80',
-    description: 'An insightful exploration into Hebrews 11, discovering how anchor-tested faith overcomes life’s storms.',
-    bibleVerse: 'Hebrews 11:1 - "Now faith is confidence in what we hope for and assurance about what we do not see."',
-    date: '2 days ago'
-  },
-  {
-    id: 'v-3',
-    title: 'Mass Gospel Choir Festival: Victory Praise Symphony 2026',
-    speakerOrArtist: 'Kingdom Celebration Vocal Ensemble',
-    churchOrMinistry: 'Global Gospel Alliance',
-    channelAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
-    subscribersCount: '890K',
-    likesCount: '34.1K',
-    category: 'Choir Special',
-    isLive: false,
-    viewsText: '420K views',
-    duration: '1:18:30',
-    thumbnail: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80',
-    description: 'A 100-voice gospel choir performing traditional anthems and contemporary praise solos with live orchestra.',
-    date: '1 week ago'
-  },
-  {
-    id: 'v-4',
-    title: 'Deep Dive: Understanding the Grace Covenant Verse-by-Verse',
-    speakerOrArtist: 'Apostle James Coleman',
-    churchOrMinistry: 'Grace & Truth Institute',
-    channelAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
-    subscribersCount: '150K',
-    likesCount: '5.2K',
-    category: 'Bible Study',
-    isLive: false,
-    viewsText: '98K views',
-    duration: '44:05',
-    thumbnail: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=800&q=80',
-    description: 'Verse-by-verse study examining Galatians and the transformative freedom found in the New Covenant.',
-    bibleVerse: 'Galatians 5:1 - "It is for freedom that Christ has set us free."',
-    date: '3 days ago'
-  },
-  {
-    id: 'v-5',
-    title: 'Atmosphere of Healing & Miracles Worship Night',
-    speakerOrArtist: 'David & Sarah Jenkins Worship Band',
-    churchOrMinistry: 'Living Waters Sanctuary',
-    channelAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80',
-    subscribersCount: '310K',
-    likesCount: '19.5K',
-    category: 'Gospel Music',
-    isLive: false,
-    viewsText: '250K views',
-    duration: '1:02:15',
-    thumbnail: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80',
-    description: 'A night of acoustic praise, prophetic worship, and prayer for families and nations.',
-    bibleVerse: 'Psalm 103:2-3 - "Bless the LORD, O my soul, and forget not all His benefits."',
-    date: '5 days ago'
-  },
-  {
-    id: 'v-6',
-    title: 'Overcoming Spiritual Weariness & Renewing Your Mind',
-    speakerOrArtist: 'Bishop Thomas Miller',
-    churchOrMinistry: 'Sermons of Hope Ministries',
-    channelAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=120&q=80',
-    subscribersCount: '640K',
-    likesCount: '28.0K',
-    category: 'Sermon',
-    isLive: false,
-    viewsText: '512K views',
-    duration: '38:40',
-    thumbnail: 'https://images.unsplash.com/photo-1447069387593-a5de0862481e?auto=format&fit=crop&w=800&q=80',
-    description: 'Biblical keys to finding joy, mental peace, and strength when facing burnout.',
-    date: '1 week ago'
-  }
-];
-
-export const AUDIO_TRACKS: AudioTrack[] = [
-  {
-    id: 'a-1',
-    title: '24/7 Global Gospel Praise & Worship Live Radio Station',
-    artistOrPreacher: 'GraceStream Radio Network',
-    albumOrSeries: 'Continuous Gospel Broadcast',
-    channelAvatar: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=120&q=80',
-    category: '24/7 Gospel Radio',
-    coverUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80',
-    duration: 'LIVE',
-    isLiveRadio: true,
-    listenersCount: 8920,
-    lyricsOrNotes: 'Streaming continuous spirit-filled praise, contemporary worship, gospel classics, and instrumental prayer music uninterrupted across 84 nations.',
-    tags: ['#24/7Gospel', '#LiveRadio', '#WorshipAtmosphere'],
-    downloadsCount: '120K Live Tune-ins'
-  },
-  {
-    id: 'a-2',
-    title: 'Ep. 42: Faith in the Digital Age & Overcoming Anxiety',
-    artistOrPreacher: 'Pastor Mark Anthony & David Lawson',
-    albumOrSeries: 'Kingdom Mindset Podcast (Season 3)',
-    channelAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
-    category: 'Podcast',
-    coverUrl: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&w=800&q=80',
-    duration: '38:15',
-    publishedDate: 'Yesterday',
-    episodeNumber: 42,
-    seasonNumber: 3,
-    rating: 4.9,
-    downloadsCount: '48.5K Downloads',
-    tags: ['#Podcast', '#MentalHealth', '#DigitalFaith'],
-    lyricsOrNotes: 'In this powerful episode, Pastor Mark and David break down biblical strategies for safeguarding mental peace in an era of information overload and social media noise.',
-    chapters: [
-      { time: '00:00', seconds: 0, title: 'Opening & Welcome to Kingdom Mindset', scriptureRef: 'Psalm 23:1-3' },
-      { time: '04:15', seconds: 255, title: 'Navigating Digital Noise with Godly Wisdom', scriptureRef: 'Romans 12:2' },
-      { time: '14:30', seconds: 870, title: 'Scriptural Remedies for Anxiety & Panic', scriptureRef: 'Philippians 4:6-7' },
-      { time: '26:00', seconds: 1560, title: 'Practical Daily Sabbath & Unplugging', scriptureRef: 'Exodus 20:8' },
-      { time: '34:10', seconds: 2050, title: 'Closing Prophetic Prayer for Listeners', scriptureRef: 'Isaiah 26:3' }
-    ],
-    sermonOutline: [
-      '1. Do not conform to the digital culture; renew your mind through daily scripture.',
-      '2. Guard your eye-gate and ear-gate against chronic worry and fear-mongering news.',
-      '3. Prayer is not a last resort—it is your first response and heavenly shield.',
-      '4. Cultivate quiet sanctuary time without notifications to hear the quiet voice of the Holy Spirit.'
-    ],
-    scriptureVerses: [
-      { reference: 'Philippians 4:6-7', text: 'Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God.' },
-      { reference: 'Romans 12:2', text: 'Do not conform to the pattern of this world, but be transformed by the renewing of your mind.' }
-    ]
-  },
-  {
-    id: 'a-3',
-    title: 'Way Maker & Great Are You Lord (Live Worship Medley)',
-    artistOrPreacher: 'Grace Sanctuary Choir',
-    albumOrSeries: 'Atmosphere of Praise Vol. 4',
-    channelAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-    category: 'Praise & Worship',
-    coverUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=800&q=80',
-    duration: '07:45',
-    publishedDate: '3 days ago',
-    downloadsCount: '89.2K Streams',
-    tags: ['#WorshipMedley', '#WayMaker', '#AnointedSinging'],
-    lyricsOrNotes: 'You are Way Maker, Miracle Worker, Promise Keeper, Light in the darkness, my God that is who You are. Great are You Lord, all the earth will shout Your praise!',
-    chapters: [
-      { time: '00:00', seconds: 0, title: 'Soft Piano Prelude & Invocation' },
-      { time: '01:30', seconds: 90, title: 'Way Maker Chorus Lead' },
-      { time: '04:10', seconds: 250, title: 'Spontaneous Congregational Worship' },
-      { time: '06:00', seconds: 360, title: 'Great Are You Lord Outro Crescendo' }
-    ],
-    sermonOutline: [
-      'Focus: Exalting God as the supreme Way Maker in every impossible situation.',
-      'Refrain: "Even when I don\'t see it, You\'re working!"'
-    ]
-  },
-  {
-    id: 'a-4',
-    title: 'Morning Manna: Overcoming Weariness Through Prayer',
-    artistOrPreacher: 'Pastor Sarah Jenkins',
-    albumOrSeries: 'Daily Gospel Devotionals',
-    channelAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80',
-    category: 'Devotional',
-    coverUrl: 'https://images.unsplash.com/photo-1509021436468-d51039746b20?auto=format&fit=crop&w=800&q=80',
-    duration: '14:20',
-    publishedDate: 'Today',
-    downloadsCount: '22.1K Listens',
-    tags: ['#DailyDevotional', '#MorningPrayer', '#Strength'],
-    lyricsOrNotes: 'Start your day with 14 minutes of focused scripture, meditation, and a powerful morning blessing for your family and career.',
-    chapters: [
-      { time: '00:00', seconds: 0, title: 'Morning Scripture Reading', scriptureRef: 'Isaiah 40:29-31' },
-      { time: '03:45', seconds: 225, title: 'Devotional Reflection on Waiting on God' },
-      { time: '09:10', seconds: 550, title: 'Morning Declaration & Prayer over Day' }
-    ],
-    scriptureVerses: [
-      { reference: 'Isaiah 40:31', text: 'Those who hope in the LORD will renew their strength. They will soar on wings like eagles; they will run and not grow weary.' }
-    ]
-  },
-  {
-    id: 'a-5',
-    title: 'Unlocking Supernatural Breakthrough & Open Heavens',
-    artistOrPreacher: 'Dr. Elizabeth Vance',
-    albumOrSeries: 'Covenant Power Sermons',
-    channelAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80',
-    category: 'Audio Sermon',
-    coverUrl: 'https://images.unsplash.com/photo-1447069387593-a5de0862481e?auto=format&fit=crop&w=800&q=80',
-    duration: '32:10',
-    publishedDate: '1 week ago',
-    downloadsCount: '63.4K Streams',
-    tags: ['#AudioSermon', '#Breakthrough', '#CovenantKey'],
-    lyricsOrNotes: 'Dr. Elizabeth Vance delivers a transformative expository message on how persistent faith and covenant obedience activate open heavens.',
-    chapters: [
-      { time: '00:00', seconds: 0, title: 'The Principle of Open Heavens', scriptureRef: 'Malachi 3:10' },
-      { time: '10:15', seconds: 615, title: 'Overcoming Spiritual Roadblocks & Resistance', scriptureRef: '2 Corinthians 10:4' },
-      { time: '22:30', seconds: 1350, title: 'Anointing for Supernatural Prosperity & Favor', scriptureRef: 'Deuteronomy 8:18' }
-    ],
-    sermonOutline: [
-      '1. Faith is not passive expectation; it is active obedience to God\'s revealed word.',
-      '2. Align your spoken words with heaven\'s promises to silence demonic doubt.',
-      '3. Giving and tithing position your household under perpetual divine protection.'
-    ]
-  }
-];
 
 export type ReactionType = 'amen' | 'fire' | 'heart' | 'pray';
 
@@ -285,62 +64,6 @@ export interface ChatMessage {
   reactions?: Record<ReactionType, number>;
   userReactions?: ReactionType[];
 }
-
-export const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
-  { 
-    id: 'c1', 
-    user: 'Sister Hannah', 
-    text: 'Amen! Watching from Lagos, Nigeria! God bless the choir! 🙏', 
-    time: '10:42 AM', 
-    isPrayer: false, 
-    badge: 'Member',
-    reactionCount: 14,
-    reactions: { amen: 8, fire: 0, heart: 2, pray: 4 },
-    userReactions: ['amen']
-  },
-  { 
-    id: 'c2', 
-    user: 'Deacon Robert', 
-    text: 'Praying for healing and restoration for all families today.', 
-    time: '10:43 AM', 
-    isPrayer: true, 
-    badge: 'Moderator',
-    reactionCount: 22,
-    reactions: { amen: 2, fire: 0, heart: 5, pray: 15 },
-    userReactions: ['pray']
-  },
-  { 
-    id: 'c3', 
-    user: 'Grace_Worshipper', 
-    text: 'The presence of God is so tangible right in my living room! ✨', 
-    time: '10:43 AM', 
-    isPrayer: false,
-    reactionCount: 9,
-    reactions: { amen: 0, fire: 5, heart: 4, pray: 0 },
-    userReactions: []
-  },
-  { 
-    id: 'c4', 
-    user: 'Brother Caleb', 
-    text: 'Hallelujah! What a powerful word from scripture!', 
-    time: '10:44 AM', 
-    isPrayer: false,
-    reactionCount: 18,
-    reactions: { amen: 10, fire: 8, heart: 0, pray: 0 },
-    userReactions: ['fire']
-  },
-  { 
-    id: 'c5', 
-    user: 'Elder Samuel', 
-    text: 'Greeting from London! May the Lord strengthen the pastor.', 
-    time: '10:45 AM', 
-    isPrayer: false, 
-    badge: 'VIP',
-    reactionCount: 7,
-    reactions: { amen: 0, fire: 0, heart: 3, pray: 4 },
-    userReactions: []
-  }
-];
 
 export interface ServiceScheduleItem {
   id: string;
@@ -384,320 +107,607 @@ export interface SocialLink {
   isPrimary?: boolean;
 }
 
+export interface MinistryGivingFund {
+  id: string;
+  name: string;
+  description: string;
+  targetAmount?: number;
+  raisedAmount?: number;
+  icon: string;
+  isTaxDeductible?: boolean;
+}
+
 export interface ChurchProfile {
   name: string;
   avatar: string;
+  coverImage: string;
   location: string;
   leadPastor: string;
+  pastorTitle?: string;
+  pastorBio?: string;
   website: string;
+  phone?: string;
+  email?: string;
+  statementOfFaith?: string[];
+  missionStatement?: string;
+  memberCount: number;
+  followerCount: number;
+  isLiveNow?: boolean;
+  liveViewersCount?: number;
+  liveStreamTitle?: string;
+  upcomingServiceTitle?: string;
+  upcomingServiceTime?: string;
+  upcomingServiceCountdownIso?: string;
   schedules: ServiceScheduleItem[];
   campuses?: ChurchLocation[];
   socials?: SocialLink[];
+  givingFunds?: MinistryGivingFund[];
 }
+
+export const LIVE_VIDEO_STREAMS: VideoStream[] = [
+  {
+    id: 'stream-gcc-live',
+    title: 'Sunday Apostolic Communion & Prophetic Impartation — Live Sanctuary',
+    speakerOrArtist: 'Senior Pastor David Williams',
+    churchOrMinistry: 'Grace City Cathedral',
+    channelAvatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
+    subscribersCount: '1.48M',
+    likesCount: '34.2K',
+    category: 'Live Worship',
+    isLive: true,
+    viewersCount: 12480,
+    viewsText: '12,480 worshippers joined in the Spirit',
+    thumbnail: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
+    description: 'Experience holy atmospheric praise, deep revelatory exposition on covenant grace, and prophetic prayer altar impartation live from Grace City Cathedral main sanctuary.',
+    bibleVerse: 'Hebrews 4:16 — "Let us therefore come boldly unto the throne of grace, that we may obtain mercy, and find grace to help in time of need."',
+    date: 'LIVE NOW',
+    seriesName: 'Covenant Glory Season'
+  },
+  {
+    id: 'stream-gcc-sermon-1',
+    title: 'Unshakable Faith in the Storm: Walking on Water When Waves Rise',
+    speakerOrArtist: 'Senior Pastor David Williams',
+    churchOrMinistry: 'Grace City Cathedral',
+    channelAvatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
+    subscribersCount: '1.48M',
+    likesCount: '19.8K',
+    category: 'Sermon',
+    isLive: false,
+    duration: '52:14',
+    viewsText: '142K views',
+    thumbnail: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&w=1200&q=80',
+    description: 'When the winds contrary threaten your peace, fix your spiritual eyes upon the Christ of Glory. Discover how faith subdues natural laws.',
+    bibleVerse: 'Romans 8:31 — "If God be for us, who can be against us?"',
+    date: '3 days ago',
+    seriesName: 'Kingdom Dominion Masterclass'
+  },
+  {
+    id: 'stream-gcc-sermon-2',
+    title: 'Walking in the Supernatural Realm: Accessing Heavenly Dimensions',
+    speakerOrArtist: 'Pastor Sarah Williams',
+    churchOrMinistry: 'Grace City Cathedral',
+    channelAvatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
+    subscribersCount: '1.48M',
+    likesCount: '14.5K',
+    category: 'Sermon',
+    isLive: false,
+    duration: '48:30',
+    viewsText: '98K views',
+    thumbnail: 'https://images.unsplash.com/photo-1507692049790-de58290a4334?auto=format&fit=crop&w=1200&q=80',
+    description: 'The spirit world is more real than the physical. Learn how consecrated believers operate in holy angelic assistance and divine revelation.',
+    bibleVerse: 'Ephesians 1:17-19',
+    date: '1 week ago',
+    seriesName: 'The Spirit Realm'
+  },
+  {
+    id: 'stream-gcc-worship-live',
+    title: 'Holy is the Lord — Spontaneous 2-Hour Atmospheric Worship Altar',
+    speakerOrArtist: 'Grace City Worship Choir & Ensembles',
+    churchOrMinistry: 'Grace City Cathedral',
+    channelAvatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
+    subscribersCount: '1.48M',
+    likesCount: '45.1K',
+    category: 'Choir Special',
+    isLive: false,
+    duration: '1:42:10',
+    viewsText: '320K views',
+    thumbnail: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80',
+    description: 'Anointed uninterrupted praise and deep adoration recorded live at Grace City Cathedral during the Global Night of Encounter.',
+    bibleVerse: 'Revelation 4:8 — "Holy, holy, holy, Lord God Almighty, which was, and is, and is to come."',
+    date: '2 weeks ago',
+    seriesName: 'Ascend Live Series'
+  },
+  {
+    id: 'stream-elevation-live',
+    title: 'Elevation Worship & Praise Celebration: The Valley of Miracles',
+    speakerOrArtist: 'Pastor Steven Furtick',
+    churchOrMinistry: 'Elevation Praise Center',
+    channelAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
+    subscribersCount: '2.8M',
+    likesCount: '58.9K',
+    category: 'Live Worship',
+    isLive: false,
+    duration: '1:15:20',
+    viewsText: '410K views',
+    thumbnail: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80',
+    description: 'Elevation Church live weekend worship service with Steven Furtick delivering a dynamic word on unlocking God’s promises.',
+    bibleVerse: 'Philippians 4:13',
+    date: 'Yesterday'
+  },
+  {
+    id: 'stream-dunamis-live',
+    title: 'Nights of Holy Fire & Deliverance Altar — Apostolic Wonders',
+    speakerOrArtist: 'Dr. Paul Enenche',
+    churchOrMinistry: 'Dunamis International Gospel Centre',
+    channelAvatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&q=80',
+    subscribersCount: '1.95M',
+    likesCount: '41.2K',
+    category: 'Live Worship',
+    isLive: false,
+    duration: '2:10:00',
+    viewsText: '540K views',
+    thumbnail: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80',
+    description: 'Apostolic breakthrough service at the Glory Dome. Miracles, healing testimonies, and mighty revival songs.',
+    bibleVerse: 'Acts 10:38',
+    date: '4 days ago'
+  },
+  {
+    id: 'stream-sinach-waymaker',
+    title: 'Way Maker & I Know Who I Am — Global Miracle Concert',
+    speakerOrArtist: 'Sinach Live International',
+    churchOrMinistry: 'Sinach Global Ministry',
+    channelAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+    subscribersCount: '2.1M',
+    likesCount: '180K',
+    category: 'Gospel Music',
+    isLive: false,
+    duration: '28:40',
+    viewsText: '1.2M views',
+    thumbnail: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1200&q=80',
+    description: 'Sinach leads millions into the holy presence of God across nations in this triumphant global worship assembly.',
+    date: '1 month ago'
+  }
+];
+
+export const AUDIO_TRACKS: AudioTrack[] = [
+  {
+    id: 'aud-gcc-album-1',
+    title: 'Ascend: The Glory Altar Live (Full Album)',
+    artistOrPreacher: 'Grace City Cathedral Choir & Anointed Psalmist',
+    albumOrSeries: 'Ascend Cathedral Praise Vol. 1',
+    channelAvatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
+    category: 'Praise & Worship',
+    coverUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=800&q=80',
+    duration: '42:15',
+    isLiveRadio: false,
+    downloadsCount: '88K Streams',
+    rating: 5.0,
+    tags: ['#CathedralWorship', '#PropheticPraise', '#GraceCity'],
+    lyricsOrNotes: 'Holy, Holy, Holy is the Lamb who sits upon the throne. Glory, honor, power, and blessing belong to our God forevermore.',
+    publishedDate: 'Sep 2026'
+  },
+  {
+    id: 'aud-gcc-sermon-podcast',
+    title: 'The Mystery of Seed, Tithe & Heavenly Harvest (Audio Masterclass)',
+    artistOrPreacher: 'Senior Pastor David Williams',
+    albumOrSeries: 'Grace City Cathedral Kingdom Podcast',
+    channelAvatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
+    category: 'Podcast',
+    coverUrl: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&w=800&q=80',
+    duration: '38:50',
+    episodeNumber: 104,
+    seasonNumber: 4,
+    downloadsCount: '64K Listens',
+    rating: 4.9,
+    publishedDate: 'Aug 2026',
+    sermonOutline: [
+      '1. Understanding the Law of Sowing and Reaping',
+      '2. Why Giving Releases Supernatural Protection (Malachi 3:10)',
+      '3. Moving from Scarcity Mindset to Kingdom Abundance'
+    ]
+  },
+  {
+    id: 'aud-radio-247',
+    title: '24/7 Global Grace Cathedral Radio — Uninterrupted Praise & Prayers',
+    artistOrPreacher: 'Grace City Broadcasting Network',
+    albumOrSeries: '24/7 Live Stream Radio',
+    channelAvatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
+    category: '24/7 Gospel Radio',
+    coverUrl: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=800&q=80',
+    duration: 'LIVE',
+    isLiveRadio: true,
+    listenersCount: 8450,
+    downloadsCount: '24/7 Active',
+    rating: 5.0,
+    tags: ['#247GospelRadio', '#LiveBroadcast']
+  },
+  {
+    id: 'aud-elevation-praise',
+    title: 'Jireh & RATTLE! (Acoustic Sanctuary Edition)',
+    artistOrPreacher: 'Elevation Worship',
+    albumOrSeries: 'Old Church Basement Session',
+    channelAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
+    category: 'Praise & Worship',
+    coverUrl: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=800&q=80',
+    duration: '7:45',
+    downloadsCount: '310K Streams',
+    rating: 4.9,
+    publishedDate: 'Jul 2026'
+  }
+];
+
+export const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
+  {
+    id: 'msg-1',
+    user: 'Minister Grace Adeyemi',
+    text: 'Watching live from London! The glory in this sanctuary is tangible! Amen! 🙌🔥',
+    time: '10:32 AM',
+    badge: 'Intercessor Leader',
+    reactionCount: 24,
+    reactions: { amen: 18, fire: 6, heart: 12, pray: 9 }
+  },
+  {
+    id: 'msg-2',
+    user: 'Elder Matthew Johnson',
+    text: 'Pastor David’s word on covenant faith just answered my 3-month prayer. Hallelujah!',
+    time: '10:33 AM',
+    badge: 'Cathedral Member',
+    reactionCount: 15,
+    reactions: { amen: 14, fire: 4, heart: 8, pray: 3 }
+  },
+  {
+    id: 'msg-3',
+    user: 'Sister Deborah Mwangi',
+    text: 'Joining the prayer altar from Nairobi Kenya campus! Connecting my family into the blessing!',
+    time: '10:34 AM',
+    isPrayer: true,
+    badge: 'Nairobi Campus Member',
+    reactionCount: 31,
+    reactions: { amen: 28, fire: 11, heart: 20, pray: 25 }
+  },
+  {
+    id: 'msg-4',
+    user: 'Brother Samuel Cole',
+    text: 'Just planted my seed for the Cathedral Expansion Fund. God is faithful! ✝️❤️',
+    time: '10:35 AM',
+    badge: 'Kingdom Sower',
+    reactionCount: 42,
+    reactions: { amen: 39, fire: 15, heart: 30, pray: 8 }
+  }
+];
+
+export const CHURCH_SCHEDULES: Record<string, ServiceScheduleItem[]> = {
+  'Grace City Cathedral': [
+    {
+      id: 'gcc-sch-1',
+      day: 'Sunday',
+      time: '9:00 AM EST',
+      title: 'Sunday Morning Glory & Early Sanctuary Service',
+      type: 'Worship Service',
+      locationOrStream: 'Main Sanctuary (Atlanta) & Worldwide Live Broadcast',
+      speakerOrLeader: 'Senior Pastor David Williams',
+      description: 'Dynamic early morning congregational worship, holy scripture declaration, and spirit-led preaching for the whole family.',
+      isLiveNow: false
+    },
+    {
+      id: 'gcc-sch-2',
+      day: 'Sunday',
+      time: '11:30 AM EST',
+      title: 'Apostolic Communion & Prophetic Impartation (Flagship Live)',
+      type: 'Worship Service',
+      locationOrStream: 'Cathedral Grand Sanctuary & 4K Satellite Stream',
+      speakerOrLeader: 'Senior Pastor David & Pastor Sarah Williams',
+      description: 'The flagship cathedral assembly featuring the full 150-voice choir, ordinance of Holy Communion, and miracles prayer line.',
+      isLiveNow: true
+    },
+    {
+      id: 'gcc-sch-3',
+      day: 'Wednesday',
+      time: '7:00 PM EST',
+      title: 'Rhema Midweek Bible Exposition & Spiritual Masterclass',
+      type: 'Bible Study',
+      locationOrStream: 'Fellowship Hall & Online Interactive Zoom Altar',
+      speakerOrLeader: 'Pastor Sarah Williams & Teaching Pastors',
+      description: 'In-depth verse-by-verse scriptural discipleship, interactive Q&A, and practical wisdom for marketplace leaders.',
+      isLiveNow: false
+    },
+    {
+      id: 'gcc-sch-4',
+      day: 'Friday',
+      time: '9:00 PM EST',
+      title: 'Night of Miracles, Healing & 24/7 Prophetic Fire Altar',
+      type: 'Midweek Prayer',
+      locationOrStream: 'Cathedral Prayer Chamber & All Campus Live Link',
+      speakerOrLeader: 'Apostolic Intercession Council',
+      description: 'Deep midnight intercession, casting down every affliction, healing the sick, and releasing breakthrough over nations.',
+      isLiveNow: false
+    },
+    {
+      id: 'gcc-sch-5',
+      day: 'Saturday',
+      time: '6:00 PM EST',
+      title: 'Youth Fire & Young Adults Creative Fellowship (Ignite)',
+      type: 'Youth Fellowship',
+      locationOrStream: 'The Foundry Youth Center (Atlanta Campus)',
+      speakerOrLeader: 'Pastor Joshua Williams & Ignite Band',
+      description: 'High-energy contemporary praise, relevant panel discussions, creative arts, and spirit-filled community for Gen-Z and Millennials.',
+      isLiveNow: false
+    }
+  ],
+  'Elevation Praise Center': [
+    {
+      id: 'elev-sch-1',
+      day: 'Sunday',
+      time: '9:30 AM & 11:45 AM EST',
+      title: 'Elevation Weekend Worship Experience',
+      type: 'Worship Service',
+      locationOrStream: 'Ballantyne Campus & Online Broadcast',
+      speakerOrLeader: 'Pastor Steven Furtick',
+      description: 'Energetic worship led by Elevation Worship and transformative sermon from Steven Furtick.',
+      isLiveNow: false
+    },
+    {
+      id: 'elev-sch-2',
+      day: 'Wednesday',
+      time: '7:30 PM EST',
+      title: 'Elevation Midweek Refuel',
+      type: 'Bible Study',
+      locationOrStream: 'Online Exclusive',
+      speakerOrLeader: 'Teaching Team',
+      description: 'Midweek spiritual refreshment and worship meditation.',
+      isLiveNow: false
+    }
+  ],
+  'Dunamis International Gospel Centre': [
+    {
+      id: 'dunamis-sch-1',
+      day: 'Sunday',
+      time: '6:30 AM, 8:00 AM, 9:30 AM, 11:00 AM, 12:30 PM, 2:00 PM',
+      title: 'Six Miracle & Healing Sunday Services',
+      type: 'Worship Service',
+      locationOrStream: 'The Glory Dome (100,000 Capacity Sanctuary), Abuja',
+      speakerOrLeader: 'Dr. Pastor Paul & Dr. Becky Enenche',
+      description: 'Supernatural power, word exposition, and deliverance at the Glory Dome.',
+      isLiveNow: false
+    }
+  ]
+};
 
 export const CHURCH_LOCATIONS: Record<string, ChurchLocation[]> = {
   'Grace City Cathedral': [
     {
-      id: 'loc-gcc-1',
+      id: 'gcc-camp-atl',
       churchName: 'Grace City Cathedral',
-      campusName: 'Main Cathedral Campus',
+      campusName: 'Main International Sanctuary (Headquarters)',
       isMainCampus: true,
-      address: '777 Glory Avenue',
+      address: '1200 Cathedral Way NW',
       city: 'Atlanta',
-      stateOrRegion: 'GA',
+      stateOrRegion: 'Georgia',
       country: 'United States',
       zipCode: '30303',
-      leadPastor: 'Pastor Mark Anthony & Sarah Jenkins',
-      pastorAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
-      phone: '+1 (404) 555-7700',
-      email: 'main@gracecitycathedral.org',
-      googleMapsUrl: 'https://maps.google.com/?q=Atlanta+Cathedral+Praise',
-      serviceTimes: ['Sundays: 8:00 AM & 10:30 AM EST', 'Wednesdays: 7:00 PM EST', 'Fridays: 9:00 PM Night Vigil'],
-      features: ['2,500-Seat Sanctuary', 'Live HD Broadcast Studio', 'Youth & Children Chapel', 'Free Parking Garage', 'Wheelchair Accessible'],
-      image: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=800&q=80'
+      leadPastor: 'Senior Pastor David & Pastor Sarah Williams',
+      pastorAvatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
+      phone: '+1 (404) 555-GRACE',
+      email: 'sanctuary@gracecitycathedral.org',
+      googleMapsUrl: 'https://maps.google.com/?q=Atlanta+Cathedral+Way',
+      serviceTimes: ['Sundays 9:00 AM & 11:30 AM EST', 'Wednesdays 7:00 PM EST', 'Fridays 9:00 PM EST'],
+      features: ['5,000 Seat Main Auditorium', 'Kids Kingdom Ministry', 'Café & Bookshop', '24/7 Prayer Room', 'Free Parking Garage', 'Translation Headsets'],
+      image: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80'
     },
     {
-      id: 'loc-gcc-2',
+      id: 'gcc-camp-lon',
       churchName: 'Grace City Cathedral',
-      campusName: 'Downtown City Center Campus',
-      address: '240 Peachtree St NW',
-      city: 'Atlanta',
-      stateOrRegion: 'GA',
-      country: 'United States',
-      zipCode: '30308',
-      leadPastor: 'Pastor David Lawson',
-      pastorAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=120&q=80',
-      phone: '+1 (404) 555-7711',
-      email: 'downtown@gracecitycathedral.org',
-      googleMapsUrl: 'https://maps.google.com/?q=Peachtree+Street+Atlanta',
-      serviceTimes: ['Sundays: 11:30 AM EST', 'Thursdays: 12:15 PM Midday Prayer'],
-      features: ['Young Professionals Ministry', 'Acoustic Worship Lounge', 'MARTA Metro Accessible', 'Coffee & Fellowship Hub'],
-      image: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&w=800&q=80'
-    },
-    {
-      id: 'loc-gcc-3',
-      churchName: 'Grace City Cathedral',
-      campusName: 'London UK International Campus',
-      address: '42 Grace Church Street',
+      campusName: 'London City Campus & European Fellowship',
+      isMainCampus: false,
+      address: '45 Westminster Bridge Rd',
       city: 'London',
       stateOrRegion: 'Greater London',
       country: 'United Kingdom',
-      zipCode: 'EC3V 0AT',
-      leadPastor: 'Pastor Samuel & Grace Boateng',
-      pastorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
-      phone: '+44 20 7946 0912',
+      zipCode: 'SE1 7HR',
+      leadPastor: 'Pastor Marcus & Julia Sterling',
+      pastorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
+      phone: '+44 20 7946 0192',
       email: 'london@gracecitycathedral.org',
-      googleMapsUrl: 'https://maps.google.com/?q=London+Grace+Church',
-      serviceTimes: ['Sundays: 10:00 AM GMT', 'Fridays: 8:00 PM GMT Revival Night'],
-      features: ['Multicultural Choir', 'Community Food Bank', 'Translation Headsets Available'],
-      image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80'
+      googleMapsUrl: 'https://maps.google.com/?q=Westminster+Bridge+London',
+      serviceTimes: ['Sundays 10:30 AM & 5:00 PM GMT', 'Thursdays 7:00 PM GMT'],
+      features: ['Central London Tube Access', 'Youth Hub', 'Fellowship Dinners', 'Communion Altar'],
+      image: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=1200&q=80'
     },
     {
-      id: 'loc-gcc-4',
+      id: 'gcc-camp-lag',
       churchName: 'Grace City Cathedral',
-      campusName: 'iChurch Online Global Campus',
-      address: 'Worldwide Broadcast & Meta VR Center',
-      city: 'Global Live Feed',
-      stateOrRegion: 'Worldwide',
-      country: 'International',
-      leadPastor: 'Online Ministry Pastors',
-      phone: '+1 (800) 555-ICHURCH',
-      email: 'ichurch@gracecitycathedral.org',
-      googleMapsUrl: 'https://gracetube.tv/live',
-      serviceTimes: ['24/7 Continuous Worship & Interactive Prayer Chat', 'Live Sunday Stream: 8:00 AM EST'],
-      features: ['Interactive Live Prayer Altar', 'Real-Time Translation in 12 Languages', 'Virtual Small Groups'],
-      image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80'
-    }
-  ],
-  'Covenant Life': [
-    {
-      id: 'loc-clm-1',
-      churchName: 'Covenant Life',
-      campusName: 'Covenant Global Worship Center',
-      isMainCampus: true,
-      address: '1200 Victory Way',
-      city: 'Dallas',
-      stateOrRegion: 'TX',
-      country: 'United States',
-      zipCode: '75201',
-      leadPastor: 'Dr. Elizabeth Vance',
-      pastorAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80',
-      phone: '+1 (214) 555-8800',
-      email: 'dallas@covenantlife.org',
-      googleMapsUrl: 'https://maps.google.com/?q=Dallas+Covenant+Life',
-      serviceTimes: ['Sundays: 9:30 AM EST', 'Tuesdays: 6:30 PM Discipleship'],
-      features: ['Bible Training Institute', '3,000 Seats Auditorium', 'Childcare & Nursery', 'Prayer Tower'],
-      image: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&w=800&q=80'
-    },
-    {
-      id: 'loc-clm-2',
-      churchName: 'Covenant Life',
-      campusName: 'Lagos Miracle Revival Center',
-      address: '15 Kingdom Way, Victoria Island',
+      campusName: 'Lagos Island Revival Center',
+      isMainCampus: false,
+      address: 'Plot 14 Victoria Island Expressway',
       city: 'Lagos',
       stateOrRegion: 'Lagos State',
       country: 'Nigeria',
-      leadPastor: 'Pastor Caleb & Hannah Okafor',
-      phone: '+234 1 555 9900',
-      email: 'lagos@covenantlife.org',
-      googleMapsUrl: 'https://maps.google.com/?q=Lagos+Victoria+Island',
-      serviceTimes: ['Sundays: 8:00 AM & 10:30 AM WAT', 'Thursdays: 5:30 PM WAT'],
-      features: ['Healing & Deliverance Ministry', 'Youth Empowerment Hub', 'Medical Outreach Clinic'],
-      image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=800&q=80'
-    }
-  ],
-  'Global Gospel Alliance': [
+      leadPastor: 'Pastor Emmanuel & Joy Okafor',
+      pastorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+      phone: '+234 1 890 2400',
+      email: 'lagos@gracecitycathedral.org',
+      googleMapsUrl: 'https://maps.google.com/?q=Victoria+Island+Lagos',
+      serviceTimes: ['Sundays 7:30 AM, 9:30 AM & 11:30 AM WAT', 'Tuesdays 6:00 PM WAT'],
+      features: ['3,500 Seat Auditorium', 'Medical Mission Clinic', 'Faith Youth Academy', '24/7 Power Backup'],
+      image: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1200&q=80'
+    },
     {
-      id: 'loc-gga-1',
-      churchName: 'Global Gospel Alliance',
-      campusName: 'Alliance Kingdom Arena',
-      isMainCampus: true,
-      address: '500 International Parkway',
-      city: 'Chicago',
-      stateOrRegion: 'IL',
-      country: 'United States',
-      zipCode: '60601',
-      leadPastor: 'Bishop Thomas Miller',
-      pastorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
-      phone: '+1 (312) 555-9000',
-      email: 'info@globalgospelalliance.org',
-      googleMapsUrl: 'https://maps.google.com/?q=Chicago+Gospel+Alliance',
-      serviceTimes: ['Sundays: 11:00 AM EST', 'Thursdays: 8:00 PM EST Global Prayer'],
-      features: ['Mass Choir Rehearsal Hall', 'Apostolic Mission Headquarters', 'State-of-the-Art Sound Stage'],
-      image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80'
-    }
-  ],
-  'Living Waters Sanctuary': [
+      id: 'gcc-camp-nbo',
+      churchName: 'Grace City Cathedral',
+      campusName: 'Nairobi City & East Africa Sanctuary',
+      isMainCampus: false,
+      address: 'Upper Hill Cathedral Road',
+      city: 'Nairobi',
+      stateOrRegion: 'Nairobi County',
+      country: 'Kenya',
+      leadPastor: 'Pastor David & Rachel Kimani',
+      pastorAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
+      phone: '+254 20 765 4321',
+      email: 'nairobi@gracecitycathedral.org',
+      googleMapsUrl: 'https://maps.google.com/?q=Upper+Hill+Nairobi',
+      serviceTimes: ['Sundays 8:30 AM & 11:00 AM EAT', 'Wednesdays 6:00 PM EAT'],
+      features: ['East Africa Broadcast Hub', 'M-Pesa Giving Station', 'Children Sanctuary', 'Outdoor Fellowship Gardens'],
+      image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80'
+    },
     {
-      id: 'loc-lws-1',
-      churchName: 'Living Waters Sanctuary',
-      campusName: 'Living Waters Family Sanctuary',
-      isMainCampus: true,
-      address: '88 Ocean Boulevard',
-      city: 'Miami',
-      stateOrRegion: 'FL',
-      country: 'United States',
-      zipCode: '33101',
-      leadPastor: 'Pastor Sarah Jenkins & Daniel Reed',
-      pastorAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80',
-      phone: '+1 (305) 555-3344',
-      email: 'miami@livingwaters.org',
-      googleMapsUrl: 'https://maps.google.com/?q=Miami+Living+Waters',
-      serviceTimes: ['Sundays: 10:00 AM EST', 'Wednesdays: 6:00 PM Youth Fire'],
-      features: ['Outdoor Beachside Baptismal', 'Youth Worship Arena', 'Spanish & English Services'],
-      image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80'
+      id: 'gcc-camp-online',
+      churchName: 'Grace City Cathedral',
+      campusName: 'Global Online Digital Sanctuary',
+      isMainCampus: false,
+      address: 'Available Worldwide in Every Nation & Timezone',
+      city: 'Worldwide',
+      stateOrRegion: 'Global',
+      country: 'Online',
+      leadPastor: 'Pastor Sarah Williams (Digital Pastorate)',
+      pastorAvatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
+      phone: '+1 (800) 444-PRAY',
+      email: 'online@gracecitycathedral.org',
+      googleMapsUrl: 'https://gracecitycathedral.org/live',
+      serviceTimes: ['24/7 Live Stream Radio', 'Sundays 9:00 AM & 11:30 AM EST Live Interactive Sanctuary'],
+      features: ['Live Intercession Chat', 'Virtual Small Groups', 'Digital Membership Certificate', 'Online Giving Portal'],
+      image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80'
     }
   ]
 };
 
 export const CHURCH_SOCIALS: Record<string, SocialLink[]> = {
   'Grace City Cathedral': [
-    { platform: 'youtube', label: 'YouTube Live', url: 'https://youtube.com/@GraceCityCathedral', handle: '@GraceCityCathedral', followers: '482K Subscribers', isPrimary: true },
-    { platform: 'instagram', label: 'Instagram', url: 'https://instagram.com/gracecitycathedral', handle: '@gracecitycathedral', followers: '195K Followers', isPrimary: true },
-    { platform: 'facebook', label: 'Facebook Page', url: 'https://facebook.com/gracecitycathedral', handle: 'Grace City Cathedral', followers: '310K Likes', isPrimary: true },
-    { platform: 'twitter', label: 'X (Twitter)', url: 'https://x.com/GraceCityChurch', handle: '@GraceCityChurch', followers: '84K Followers' },
-    { platform: 'tiktok', label: 'TikTok Praise', url: 'https://tiktok.com/@gracecityworship', handle: '@gracecityworship', followers: '220K Followers' },
-    { platform: 'spotify', label: 'Spotify Worship', url: 'https://open.spotify.com/artist/gracecity', handle: 'Grace City Worship', followers: '1.2M Monthly Listeners' },
-    { platform: 'applepodcasts', label: 'Apple Podcasts', url: 'https://podcasts.apple.com/us/podcast/grace-city-sermons', handle: 'Grace City Sermons', followers: '4.9 ★ Rating' },
-    { platform: 'telegram', label: 'Telegram Prayer Group', url: 'https://t.me/gracecityprayer', handle: 'GraceCityPrayer', followers: '45.2K Intercessors' },
-    { platform: 'whatsapp', label: '24/7 WhatsApp Prayer', url: 'https://wa.me/18005557700', handle: '+1 (800) 555-7700', followers: 'Instant Intercession' },
-    { platform: 'website', label: 'Official Portal', url: 'https://www.gracecitycathedral.org', handle: 'gracecitycathedral.org', isPrimary: true }
-  ],
-  'Covenant Life': [
-    { platform: 'youtube', label: 'YouTube Channel', url: 'https://youtube.com/@CovenantLifeGlobal', handle: '@CovenantLifeGlobal', followers: '210K Subscribers', isPrimary: true },
-    { platform: 'instagram', label: 'Instagram', url: 'https://instagram.com/covenantlifevance', handle: '@covenantlifevance', followers: '98K Followers', isPrimary: true },
-    { platform: 'facebook', label: 'Facebook', url: 'https://facebook.com/covenantlifeglobal', handle: 'Covenant Life Global', followers: '145K Followers' },
-    { platform: 'spotify', label: 'Spotify Sermons', url: 'https://open.spotify.com/artist/drelizabethvance', handle: 'Dr. Elizabeth Vance', followers: '450K Streams' },
-    { platform: 'telegram', label: 'Telegram Faith Digest', url: 'https://t.me/covenantlifeprayer', handle: 'CovenantLifeDigest', followers: '28.1K Members' },
-    { platform: 'whatsapp', label: 'WhatsApp Intercession', url: 'https://wa.me/18005558811', handle: '+1 (800) 555-8811', followers: 'Daily Promises' },
-    { platform: 'website', label: 'Official Ministry Site', url: 'https://www.covenantlife.org', handle: 'covenantlife.org', isPrimary: true }
-  ],
-  'Global Gospel Alliance': [
-    { platform: 'youtube', label: 'YouTube Broadcast', url: 'https://youtube.com/@GlobalGospelAlliance', handle: '@GlobalGospelAlliance', followers: '890K Subscribers', isPrimary: true },
-    { platform: 'instagram', label: 'Instagram', url: 'https://instagram.com/globalgospelalliance', handle: '@globalgospelalliance', followers: '340K Followers', isPrimary: true },
-    { platform: 'facebook', label: 'Facebook', url: 'https://facebook.com/globalgospelalliance', handle: 'Global Gospel Alliance', followers: '520K Likes' },
-    { platform: 'tiktok', label: 'TikTok Gospel Choir', url: 'https://tiktok.com/@globalgospelchoir', handle: '@globalgospelchoir', followers: '410K Followers' },
-    { platform: 'telegram', label: 'Global Telegram Network', url: 'https://t.me/globalgospelnetwork', handle: 'GlobalGospelAlliance', followers: '82K Members' },
-    { platform: 'whatsapp', label: 'WhatsApp Prayer Hotline', url: 'https://wa.me/18005559922', handle: '+1 (800) 555-9922', followers: 'Global Prayer' },
-    { platform: 'website', label: 'Global Alliance Hub', url: 'https://www.globalgospelalliance.org', handle: 'globalgospelalliance.org', isPrimary: true }
-  ],
-  'Living Waters Sanctuary': [
-    { platform: 'youtube', label: 'YouTube Channel', url: 'https://youtube.com/@LivingWatersSanctuary', handle: '@LivingWatersSanctuary', followers: '310K Subscribers', isPrimary: true },
-    { platform: 'instagram', label: 'Instagram', url: 'https://instagram.com/livingwatersmiami', handle: '@livingwatersmiami', followers: '120K Followers', isPrimary: true },
-    { platform: 'facebook', label: 'Facebook', url: 'https://facebook.com/livingwatersmiami', handle: 'Living Waters Miami', followers: '180K Likes' },
-    { platform: 'spotify', label: 'Spotify Live Worship', url: 'https://open.spotify.com/artist/livingwatersband', handle: 'Living Waters Band', followers: '380K Monthly Listeners' },
-    { platform: 'whatsapp', label: 'WhatsApp Prayer Line', url: 'https://wa.me/18005553344', handle: '+1 (800) 555-3344', followers: 'Miami Prayer Hub' },
-    { platform: 'website', label: 'Ministry Website', url: 'https://www.livingwaterssanctuary.org', handle: 'livingwaterssanctuary.org', isPrimary: true }
-  ]
-};
-
-export const CHURCH_SCHEDULES: Record<string, ServiceScheduleItem[]> = {
-  'Grace City Cathedral': [
     {
-      id: 'sch-gcc-1',
-      day: 'Sunday',
-      time: '8:00 AM & 10:30 AM EST',
-      title: 'Sunday Morning Victory & Celebration Worship Service',
-      type: 'Worship Service',
-      locationOrStream: 'Main Sanctuary & Gospread HD Live Stream',
-      speakerOrLeader: 'Pastor Mark Anthony & Grace Choir',
-      description: 'Dynamic praise and congregational worship, communion, and empowering divine truth preaching.',
-      isLiveNow: true
+      platform: 'youtube',
+      label: 'YouTube Live Channel',
+      url: 'https://youtube.com/@GraceCityCathedralLive',
+      handle: '@GraceCityCathedralLive',
+      followers: '1.48M Subscribers',
+      isPrimary: true
     },
     {
-      id: 'sch-gcc-2',
-      day: 'Wednesday',
-      time: '7:00 PM EST',
-      title: 'Midweek Word, Healing & Deliverance Service',
-      type: 'Midweek Prayer',
-      locationOrStream: 'Gospread Interactive Live Stream',
-      speakerOrLeader: 'Pastor Mark Anthony & Prayer Team',
-      description: 'In-depth scripture study with dedicated intercessory prayer and warfare worship session.',
+      platform: 'instagram',
+      label: 'Instagram Official',
+      url: 'https://instagram.com/gracecitycathedral',
+      handle: '@gracecitycathedral',
+      followers: '620K Followers'
     },
     {
-      id: 'sch-gcc-3',
-      day: 'Friday',
-      time: '9:00 PM EST',
-      title: 'Night of Breakthrough & Prophetic Prayer Vigil',
-      type: 'Special Event',
-      locationOrStream: 'Cathedral Chapel & Gospread Radio Feed',
-      speakerOrLeader: 'Evangelist Sarah Jenkins',
-      description: 'Monthly midnight prayer vigil seeking revival, divine direction, and supernatural restoration.',
-    }
-  ],
-  'Covenant Life': [
-    {
-      id: 'sch-clm-1',
-      day: 'Sunday',
-      time: '9:30 AM EST',
-      title: 'Glorious Faith & Covenant Worship Assembly',
-      type: 'Worship Service',
-      locationOrStream: 'Covenant Center & Gospread Live',
-      speakerOrLeader: 'Dr. Elizabeth Vance',
-      description: 'Atmosphere of faith, anointed choir specials, and spirit-led biblical exposition.',
+      platform: 'facebook',
+      label: 'Facebook Ministry Page',
+      url: 'https://facebook.com/gracecitycathedral',
+      handle: 'Grace City Cathedral Global',
+      followers: '940K Likes'
     },
     {
-      id: 'sch-clm-2',
-      day: 'Tuesday',
-      time: '6:30 PM EST',
-      title: 'Believers School of Discipleship & Bible Institute',
-      type: 'Bible Study',
-      locationOrStream: 'Gospread Channel Stream',
-      speakerOrLeader: 'Dr. Elizabeth Vance',
-      description: 'Verse-by-verse examination of biblical doctrines, kingdom principles, and practical Christian living.',
-    }
-  ],
-  'Global Gospel Alliance': [
-    {
-      id: 'sch-gga-1',
-      day: 'Sunday',
-      time: '11:00 AM EST',
-      title: 'International Kingdom Worship & Mass Choir Broadcast',
-      type: 'Worship Service',
-      locationOrStream: 'Global Arena & Worldwide Gospread Feed',
-      speakerOrLeader: 'Bishop Thomas Miller & 100-Voice Ensemble',
-      description: 'Global broadcast connecting believers worldwide through anthems, worship, and apostolic messages.',
+      platform: 'spotify',
+      label: 'Spotify Worship Music',
+      url: 'https://spotify.com/artist/gracecitycathedral',
+      handle: 'Grace City Cathedral Choir',
+      followers: '380K Monthly Listeners'
     },
     {
-      id: 'sch-gga-2',
-      day: 'Thursday',
-      time: '8:00 PM EST',
-      title: 'Global Prayer Network & Missionary Encounter',
-      type: 'Midweek Prayer',
-      locationOrStream: 'Gospread Global Network',
-      speakerOrLeader: 'Apostle James Coleman',
-      description: 'Uniting global partners in prayer for missions, national revival, and church multiplication.',
-    }
-  ],
-  'Living Waters Sanctuary': [
-    {
-      id: 'sch-lws-1',
-      day: 'Sunday',
-      time: '10:00 AM EST',
-      title: 'Living Waters Family Celebration & Kids Praise',
-      type: 'Worship Service',
-      locationOrStream: 'Sanctuary Auditorium & Gospread Channel',
-      speakerOrLeader: 'Pastor Sarah Jenkins',
-      description: 'Family-centered worship experience with vibrant praise, youth ministry features, and sound teaching.',
+      platform: 'applepodcasts',
+      label: 'Apple Sermons Podcast',
+      url: 'https://podcasts.apple.com/us/podcast/grace-city-sermons',
+      handle: 'Grace City Audio Pulpit',
+      followers: 'Top 10 Christian Podcasts'
     },
     {
-      id: 'sch-lws-2',
-      day: 'Wednesday',
-      time: '6:00 PM EST',
-      title: 'Youth & Young Adult Elevation Fire Worship',
-      type: 'Youth Fellowship',
-      locationOrStream: 'Gospread Live Stream',
-      speakerOrLeader: 'Pastor Daniel Reed',
-      description: 'Contemporary acoustic praise, Q&A on faith in modern culture, and fellowship.',
+      platform: 'website',
+      label: 'Official Ministry Website',
+      url: 'https://gracecitycathedral.org',
+      handle: 'gracecitycathedral.org',
+      isPrimary: true
     }
   ]
 };
 
-export const SUBSCRIPTION_CHANNELS = [
-  { name: 'Grace City Cathedral', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80', liveNow: true },
-  { name: 'Covenant Life', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80', liveNow: false },
-  { name: 'Global Gospel Alliance', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80', liveNow: false },
-  { name: 'Living Waters Sanctuary', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80', liveNow: false },
+export const GRACE_CITY_CATHEDRAL_PROFILE: ChurchProfile = {
+  name: 'Grace City Cathedral',
+  avatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
+  coverImage: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1600&q=80',
+  location: 'Atlanta, GA (Headquarters) • London • Lagos • Nairobi • Worldwide',
+  leadPastor: 'Senior Pastor David & Pastor Sarah Williams',
+  pastorTitle: 'Senior Pastors & Apostolic Overseers',
+  pastorBio: 'Pastor David & Sarah Williams have spearheaded global apostolic ministry for over 28 years. Known for uncompromised biblical scholarship, profound revelations of the New Covenant, and a passion for raising kingdom disciples worldwide.',
+  website: 'https://gracecitycathedral.org',
+  phone: '+1 (404) 555-GRACE',
+  email: 'connect@gracecitycathedral.org',
+  statementOfFaith: [
+    'We believe the Bible is the inspired, infallible, and authoritative Word of God.',
+    'We believe in one God, eternally existent in three Persons: Father, Son, and Holy Spirit.',
+    'We believe in the deity of Jesus Christ, His virgin birth, sinless life, atoning death on the Cross, bodily resurrection, and victorious second coming.',
+    'We believe salvation is received by grace through faith in Jesus Christ alone, transforming the believer into a new creation.',
+    'We believe in the active ministry and gifts of the Holy Spirit for power, holiness, signs, wonders, and kingdom dominion today.',
+    'We believe the Church is the living Body of Christ called to demonstrate love, radical generosity, and gospel power in every nation.'
+  ],
+  missionStatement: 'To awaken nations to the majesty of Jesus Christ, empower families through the uncompromised Word of Grace, build global sanctuaries of unceasing worship, and extend Christ’s compassion to the least of these.',
+  memberCount: 24650,
+  followerCount: 1480000,
+  isLiveNow: true,
+  liveViewersCount: 12480,
+  liveStreamTitle: 'Sunday Apostolic Communion & Prophetic Impartation — Live Sanctuary',
+  upcomingServiceTitle: 'Sunday Morning Glory Service',
+  upcomingServiceTime: 'Sunday — 9:00 AM EST',
+  upcomingServiceCountdownIso: new Date(Date.now() + 2 * 24 * 3600 * 1000 + 4 * 3600 * 1000).toISOString(),
+  schedules: CHURCH_SCHEDULES['Grace City Cathedral'],
+  campuses: CHURCH_LOCATIONS['Grace City Cathedral'],
+  socials: CHURCH_SOCIALS['Grace City Cathedral'],
+  givingFunds: [
+    {
+      id: 'fund-tithe',
+      name: 'Tithe & Firstfruits Giving',
+      description: 'Honoring God with the first ten percent of all our increase for kingdom stewardship and sustenance of the Lord’s house (Malachi 3:10).',
+      icon: 'Heart',
+      isTaxDeductible: true
+    },
+    {
+      id: 'fund-building',
+      name: 'Cathedral Expansion & Sanctuary Building Fund',
+      description: 'Expanding our global worship sanctuaries, broadcasting technology infrastructure, and youth family centers.',
+      targetAmount: 5000000,
+      raisedAmount: 3420000,
+      icon: 'Building2',
+      isTaxDeductible: true
+    },
+    {
+      id: 'fund-missions',
+      name: 'World Missions & Global Benevolence Outreach',
+      description: 'Supporting over 65 field missionaries, planting churches in unreached regions, and feeding 40,000+ vulnerable families annually.',
+      targetAmount: 1200000,
+      raisedAmount: 950000,
+      icon: 'Globe',
+      isTaxDeductible: true
+    },
+    {
+      id: 'fund-media',
+      name: 'Global Satellite & Digital Broadcast Fund',
+      description: 'Powering 24/7 internet radio, 4K livestream servers, translation engines, and free distribution of Bibles to seekers.',
+      targetAmount: 600000,
+      raisedAmount: 480000,
+      icon: 'Tv',
+      isTaxDeductible: true
+    }
+  ]
+};
+
+export const SUBSCRIPTION_CHANNELS: { name: string; avatar: string; liveNow: boolean }[] = [
+  {
+    name: 'Grace City Cathedral',
+    avatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
+    liveNow: true
+  },
+  {
+    name: 'Elevation Praise Center',
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
+    liveNow: false
+  },
+  {
+    name: 'Dunamis International Gospel Centre',
+    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&q=80',
+    liveNow: false
+  },
+  {
+    name: 'Sinach Global Ministry',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+    liveNow: false
+  }
 ];
 
 export interface RhemaPromise {
@@ -712,40 +722,22 @@ export interface RhemaPromise {
 
 export const DAILY_RHEMA_PROMISES: RhemaPromise[] = [
   {
-    id: 'rh-1',
-    theme: 'Unstoppable Victory',
-    verse: 'Romans 8:31',
-    scripture: 'What then shall we say to these things? If God is for us, who can be against us?',
-    declaration: 'I walk today in supernatural confidence knowing no weapon formed against me shall prosper.',
-    reflection: 'No divine promise fails when God steps into your situation. Stand firm and watch God turn your trial into a testimony.',
-    badgeTag: 'OVERCOMER'
+    id: 'promise-1',
+    theme: 'Supernatural Favor & Protection',
+    verse: 'Psalm 5:12',
+    scripture: 'For thou, Lord, wilt bless the righteous; with favour wilt thou compass him as with a shield.',
+    declaration: 'I declare that the unmerited favor of God surrounds me today like a heavy shield. Every door closed by men is opened by the hand of the Almighty.',
+    reflection: 'Step out boldly into your workspace, family, and ministry. Favor is not what you earn, but whose you are.',
+    badgeTag: 'Shield of Grace'
   },
   {
-    id: 'rh-2',
-    theme: 'Abundant Peace & Strength',
-    verse: 'Isaiah 40:31',
-    scripture: 'Those who hope in the LORD will renew their strength. They will soar on wings like eagles.',
-    declaration: 'My strength is renewed daily. I fly above earthly anxiety and rest in divine peace.',
-    reflection: 'When you feel weary, remember that waiting on God is not passive—it is plugging into infinite divine power.',
-    badgeTag: 'RENEWAL'
-  },
-  {
-    id: 'rh-3',
-    theme: 'Open Heavens & Provision',
+    id: 'promise-2',
+    theme: 'Overflowing Abundance',
     verse: 'Philippians 4:19',
-    scripture: 'And my God will meet all your needs according to the riches of his glory in Christ Jesus.',
-    declaration: 'Lack has no authority in my life. The storehouses of heaven are opened over my house today.',
-    reflection: 'Trust God as your primary source. His supply is never limited by economic conditions.',
-    badgeTag: 'PROSPERITY'
-  },
-  {
-    id: 'rh-4',
-    theme: 'Divine Guidance & Light',
-    verse: 'Psalm 119:105',
-    scripture: 'Your word is a lamp for my feet, a light on my path.',
-    declaration: 'I make wise, spirit-guided decisions today. My steps are ordered by the Lord.',
-    reflection: 'God rarely gives a 10-year roadmap, but He always gives enough light for your next obedience step.',
-    badgeTag: 'WISDOM'
+    scripture: 'But my God shall supply all your need according to his riches in glory by Christ Jesus.',
+    declaration: 'My supply does not come from the world economy, but from the infinite storehouse of Heaven through Jesus Christ!',
+    reflection: 'Rest in the divine sufficiency of God. No lack shall defeat your purpose.',
+    badgeTag: 'Kingdom Provider'
   }
 ];
 
@@ -765,43 +757,30 @@ export interface GraceShort {
 
 export const GRACE_SHORTS: GraceShort[] = [
   {
-    id: 'gs-1',
-    title: '⚡ 45 Seconds of Pure Anointed High Praise!',
-    speaker: 'Grace City Mass Choir',
+    id: 'short-1',
+    title: 'When God Closes A Door, He Prepares A Throne Room! 🔥',
+    speaker: 'Pastor David Williams',
     church: 'Grace City Cathedral',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-    likes: '24.8K',
-    amensCount: 5410,
-    videoUrl: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=600&q=80',
+    avatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
+    likes: '48.2K',
+    amensCount: 1820,
+    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-church-windows-with-sunlight-streaming-through-41584-large.mp4',
     thumbnail: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=600&q=80',
     duration: '0:45',
-    tags: ['#HighPraise', '#WorshipClip', '#SundayFire']
+    tags: ['#GraceShorts', '#PropheticWord', '#Faith']
   },
   {
-    id: 'gs-2',
-    title: '🔥 Declare This Over Your Finances Before You Sleep!',
-    speaker: 'Dr. Elizabeth Vance',
-    church: 'Covenant Life',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80',
-    likes: '41.2K',
-    amensCount: 12900,
-    videoUrl: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&w=600&q=80',
-    thumbnail: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&w=600&q=80',
-    duration: '0:58',
-    tags: ['#PropheticWord', '#FinancialBreakthrough', '#Faith']
-  },
-  {
-    id: 'gs-3',
-    title: '🙌 When The Presence Of God Fills The Room Unannounced',
-    speaker: 'Bishop Thomas Miller',
-    church: 'Global Gospel Alliance',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
-    likes: '18.9K',
-    amensCount: 3820,
-    videoUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80',
-    thumbnail: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80',
-    duration: '0:38',
-    tags: ['#Revival', '#HolySpirit', '#Shorts']
+    id: 'short-2',
+    title: 'Why Praise Confuses The Enemy Every Single Time! ⚡',
+    speaker: 'Pastor Steven Furtick',
+    church: 'Elevation Praise Center',
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
+    likes: '34.9K',
+    amensCount: 1420,
+    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-church-interior-with-pews-and-sunlight-41585-large.mp4',
+    thumbnail: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=600&q=80',
+    duration: '0:52',
+    tags: ['#PraiseWeapon', '#Elevation']
   }
 ];
 
@@ -815,11 +794,30 @@ export interface FaithBadge {
 }
 
 export const FAITH_BADGES: FaithBadge[] = [
-  { id: 'b-1', name: '7-Day Faithful Watcher', icon: '🔥', description: 'Log in and praise for 7 consecutive days', xpRequired: 100, unlocked: true },
-  { id: 'b-2', name: 'Amen Warrior', icon: '🙌', description: 'Send over 50 Amen reactions in live streams', xpRequired: 250, unlocked: true },
-  { id: 'b-3', name: 'Kingdom Ambassador', icon: '👑', description: 'Reach 500 Praise XP milestone', xpRequired: 500, unlocked: true },
-  { id: 'b-4', name: 'Seed Sower', icon: '🌱', description: 'Sow a seed or offer a Super Amen in chat', xpRequired: 1000, unlocked: false },
-  { id: 'b-5', name: 'Global Intercessor', icon: '⚡', description: 'Submit 5 prayer requests to the live altar', xpRequired: 1500, unlocked: false },
+  {
+    id: 'badge-seed-sower',
+    name: 'Kingdom Seed Sower',
+    icon: '🌱',
+    description: 'Planted first seed in a ministry offering portal',
+    xpRequired: 100,
+    unlocked: true
+  },
+  {
+    id: 'badge-worshipper',
+    name: 'Sanctuary Worshipper',
+    icon: '🕊️',
+    description: 'Joined 5 live church broadcasts with the saints',
+    xpRequired: 300,
+    unlocked: true
+  },
+  {
+    id: 'badge-altar-flame',
+    name: 'Altar Intercessor',
+    icon: '🔥',
+    description: 'Prayed with 10 brothers and sisters in the Prayer Wall',
+    xpRequired: 600,
+    unlocked: true
+  }
 ];
 
 export function registerChurchProfile(
@@ -834,5 +832,3 @@ export function registerChurchProfile(
     CHURCH_SOCIALS[churchName] = socials;
   }
 }
-
-

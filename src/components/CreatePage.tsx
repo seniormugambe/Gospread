@@ -121,43 +121,9 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
   const [agreeTerms, setAgreeTerms] = useState(true);
 
   // 💳 1. MULTIPLE GIVING & PAYOUT ACCOUNTS STATE
-  const [payoutAccounts, setPayoutAccounts] = useState<PayoutAccountItem[]>([
-    {
-      id: 'payout-1',
-      label: 'Main Sunday Tithes & Offerings',
-      type: 'Direct Bank Wire',
-      currency: 'USD ($)',
-      accountHolder: 'Grace Fellowship Cathedral Ministries Inc.',
-      bankOrProvider: 'Kingdom Global Trust Bank',
-      accountNumber: '9810239104',
-      routingOrSwift: '021000021 / SWIFT: KGTBUSA',
-      isPrimary: true
-    },
-    {
-      id: 'payout-2',
-      label: 'Global Building & Sanctuary Expansion Fund',
-      type: 'Stripe Connect',
-      currency: 'USD ($)',
-      accountHolder: 'Grace Fellowship Building Altar',
-      bankOrProvider: 'Stripe Express Payouts',
-      accountNumber: 'acct_1M3K92gX90Lzp8Q',
-      routingOrSwift: 'Instant Card Processing',
-      isPrimary: false
-    },
-    {
-      id: 'payout-3',
-      label: 'Missions, Charity & Outreach (Africa/Global)',
-      type: 'Mobile Money (M-Pesa / MTN)',
-      currency: 'KES (KSh)',
-      accountHolder: 'Grace Missions Outreach Trust',
-      bankOrProvider: 'Safaricom M-Pesa Till / Paybill',
-      accountNumber: 'Till No: 892019 / +254 700 123456',
-      routingOrSwift: 'Paybill 247247',
-      isPrimary: false
-    }
-  ]);
+  const [payoutAccounts, setPayoutAccounts] = useState<PayoutAccountItem[]>([]);
 
-  // 🌐 2. MULTIPLE SOCIAL MEDIA LINKS STATE (Pre-populated matching uploaded image design)
+  // 🌐 2. MULTIPLE SOCIAL MEDIA LINKS STATE
   const [socialRows, setSocialRows] = useState<SocialPlatformRow[]>([
     {
       id: 'soc-tiktok',
@@ -165,7 +131,7 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
       name: 'TikTok',
       prefix: 'https://www.tiktok.com/@',
       placeholder: 'your username',
-      username: 'gospelcathedral'
+      username: ''
     },
     {
       id: 'soc-substack',
@@ -174,7 +140,7 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
       prefix: 'https://',
       suffix: '.substack.com/',
       placeholder: 'publication-name',
-      username: 'gracetube'
+      username: ''
     },
     {
       id: 'soc-twitter',
@@ -182,7 +148,7 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
       name: 'Twitter / X',
       prefix: 'twitter.com/',
       placeholder: 'your username',
-      username: 'GraceCathedral'
+      username: ''
     },
     {
       id: 'soc-linkedin',
@@ -190,7 +156,7 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
       name: 'LinkedIn',
       prefix: 'linkedin.com/in/',
       placeholder: 'your username or company',
-      username: 'grace-fellowship-cathedral'
+      username: ''
     },
     {
       id: 'soc-facebook',
@@ -198,7 +164,7 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
       name: 'Facebook',
       prefix: 'facebook.com/',
       placeholder: 'your username',
-      username: 'GraceFellowshipLive'
+      username: ''
     },
     {
       id: 'soc-instagram',
@@ -206,7 +172,7 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
       name: 'Instagram',
       prefix: 'instagram.com/',
       placeholder: 'your username',
-      username: 'gracecathedral_live'
+      username: ''
     },
     {
       id: 'soc-medium',
@@ -214,7 +180,7 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
       name: 'Medium',
       prefix: 'medium.com/@',
       placeholder: 'your username',
-      username: 'pastordavid'
+      username: ''
     },
     {
       id: 'soc-revue',
@@ -222,7 +188,7 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
       name: 'Threads / Newsletter',
       prefix: 'threads.net/@',
       placeholder: 'your username',
-      username: 'gracecathedral'
+      username: ''
     },
     {
       id: 'soc-youtube',
@@ -230,7 +196,7 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
       name: 'YouTube',
       prefix: 'youtube.com/@',
       placeholder: 'channel handle or UCZcY...',
-      username: 'GraceCathedralGlobal'
+      username: ''
     },
     {
       id: 'soc-buymeacoffee',
@@ -238,7 +204,7 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
       name: 'Seed Offering / Support',
       prefix: 'buymeacoffee.com/',
       placeholder: 'ministry_handle',
-      username: 'grace_ministry'
+      username: ''
     },
     {
       id: 'soc-spotify',
@@ -246,7 +212,7 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
       name: 'Spotify',
       prefix: 'open.spotify.com/artist/',
       placeholder: 'artist or playlist ID',
-      username: 'grace-worship-collective'
+      username: ''
     },
     {
       id: 'soc-telegram',
@@ -254,7 +220,7 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
       name: 'Telegram Prayer Line',
       prefix: 't.me/',
       placeholder: 'channel or prayer altar',
-      username: 'GracePrayerAltar'
+      username: ''
     },
     {
       id: 'soc-whatsapp',
@@ -262,7 +228,7 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
       name: 'WhatsApp Intercession',
       prefix: 'wa.me/',
       placeholder: 'country code + number',
-      username: '18005557700'
+      username: ''
     },
     {
       id: 'soc-website',
@@ -270,124 +236,50 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
       name: 'Official Ministry Website',
       prefix: 'https://',
       placeholder: 'www.gracechurch.org',
-      username: 'www.gracefellowship.org'
+      username: ''
     }
   ]);
 
   // ⛪ 3. MULTIPLE CHURCH LOCATIONS & CAMPUSES STATE (OPTIONAL)
   const [enableCampuses, setEnableCampuses] = useState(true);
-  const [churchCampuses, setChurchCampuses] = useState<ChurchCampusItem[]>([
-    {
-      id: 'camp-1',
-      campusName: 'Main Worship Cathedral & HQ Sanctuary',
-      campusType: 'Main Sanctuary',
-      address: '777 Grace Boulevard, Suite 100',
-      city: 'Atlanta',
-      stateOrRegion: 'GA',
-      country: 'United States',
-      zipCode: '30303',
-      serviceTimes: 'Sundays: 8:00 AM & 10:30 AM EST • Wednesdays: 7:00 PM EST',
-      leadPastor: 'Senior Pastors David & Sarah Lawson',
-      phone: '+1 (404) 555-7700',
-      email: 'atlanta@gracefellowship.org',
-      googleMapsUrl: 'https://maps.google.com/?q=Atlanta+Grace+Cathedral',
-      isMain: true
-    },
-    {
-      id: 'camp-2',
-      campusName: 'Downtown City Center Campus',
-      campusType: 'Branch Sanctuary',
-      address: '240 Peachtree Street NW',
-      city: 'Atlanta',
-      stateOrRegion: 'GA',
-      country: 'United States',
-      zipCode: '30308',
-      serviceTimes: 'Sundays: 11:30 AM EST • Thursdays: 12:15 PM Midday Prayer',
-      leadPastor: 'Pastor Mark Anthony & Grace Choir',
-      phone: '+1 (404) 555-7711',
-      email: 'downtown@gracefellowship.org',
-      googleMapsUrl: 'https://maps.google.com/?q=Peachtree+Street+Atlanta',
-      isMain: false
-    },
-    {
-      id: 'camp-3',
-      campusName: 'London UK International Campus',
-      campusType: 'International Fellowship',
-      address: '42 Grace Church Street',
-      city: 'London',
-      stateOrRegion: 'Greater London',
-      country: 'United Kingdom',
-      zipCode: 'EC3V 0AT',
-      serviceTimes: 'Sundays: 10:00 AM GMT • Fridays: 8:00 PM GMT Revival Altar',
-      leadPastor: 'Pastor Samuel & Grace Boateng',
-      phone: '+44 20 7946 0912',
-      email: 'london@gracefellowship.org',
-      googleMapsUrl: 'https://maps.google.com/?q=London+Grace+Church',
-      isMain: false
-    }
-  ]);
+  const [churchCampuses, setChurchCampuses] = useState<ChurchCampusItem[]>([]);
 
   // ⛪ Church Registration State
-  const [churchName, setChurchName] = useState('Grace Fellowship Cathedral');
-  const [pastorName, setPastorName] = useState('Senior Pastor David Lawson');
+  const [churchName, setChurchName] = useState('');
+  const [pastorName, setPastorName] = useState('');
   const [denomination, setDenomination] = useState('Non-Denominational / Evangelical');
   const [churchServiceType, setChurchServiceType] = useState('Live Worship');
-  const [sermonTitle, setSermonTitle] = useState('Walking in Divine Victory and Grace');
-  const [churchStreamUrl, setChurchStreamUrl] = useState('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
-  const [churchScripture, setChurchScripture] = useState('Ephesians 2:8-10');
-  const [churchDescription, setChurchDescription] = useState('Official live broadcast feed of Grace Fellowship Cathedral. Join our worldwide family for spirit-filled worship and life-transforming Word.');
+  const [sermonTitle, setSermonTitle] = useState('');
+  const [churchStreamUrl, setChurchStreamUrl] = useState('');
+  const [churchScripture, setChurchScripture] = useState('');
+  const [churchDescription, setChurchDescription] = useState('');
   const [enableLiveChat, setEnableLiveChat] = useState(true);
   const [enablePrayerBox, setEnablePrayerBox] = useState(true);
 
   // 🎵 Artiste Registration State
-  const [artistName, setArtistName] = useState('Grace & Victory Collective');
-  const [recordLabel, setRecordLabel] = useState('Kingdom Sound Records');
+  const [artistName, setArtistName] = useState('');
+  const [recordLabel, setRecordLabel] = useState('');
   const [musicGenre, setMusicGenre] = useState('Contemporary Worship');
-  const [trackTitle, setTrackTitle] = useState('Oceans of Unfailing Mercy');
+  const [trackTitle, setTrackTitle] = useState('');
   const [musicCategory, setMusicCategory] = useState<'Live Worship' | 'Gospel Music' | 'Choir Special'>('Gospel Music');
-  const [musicMediaUrl, setMusicMediaUrl] = useState('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
-  const [musicThumbnail, setMusicThumbnail] = useState('https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80');
-  const [musicInspiration, setMusicInspiration] = useState('Written during an all-night prayer vigil reflecting on the boundless grace of God.');
-  const [musicLyrics, setMusicLyrics] = useState('Your mercy falls like morning rain / Washing away every guilt and pain / Forever You reign, Hallelujah!');
+  const [musicMediaUrl, setMusicMediaUrl] = useState('');
+  const [musicThumbnail, setMusicThumbnail] = useState('');
+  const [musicInspiration, setMusicInspiration] = useState('');
+  const [musicLyrics, setMusicLyrics] = useState('');
 
   // 🎙️ Creator Registration State
-  const [creatorName, setCreatorName] = useState('Kingdom Today Faith Pod');
+  const [creatorName, setCreatorName] = useState('');
   const [creatorNiche, setCreatorNiche] = useState('Gospel Podcast');
-  const [creatorBio, setCreatorBio] = useState('Weekly discipleship discussions, sound biblical truth, and interviews with Christian leaders.');
-  const [episodeTitle, setEpisodeTitle] = useState('Overcoming Anxiety Through Scripture');
-  const [episodeNumber, setEpisodeNumber] = useState('Season 1, Ep 4');
-  const [creatorMediaUrl, setCreatorMediaUrl] = useState('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
-  const [featuredGuests, setFeaturedGuests] = useState('Dr. Jane Doe & Pastor Samuel');
-  const [episodeKeyTakeaways, setEpisodeKeyTakeaways] = useState('Philippians 4:6-7 peace of God that surpasses understanding.');
-  const [studyGuideUrl, setStudyGuideUrl] = useState('https://gracetube.tv/study-guides/ep4');
+  const [creatorBio, setCreatorBio] = useState('');
+  const [episodeTitle, setEpisodeTitle] = useState('');
+  const [episodeNumber, setEpisodeNumber] = useState('');
+  const [creatorMediaUrl, setCreatorMediaUrl] = useState('');
+  const [featuredGuests, setFeaturedGuests] = useState('');
+  const [episodeKeyTakeaways, setEpisodeKeyTakeaways] = useState('');
+  const [studyGuideUrl, setStudyGuideUrl] = useState('');
 
   // Interactive Post-Registration Prayer Requests State
-  const [prayerRequests, setPrayerRequests] = useState<PrayerRequest[]>([
-    {
-      id: 'p1',
-      name: 'Sister Mary K.',
-      request: 'Praying for complete healing for my mother in hospital and peace over our family.',
-      time: '10 mins ago',
-      prayedCount: 24,
-      status: 'Pending'
-    },
-    {
-      id: 'p2',
-      name: 'Brother Joseph',
-      request: 'Asking for prayer for breakthrough in my job interview and financial provision.',
-      time: '25 mins ago',
-      prayedCount: 18,
-      status: 'Pending'
-    },
-    {
-      id: 'p3',
-      name: 'Grace Youth Ministry',
-      request: 'Praying for an outpouring of the Holy Spirit at our upcoming youth conference.',
-      time: '1 hour ago',
-      prayedCount: 42,
-      status: 'Prayed'
-    }
-  ]);
+  const [prayerRequests, setPrayerRequests] = useState<PrayerRequest[]>([]);
 
   const [newPrayerInput, setNewPrayerInput] = useState('');
 
@@ -956,26 +848,30 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
                     </button>
                   </div>
                   <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                    {payoutAccounts.map(acc => (
-                      <div key={acc.id} className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between text-xs">
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-white">{acc.label}</span>
-                            {acc.isPrimary && (
-                              <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[9px] font-bold">
-                                PRIMARY
-                              </span>
-                            )}
+                    {payoutAccounts.length === 0 ? (
+                      <p className="text-xs text-slate-500 italic py-3 text-center">No payout accounts configured yet.</p>
+                    ) : (
+                      payoutAccounts.map(acc => (
+                        <div key={acc.id} className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between text-xs">
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-white">{acc.label}</span>
+                              {acc.isPrimary && (
+                                <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[9px] font-bold">
+                                  PRIMARY
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-400 block font-mono">
+                              {acc.type} • {acc.accountNumber || acc.routingOrSwift}
+                            </span>
                           </div>
-                          <span className="text-[10px] text-slate-400 block font-mono">
-                            {acc.type} • {acc.accountNumber || acc.routingOrSwift}
+                          <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">
+                            {acc.currency}
                           </span>
                         </div>
-                        <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">
-                          {acc.currency}
-                        </span>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
@@ -1089,7 +985,28 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
               </div>
 
               <div className="space-y-4">
-                {payoutAccounts.map((acc, idx) => (
+                {payoutAccounts.length === 0 ? (
+                  <div className="p-8 rounded-2xl bg-[#0f0f0f] border border-dashed border-slate-800 text-center space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto">
+                      <Landmark className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">No Payout Methods Configured</h4>
+                      <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
+                        Configure financial accounts to receive direct tithes, partner offerings, seeds, and building donations directly from viewers.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addPayoutAccount}
+                      className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 transition inline-flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Payout Method</span>
+                    </button>
+                  </div>
+                ) : (
+                  payoutAccounts.map((acc, idx) => (
                   <div 
                     key={acc.id} 
                     className={`p-4 rounded-2xl border space-y-3 relative ${
@@ -1213,7 +1130,7 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
                       </div>
                     </div>
                   </div>
-                ))}
+                )))}
               </div>
             </div>
           )}
@@ -1546,36 +1463,44 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
 
               {/* Prayer Requests List */}
               <div className="space-y-3">
-                {prayerRequests.map((prayer) => (
-                  <div key={prayer.id} className="p-4 rounded-2xl bg-[#0f0f0f] border border-slate-800 flex items-start justify-between gap-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white">{prayer.name}</span>
-                        <span className="text-[10px] text-slate-500">• {prayer.time}</span>
-                        <span className={`px-2 py-0.2 text-[9px] font-bold rounded-full ${
-                          prayer.status === 'Prayed' 
-                            ? 'bg-emerald-500/20 text-emerald-400' 
-                            : 'bg-amber-500/20 text-amber-400'
-                        }`}>
-                          {prayer.status}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-300">{prayer.request}</p>
-                    </div>
-
-                    <button
-                      onClick={() => handlePrayForRequest(prayer.id)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shrink-0 ${
-                        prayer.status === 'Prayed'
-                          ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
-                          : 'bg-blue-600 hover:bg-blue-500 text-white'
-                      }`}
-                    >
-                      <Heart className="w-3.5 h-3.5 fill-current" />
-                      <span>{prayer.status === 'Prayed' ? 'Prayed' : 'Pray Now'} ({prayer.prayedCount})</span>
-                    </button>
+                {prayerRequests.length === 0 ? (
+                  <div className="p-8 rounded-2xl bg-[#0f0f0f] border border-dashed border-slate-800 text-center space-y-2">
+                    <Heart className="w-6 h-6 text-slate-600 mx-auto" />
+                    <p className="text-xs font-semibold text-slate-300">No Prayer Requests Yet</p>
+                    <p className="text-[11px] text-slate-500 max-w-sm mx-auto">Viewer requests submitted during broadcasts and online intercession will appear here.</p>
                   </div>
-                ))}
+                ) : (
+                  prayerRequests.map((prayer) => (
+                    <div key={prayer.id} className="p-4 rounded-2xl bg-[#0f0f0f] border border-slate-800 flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-white">{prayer.name}</span>
+                          <span className="text-[10px] text-slate-500">• {prayer.time}</span>
+                          <span className={`px-2 py-0.2 text-[9px] font-bold rounded-full ${
+                            prayer.status === 'Prayed' 
+                              ? 'bg-emerald-500/20 text-emerald-400' 
+                              : 'bg-amber-500/20 text-amber-400'
+                          }`}>
+                            {prayer.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-300">{prayer.request}</p>
+                      </div>
+
+                      <button
+                        onClick={() => handlePrayForRequest(prayer.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shrink-0 ${
+                          prayer.status === 'Prayed'
+                            ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-blue-600 hover:bg-blue-500 text-white'
+                        }`}
+                      >
+                        <Heart className="w-3.5 h-3.5 fill-current" />
+                        <span>{prayer.status === 'Prayed' ? 'Prayed' : 'Pray Now'} ({prayer.prayedCount})</span>
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}

@@ -98,9 +98,9 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
               </span>
             </div>
             <div className="min-w-0 flex-1">
-              <h4 className="text-xs font-bold text-white truncate">{userSession.fullName}</h4>
-              <p className="text-[11px] text-amber-400 font-mono truncate">@{userSession.username}</p>
-              <p className="text-[10px] text-slate-400 truncate">{userSession.churchName || 'Grace City Cathedral'}</p>
+              <h4 className="text-xs font-bold text-white truncate">{userSession.fullName || 'Believer'}</h4>
+              <p className="text-[11px] text-amber-400 font-mono truncate">@{userSession.username || 'member'}</p>
+              <p className="text-[10px] text-slate-400 truncate">{userSession.churchName || 'Kingdom Believer'}</p>
             </div>
           </div>
 

@@ -649,7 +649,7 @@ export const SearchEngineOverlay: React.FC<SearchEngineOverlayProps> = ({
                             }}
                             className="p-2 rounded-xl bg-slate-900/70 hover:bg-slate-800 border border-slate-800/80 transition flex items-center gap-3 cursor-pointer group"
                           >
-                            <img src={track.coverUrl} alt={track.title} className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                            <img src={track.coverUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80'} alt={track.title} className="w-10 h-10 rounded-lg object-cover shrink-0" />
                             <div className="flex-1 min-w-0">
                               <h5 className="text-xs font-bold text-white truncate group-hover:text-amber-400 transition">
                                 {track.title}

@@ -115,7 +115,7 @@ export default function AudioPodcastHub({
           <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
             <div className="relative shrink-0 group">
               <img
-                src={featuredTrack.coverUrl}
+                src={featuredTrack.coverUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80'}
                 alt={featuredTrack.title}
                 referrerPolicy="no-referrer"
                 className="w-36 h-36 sm:w-44 sm:h-44 rounded-2xl object-cover border-2 border-amber-500/40 shadow-2xl group-hover:scale-105 transition duration-300"
@@ -242,10 +242,16 @@ export default function AudioPodcastHub({
           <Loader2 className="w-8 h-8 text-amber-400 animate-spin mx-auto" />
           <p className="text-xs font-semibold">Loading Kingdom Audio Streams...</p>
         </div>
+      ) : filteredTracks.length === 0 ? (
+        <div className="p-12 text-center text-slate-400 space-y-3 rounded-2xl bg-[#14151a] border border-slate-800/80">
+          <Music className="w-8 h-8 text-slate-600 mx-auto" />
+          <p className="text-xs font-semibold text-slate-300">No Kingdom audio tracks or podcasts found</p>
+          <p className="text-[11px] text-slate-500 max-w-sm mx-auto">Try adjusting your search keywords or switching categories to explore audio tracks.</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredTracks.map((track) => {
-            const isCurrent = currentTrack.id === track.id;
+            const isCurrent = currentTrack ? currentTrack.id === track.id : false;
             const isCurrentPlaying = isCurrent && isPlaying;
             const isInQueue = queuedTrackIds.includes(track.id);
             const isSaved = downloadedIds.includes(track.id);
@@ -263,7 +269,7 @@ export default function AudioPodcastHub({
                   {/* Artwork & Header Badges */}
                   <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-950">
                     <img
-                      src={track.coverUrl}
+                      src={track.coverUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80'}
                       alt={track.title}
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-300 opacity-90"

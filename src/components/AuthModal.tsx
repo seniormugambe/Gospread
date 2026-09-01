@@ -48,15 +48,15 @@ export default function AuthModal({
   const [activeTab, setActiveTab] = useState<'signin' | 'register' | 'session'>('signin');
   
   // Sign In Form State
-  const [emailOrUsername, setEmailOrUsername] = useState('david.lawson@gospread.org');
-  const [password, setPassword] = useState('••••••••••••');
+  const [emailOrUsername, setEmailOrUsername] = useState('');
+  const [password, setPassword] = useState('');
   
   // Register Form State
   const [regFullName, setRegFullName] = useState('');
   const [regUsername, setRegUsername] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
-  const [regChurch, setRegChurch] = useState('Grace City Cathedral');
+  const [regChurch, setRegChurch] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
