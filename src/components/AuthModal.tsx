@@ -24,6 +24,9 @@ export interface UserSession {
   fullName: string;
   churchName?: string;
   avatarUrl?: string;
+  avatar?: string;
+  bio?: string;
+  role?: string;
   isLoggedIn: boolean;
   token?: string;
 }

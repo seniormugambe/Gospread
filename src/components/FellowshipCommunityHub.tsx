@@ -32,6 +32,7 @@ import {
   ChevronRight,
   Filter,
   Users,
+  User,
   Clock,
   ArrowUpRight,
   Quote,
@@ -316,9 +317,9 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
 
     const newComment: CommunityComment = {
       id: `c-${Date.now()}`,
-      authorName: userSession.fullName || 'Believer',
+      authorName: userSession.fullName || userSession.username || 'Believer',
       authorHandle: userSession.username || 'believer',
-      authorAvatar: userSession.avatarUrl || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
+      authorAvatar: userSession.avatarUrl || '',
       authorRole: 'Verified Believer',
       content: text.trim(),
       createdAt: 'Just now',
@@ -350,13 +351,13 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
 
     const newPost: CommunityPost = {
       id: `post-${Date.now()}`,
-      authorName: isAnonymous ? 'Kingdom Intercessor' : (userSession.fullName || 'David Lawson'),
-      authorHandle: isAnonymous ? 'anonymous_believer' : (userSession.username || 'david_lawson'),
+      authorName: isAnonymous ? 'Kingdom Intercessor' : (userSession.fullName || userSession.username || 'Believer'),
+      authorHandle: isAnonymous ? 'anonymous_believer' : (userSession.username || 'member'),
       authorAvatar: isAnonymous
         ? 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?auto=format&fit=crop&w=120&q=80'
-        : (userSession.avatarUrl || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80'),
+        : (userSession.avatarUrl || ''),
       authorRole: isAnonymous ? 'Anonymous Altar Member' : 'Verified Believer',
-      authorChurch: userSession.churchName || 'Grace City Cathedral',
+      authorChurch: userSession.churchName || 'Faith Community',
       category: postCategory,
       title: postTitle.trim() || undefined,
       content: postContent.trim(),
@@ -671,13 +672,19 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
         {/* LEFT / CENTER: POST FEED (2 Cols on lg) */}
         <div className="lg:col-span-2 space-y-4">
           
-          {/* Quick Inline Composer Trigger */}
+            {/* Quick Inline Composer Trigger */}
           <div className="p-4 rounded-3xl bg-slate-900/60 border border-white/[0.08] backdrop-blur-xl shadow-lg flex items-center gap-3">
-            <img
-              src={userSession.avatarUrl || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80"}
-              alt={userSession.fullName}
-              className="w-10 h-10 rounded-2xl object-cover ring-2 ring-amber-400 shrink-0"
-            />
+            {userSession.avatarUrl ? (
+              <img
+                src={userSession.avatarUrl}
+                alt={userSession.fullName || 'User'}
+                className="w-10 h-10 rounded-2xl object-cover ring-2 ring-amber-400 shrink-0"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center font-bold text-sm shrink-0">
+                {userSession.fullName ? userSession.fullName.charAt(0).toUpperCase() : <User className="w-5 h-5" />}
+              </div>
+            )}
             <button
               onClick={() => setShowCreateModal(true)}
               className="flex-1 bg-slate-950/80 hover:bg-slate-800/80 border border-slate-700/80 rounded-2xl px-4 py-2.5 text-left text-xs text-slate-400 flex items-center justify-between transition group"
@@ -1022,11 +1029,17 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
 
                         {/* Reply Input Form */}
                         <div className="flex items-center gap-2">
-                          <img
-                            src={userSession.avatarUrl || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80"}
-                            alt={userSession.fullName}
-                            className="w-8 h-8 rounded-xl object-cover ring-1 ring-amber-400 shrink-0"
-                          />
+                          {userSession.avatarUrl ? (
+                            <img
+                              src={userSession.avatarUrl}
+                              alt={userSession.fullName || 'User'}
+                              className="w-8 h-8 rounded-xl object-cover ring-1 ring-amber-400 shrink-0"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center font-bold text-xs shrink-0">
+                              {userSession.fullName ? userSession.fullName.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
+                            </div>
+                          )}
                           <input
                             type="text"
                             value={replyText[post.id] || ''}
@@ -1094,15 +1107,21 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
             </div>
 
             <div className="flex items-center gap-3">
-              <img
-                src={userSession.avatarUrl || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80"}
-                alt={userSession.fullName}
-                className="w-12 h-12 rounded-2xl object-cover ring-2 ring-amber-400 shadow-md"
-              />
+              {userSession.avatarUrl ? (
+                <img
+                  src={userSession.avatarUrl}
+                  alt={userSession.fullName || userSession.username || 'User'}
+                  className="w-12 h-12 rounded-2xl object-cover ring-2 ring-amber-400 shadow-md"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center font-bold text-base shadow-md">
+                  {userSession.fullName ? userSession.fullName.charAt(0).toUpperCase() : <User className="w-6 h-6" />}
+                </div>
+              )}
               <div>
-                <h4 className="text-sm font-bold text-white">{userSession.fullName}</h4>
-                <p className="text-xs text-amber-400 font-mono">@{userSession.username}</p>
-                <p className="text-[11px] text-slate-400">{userSession.churchName || 'Grace City Cathedral'}</p>
+                <h4 className="text-sm font-bold text-white">{userSession.fullName || userSession.username || 'Believer'}</h4>
+                {userSession.username && <p className="text-xs text-amber-400 font-mono">@{userSession.username}</p>}
+                <p className="text-[11px] text-slate-400">{userSession.churchName || 'Faith Community'}</p>
               </div>
             </div>
 

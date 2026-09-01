@@ -34,6 +34,7 @@ interface UserAccountMenuDropdownProps {
   onOpenDjango: () => void;
   onOpenAuth: () => void;
   onOpenAuthPage?: (mode?: 'signin' | 'signup') => void;
+  onLogout?: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
 }
@@ -52,6 +53,7 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
   onOpenDjango,
   onOpenAuth,
   onOpenAuthPage,
+  onLogout,
   theme,
   onToggleTheme,
 }) => {
@@ -74,6 +76,8 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
 
   if (!isOpen) return null;
 
+  const isLoggedIn = Boolean(userSession?.isLoggedIn && (userSession?.username || userSession?.fullName));
+
   return (
     <AnimatePresence>
       <motion.div
@@ -85,27 +89,61 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
         className="absolute right-0 top-full mt-2 w-72 bg-[#121214] border border-slate-800 rounded-3xl shadow-2xl z-50 overflow-hidden text-slate-200"
       >
         {/* User Identity Header */}
-        <div className="p-4 bg-gradient-to-b from-slate-900/90 to-[#121214] border-b border-slate-800/80">
+        <div className="p-4 bg-gradient-to-b from-slate-900/90 to-[#121214] border-b border-slate-800/80 space-y-3">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <img
-                src={userSession.avatarUrl || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80"}
-                alt={userSession.fullName}
-                className="w-11 h-11 rounded-2xl object-cover ring-2 ring-amber-400 shadow-md"
-              />
-              <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center text-[8px] text-white">
-                ✓
-              </span>
+              {userSession.avatarUrl ? (
+                <img
+                  src={userSession.avatarUrl}
+                  alt={userSession.fullName || userSession.username || 'User'}
+                  className="w-11 h-11 rounded-2xl object-cover ring-2 ring-amber-400 shadow-md"
+                />
+              ) : (
+                <div className="w-11 h-11 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 flex items-center justify-center font-bold text-base shadow-md">
+                  {userSession.fullName ? (
+                    userSession.fullName.charAt(0).toUpperCase()
+                  ) : userSession.username ? (
+                    userSession.username.charAt(0).toUpperCase()
+                  ) : (
+                    <User className="w-5 h-5 text-amber-400" />
+                  )}
+                </div>
+              )}
+              {isLoggedIn && (
+                <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center text-[8px] text-white">
+                  ✓
+                </span>
+              )}
             </div>
             <div className="min-w-0 flex-1">
-              <h4 className="text-xs font-bold text-white truncate">{userSession.fullName || 'Believer'}</h4>
-              <p className="text-[11px] text-amber-400 font-mono truncate">@{userSession.username || 'member'}</p>
-              <p className="text-[10px] text-slate-400 truncate">{userSession.churchName || 'Kingdom Believer'}</p>
+              <h4 className="text-xs font-bold text-white truncate">
+                {isLoggedIn ? (userSession.fullName || userSession.username) : 'Guest Believer'}
+              </h4>
+              {isLoggedIn && userSession.username && (
+                <p className="text-[11px] text-amber-400 font-mono truncate">@{userSession.username}</p>
+              )}
+              <p className="text-[10px] text-slate-400 truncate">
+                {isLoggedIn ? (userSession.churchName || 'Faith Member') : 'Not signed in'}
+              </p>
             </div>
           </div>
 
+          {!isLoggedIn && (
+            <button
+              onClick={() => {
+                onClose();
+                if (onOpenAuthPage) onOpenAuthPage('signin');
+                else onOpenAuth();
+              }}
+              className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 transition shadow-md shadow-amber-500/20"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>Sign In / Register Account</span>
+            </button>
+          )}
+
           {/* Gamification Stats Banner */}
-          <div className="mt-3 grid grid-cols-2 gap-2 bg-slate-950/70 p-2 rounded-2xl border border-slate-800/80">
+          <div className="grid grid-cols-2 gap-2 bg-slate-950/70 p-2 rounded-2xl border border-slate-800/80">
             <div className="flex items-center gap-1.5 px-1.5 py-0.5">
               <Flame className="w-4 h-4 text-amber-400 fill-amber-400 animate-pulse" />
               <div>
@@ -247,12 +285,28 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
             <span className="text-[9px] text-emerald-400 font-mono">v5.0 REST</span>
           </button>
 
-          {/* 7. Switch Account / Sign Out / Auth Page */}
-          {onOpenAuthPage && (
+          {isLoggedIn ? (
             <button
               onClick={() => {
                 onClose();
-                onOpenAuthPage('signin');
+                if (onLogout) onLogout();
+                else onOpenAuth();
+              }}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-2xl hover:bg-red-600/15 text-slate-300 hover:text-red-400 transition group"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-slate-800 group-hover:bg-red-500/20 text-slate-400 group-hover:text-red-400 flex items-center justify-center transition">
+                  <LogOut className="w-4 h-4" />
+                </div>
+                <span className="font-medium text-xs">Sign Out</span>
+              </div>
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                onClose();
+                if (onOpenAuthPage) onOpenAuthPage('signin');
+                else onOpenAuth();
               }}
               className="w-full flex items-center justify-between px-3 py-2 rounded-2xl hover:bg-amber-500/15 text-slate-200 hover:text-amber-300 transition group"
             >
@@ -261,28 +315,13 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
                   <ShieldCheck className="w-4 h-4" />
                 </div>
                 <div className="text-left">
-                  <div className="text-xs font-bold">Login & Sign Up Page</div>
-                  <div className="text-[10px] text-slate-400 font-normal">Dedicated Sanctuary Portal</div>
+                  <div className="text-xs font-bold">Sign In / Register</div>
+                  <div className="text-[10px] text-slate-400 font-normal">Sanctuary User Portal</div>
                 </div>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-amber-400 transition" />
             </button>
           )}
-
-          <button
-            onClick={() => {
-              onClose();
-              onOpenAuth();
-            }}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-2xl hover:bg-red-600/15 text-slate-300 hover:text-red-400 transition group"
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-xl bg-slate-800 group-hover:bg-red-500/20 text-slate-400 group-hover:text-red-400 flex items-center justify-center transition">
-                <LogOut className="w-4 h-4" />
-              </div>
-              <span className="font-medium text-xs">Switch Account / Sign Out</span>
-            </div>
-          </button>
 
         </div>
       </motion.div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
   Mail,
@@ -29,7 +29,8 @@ import {
   Globe,
   Settings,
   Lock,
-  Plus
+  Plus,
+  Compass
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LIVE_VIDEO_STREAMS, AUDIO_TRACKS, VideoStream, AudioTrack } from '../data/gospelData';
@@ -54,6 +55,7 @@ interface UserProfilePageProps {
   onOpenPrayerModal: () => void;
   onOpenSettingsModal?: () => void;
   onOpenCommunity?: () => void;
+  onOpenDiscover?: () => void;
   onOpenAuthPage?: (mode?: 'signin' | 'signup') => void;
   currentUser?: UserSession;
 }
@@ -76,6 +78,7 @@ export default function UserProfilePage({
   onOpenPrayerModal,
   onOpenSettingsModal,
   onOpenCommunity,
+  onOpenDiscover,
   onOpenAuthPage,
   currentUser
 }: UserProfilePageProps) {
@@ -84,12 +87,48 @@ export default function UserProfilePage({
 
   // Editable Profile Information State
   const [isEditing, setIsEditing] = useState(false);
-  const [userName, setUserName] = useState(currentUser?.fullName || 'Kingdom Believer');
-  const [userHandle, setUserHandle] = useState(currentUser?.username ? `@${currentUser.username}` : '@believer');
-  const [userBio, setUserBio] = useState('Gospel Media Enthusiast & Believer. Seeking daily spiritual revival.');
-  const [homeChurch, setHomeChurch] = useState(currentUser?.churchName || 'Independent / Online Sanctuary');
+  const [userName, setUserName] = useState(() => {
+    try {
+      const custom = localStorage.getItem('gospread_custom_name');
+      if (custom) return custom;
+    } catch {}
+    return currentUser?.fullName || (currentUser?.isLoggedIn ? currentUser.username : 'Kingdom Believer');
+  });
+
+  const [userHandle, setUserHandle] = useState(() => {
+    try {
+      const custom = localStorage.getItem('gospread_custom_handle');
+      if (custom) return custom;
+    } catch {}
+    return currentUser?.username ? `@${currentUser.username}` : '';
+  });
+
+  const [userBio, setUserBio] = useState(() => {
+    try {
+      const custom = localStorage.getItem('gospread_custom_bio');
+      if (custom) return custom;
+    } catch {}
+    return currentUser?.bio || '';
+  });
+
+  const [homeChurch, setHomeChurch] = useState(() => {
+    try {
+      const custom = localStorage.getItem('gospread_custom_church');
+      if (custom) return custom;
+    } catch {}
+    return currentUser?.churchName || (joinedChurches.length > 0 ? joinedChurches[0] : '');
+  });
+
   const [userEmail, setUserEmail] = useState(currentUser?.email || '');
   const [showSavedToast, setShowSavedToast] = useState(false);
+
+  // Sync with currentUser changes
+  useEffect(() => {
+    if (currentUser?.fullName) setUserName(currentUser.fullName);
+    if (currentUser?.username) setUserHandle(`@${currentUser.username}`);
+    if (currentUser?.email) setUserEmail(currentUser.email);
+    if (currentUser?.churchName) setHomeChurch(currentUser.churchName);
+  }, [currentUser]);
 
   // Giving History Log
   const [givingLogs, setGivingLogs] = useState<Array<{
@@ -99,7 +138,14 @@ export default function UserProfilePage({
     amount: number;
     category: string;
     status: string;
-  }>>([]);
+  }>>(() => {
+    try {
+      const saved = localStorage.getItem('gospread_giving_logs');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Personal Prayer Requests Log
   const [myPrayers, setMyPrayers] = useState<Array<{
@@ -108,13 +154,121 @@ export default function UserProfilePage({
     date: string;
     status: string;
     praiseReport: string | null;
-  }>>([]);
+  }>>(() => {
+    try {
+      const saved = localStorage.getItem('gospread_user_prayers');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Settings Toggles
-  const [notifServiceAlerts, setNotifServiceAlerts] = useState(true);
-  const [notifDailyRhema, setNotifDailyRhema] = useState(true);
-  const [audioHdQuality, setAudioHdQuality] = useState(true);
-  const [publicProfile, setPublicProfile] = useState(true);
+  const [notifServiceAlerts, setNotifServiceAlerts] = useState(() => {
+    try {
+      const val = localStorage.getItem('gospread_pref_service_alerts');
+      return val !== null ? val === 'true' : true;
+    } catch { return true; }
+  });
+
+  const [notifDailyRhema, setNotifDailyRhema] = useState(() => {
+    try {
+      const val = localStorage.getItem('gospread_pref_daily_rhema');
+      return val !== null ? val === 'true' : true;
+    } catch { return true; }
+  });
+
+  const [audioHdQuality, setAudioHdQuality] = useState(() => {
+    try {
+      const val = localStorage.getItem('gospread_pref_audio_hd');
+      return val !== null ? val === 'true' : true;
+    } catch { return true; }
+  });
+
+  const [publicProfile, setPublicProfile] = useState(() => {
+    try {
+      const val = localStorage.getItem('gospread_pref_public_profile');
+      return val !== null ? val === 'true' : true;
+    } catch { return true; }
+  });
+
+  // Dynamic achievement badges based purely on real active metrics
+  const badges = [
+    {
+      id: 'streak_1',
+      title: 'Devotion Seeker',
+      desc: 'Completed daily devotion prayer & study.',
+      icon: '🌱',
+      active: streakDays >= 1,
+      cat: 'Devotion',
+      progress: `${streakDays}/1 Day`
+    },
+    {
+      id: 'streak_7',
+      title: 'Overcomer 7D',
+      desc: '7 consecutive days of daily faith devotion.',
+      icon: '🔥',
+      active: streakDays >= 7,
+      cat: 'Streak',
+      progress: `${streakDays}/7 Days`
+    },
+    {
+      id: 'praise_50',
+      title: 'Praise Voice',
+      desc: 'Accumulated 50 Praise XP through active worship.',
+      icon: '✨',
+      active: praiseXp >= 50,
+      cat: 'Worship',
+      progress: `${praiseXp}/50 XP`
+    },
+    {
+      id: 'praise_500',
+      title: 'Kingdom Ambassador',
+      desc: 'Reached 500 Praise XP milestone.',
+      icon: '👑',
+      active: praiseXp >= 500,
+      cat: 'Ambassador',
+      progress: `${praiseXp}/500 XP`
+    },
+    {
+      id: 'sower',
+      title: 'Diligent Sower',
+      desc: 'Contributed an offering seed to support gospel broadcast.',
+      icon: '🌾',
+      active: totalGivingAmount > 0,
+      cat: 'Stewardship',
+      progress: totalGivingAmount > 0 ? `$${totalGivingAmount} Sowed` : '$0 Sowed'
+    },
+    {
+      id: 'bookmarks',
+      title: 'Word Gatherer',
+      desc: 'Saved gospel sermons or worship audio for study.',
+      icon: '📖',
+      active: savedIds.length >= 1,
+      cat: 'Study',
+      progress: `${savedIds.length} Saved`
+    },
+    {
+      id: 'channels',
+      title: 'Ministry Follower',
+      desc: 'Following live ministries and broadcast creators.',
+      icon: '📺',
+      active: subscribedChannels.length >= 1,
+      cat: 'Channels',
+      progress: `${subscribedChannels.length} Followed`
+    },
+    {
+      id: 'church_member',
+      title: 'Fellowship Pillar',
+      desc: 'Joined a registered online church family.',
+      icon: '🏛️',
+      active: joinedChurches.length >= 1,
+      cat: 'Fellowship',
+      progress: `${joinedChurches.length} Joined`
+    }
+  ];
+
+  const unlockedBadgesCount = badges.filter(b => b.active).length;
 
   // Saved Media Items
   const savedVideos = LIVE_VIDEO_STREAMS.filter((v) => savedIds.includes(v.id));
@@ -122,14 +276,20 @@ export default function UserProfilePage({
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
+    try {
+      localStorage.setItem('gospread_custom_name', userName);
+      localStorage.setItem('gospread_custom_handle', userHandle);
+      localStorage.setItem('gospread_custom_bio', userBio);
+      localStorage.setItem('gospread_custom_church', homeChurch);
+    } catch {}
     setIsEditing(false);
     setShowSavedToast(true);
     setTimeout(() => setShowSavedToast(false), 3000);
   };
 
   const togglePrayerStatus = (id: string) => {
-    setMyPrayers((prev) =>
-      prev.map((p) =>
+    setMyPrayers((prev) => {
+      const updated = prev.map((p) =>
         p.id === id
           ? {
               ...p,
@@ -137,21 +297,20 @@ export default function UserProfilePage({
               praiseReport: p.status === 'Active Prayer' ? 'Testimony: The Lord has answered this request!' : p.praiseReport
             }
           : p
-      )
-    );
+      );
+      try {
+        localStorage.setItem('gospread_user_prayers', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
   };
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6 pb-24 font-sans">
       {/* 🔴 1. HERO PROFILE BANNER & USER HEADER */}
       <div className="relative rounded-3xl overflow-hidden bg-slate-900 border border-slate-800 shadow-2xl">
         {/* Top Cover Background Banner */}
-        <div className="h-44 sm:h-56 bg-gradient-to-r from-amber-950 via-slate-900 to-amber-900 relative overflow-hidden">
-          <img
-            src="https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1600&q=80"
-            alt="Worship Sanctuary Banner"
-            className="w-full h-full object-cover opacity-35"
-          />
+        <div className="h-44 sm:h-52 bg-gradient-to-r from-amber-950/80 via-slate-900 to-amber-900/60 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-t from-[#121215] via-transparent to-transparent" />
 
           {/* Banner Quick Actions */}
@@ -160,10 +319,10 @@ export default function UserProfilePage({
               <button
                 onClick={() => onOpenAuthPage('signin')}
                 className="px-3 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold text-xs border border-amber-500/40 backdrop-blur-md flex items-center gap-1.5 transition"
-                title="Open Login and Sign Up Sanctuary Portal"
+                title="Open Login and Sign Up Portal"
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Account & Login</span>
+                <span>{currentUser?.isLoggedIn ? 'Account Status' : 'Account & Login'}</span>
               </button>
             )}
 
@@ -181,7 +340,7 @@ export default function UserProfilePage({
                 alert('Profile Card link copied to clipboard!');
               }}
               className="p-2 rounded-full bg-slate-950/80 hover:bg-slate-900 text-slate-300 hover:text-white border border-slate-700/80 backdrop-blur-md transition"
-              title="Share Kingdom Profile"
+              title="Share Profile"
             >
               <Share2 className="w-4 h-4" />
             </button>
@@ -191,42 +350,63 @@ export default function UserProfilePage({
         {/* User Info Avatar Row */}
         <div className="px-6 sm:px-8 pb-6 relative z-10 -mt-16 sm:-mt-20 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 text-center sm:text-left">
-            {/* Avatar with Status Ring */}
+            {/* Avatar */}
             <div className="relative shrink-0">
-              <motion.img
-                src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80"
-                alt={userName}
-                whileHover={{ scale: 1.08, rotate: 1, boxShadow: "0 15px 30px -5px rgba(245, 158, 11, 0.3)" }}
-                transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-                className="w-28 h-28 sm:w-36 sm:h-36 rounded-3xl object-cover border-4 border-[#121215] shadow-2xl cursor-pointer"
-              />
-              <span className="absolute bottom-2 right-2 w-5 h-5 rounded-full bg-emerald-500 border-2 border-[#121215] animate-pulse" title="Online in Grace" />
+              {currentUser?.avatar ? (
+                <img
+                  src={currentUser.avatar}
+                  alt={userName}
+                  className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl object-cover border-4 border-[#121215] shadow-2xl"
+                />
+              ) : (
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-br from-amber-600 via-amber-700 to-amber-950 border-4 border-[#121215] shadow-2xl flex items-center justify-center text-white font-serif font-black text-3xl">
+                  {userName ? userName.charAt(0).toUpperCase() : 'U'}
+                </div>
+              )}
+              {currentUser?.isLoggedIn && (
+                <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[#121215]" title="Verified Active" />
+              )}
             </div>
 
             {/* Name, Handle & Badges */}
             <div className="space-y-1.5">
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                 <h1 className="text-xl sm:text-2xl font-black text-white font-serif tracking-wide">{userName}</h1>
-                <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3 text-amber-400" /> Kingdom Ambassador
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border ${
+                  currentUser?.isLoggedIn 
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                    : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                }`}>
+                  <ShieldCheck className="w-3 h-3" />
+                  {currentUser?.isLoggedIn ? (currentUser.role ? `${currentUser.role.toUpperCase()} MEMBER` : 'VERIFIED MEMBER') : 'BELIEVER'}
                 </span>
               </div>
 
-              <p className="text-xs text-amber-400 font-mono font-bold">{userHandle}</p>
+              {userHandle && (
+                <p className="text-xs text-amber-400 font-mono font-bold">{userHandle}</p>
+              )}
               
-              <div className="flex items-center justify-center sm:justify-start gap-1.5 text-xs text-slate-300">
-                <Church className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="truncate">{homeChurch}</span>
-              </div>
+              {homeChurch && (
+                <div className="flex items-center justify-center sm:justify-start gap-1.5 text-xs text-slate-300">
+                  <Church className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span className="truncate">{homeChurch}</span>
+                </div>
+              )}
 
-              <p className="text-xs text-slate-400 max-w-xl leading-relaxed pt-1">
-                "{userBio}"
-              </p>
+              {userBio ? (
+                <p className="text-xs text-slate-400 max-w-xl leading-relaxed pt-1">
+                  &ldquo;{userBio}&rdquo;
+                </p>
+              ) : (
+                <p className="text-xs text-slate-500 italic pt-1">
+                  No bio added yet. Click &ldquo;Edit Profile&rdquo; to set your personal faith statement.
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Seed Sowing Quick Action Button */}
-          <div className="flex items-center justify-center gap-3 shrink-0">
+          {/* Sowing & Prayer Actions */}
+          <div className="flex items-center justify-center gap-3 shrink-0 flex-wrap">
             {onOpenCommunity && (
               <button
                 onClick={onOpenCommunity}
@@ -239,7 +419,7 @@ export default function UserProfilePage({
 
             <button
               onClick={() => onOpenGivingModal()}
-              className="px-5 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-2 transition shadow-xl shadow-amber-500/20 transform hover:scale-105"
+              className="px-5 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-2 transition shadow-xl shadow-amber-500/20"
             >
               <DollarSign className="w-4 h-4" />
               <span>Sow Kingdom Seed</span>
@@ -266,9 +446,9 @@ export default function UserProfilePage({
         >
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <h3 className="text-sm font-bold text-amber-300 flex items-center gap-2">
-              <Edit2 className="w-4 h-4" /> Edit Kingdom Profile Details
+              <Edit2 className="w-4 h-4" /> Edit Profile Details
             </h3>
-            <span className="text-[10px] text-slate-400">Update your ministry identity</span>
+            <span className="text-[10px] text-slate-400">Update your profile settings</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
@@ -278,16 +458,18 @@ export default function UserProfilePage({
                 type="text"
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
+                placeholder="Enter your name"
                 className="w-full bg-slate-950 text-white p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500"
               />
             </div>
 
             <div>
-              <label className="block text-slate-400 font-bold mb-1">Handle</label>
+              <label className="block text-slate-400 font-bold mb-1">Handle / Username</label>
               <input
                 type="text"
                 value={userHandle}
                 onChange={(e) => setUserHandle(e.target.value)}
+                placeholder="@username"
                 className="w-full bg-slate-950 text-white p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500 font-mono"
               />
             </div>
@@ -298,6 +480,7 @@ export default function UserProfilePage({
                 type="text"
                 value={homeChurch}
                 onChange={(e) => setHomeChurch(e.target.value)}
+                placeholder="Your home church or ministry"
                 className="w-full bg-slate-950 text-white p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500"
               />
             </div>
@@ -308,15 +491,17 @@ export default function UserProfilePage({
                 type="email"
                 value={userEmail}
                 onChange={(e) => setUserEmail(e.target.value)}
+                placeholder="email@example.com"
                 className="w-full bg-slate-950 text-white p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500"
               />
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-slate-400 font-bold mb-1">Bio / Statement of Faith</label>
+              <label className="block text-slate-400 font-bold mb-1">Bio / Faith Statement</label>
               <textarea
                 value={userBio}
                 onChange={(e) => setUserBio(e.target.value)}
+                placeholder="Write a brief statement about your faith or ministry interest..."
                 rows={2}
                 className="w-full bg-slate-950 text-white p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500"
               />
@@ -344,20 +529,22 @@ export default function UserProfilePage({
       {showSavedToast && (
         <div className="p-3 rounded-2xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          <span>Profile changes successfully updated to Kingdom directory!</span>
+          <span>Profile changes successfully updated!</span>
         </div>
       )}
 
-      {/* 🔴 2. FAITH STATS & UNLOCKED BADGES CARDS */}
+      {/* 🔴 2. REAL FAITH STATS CARDS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Stat 1: Faith Streak */}
         <div className="p-4 rounded-2xl bg-[#181818] border border-amber-500/30 space-y-1">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-[10px] font-bold uppercase tracking-wider">Faith Streak</span>
-            <Flame className="w-4 h-4 text-amber-400 fill-amber-400" />
+            <Flame className={`w-4 h-4 ${streakDays > 0 ? 'text-amber-400 fill-amber-400' : 'text-slate-600'}`} />
           </div>
           <p className="text-xl sm:text-2xl font-black text-white font-serif">{streakDays} Days</p>
-          <p className="text-[10px] text-amber-400/90 font-medium">Daily Devotion Consistent</p>
+          <p className="text-[10px] text-amber-400/90 font-medium">
+            {streakDays > 0 ? 'Daily Devotion Active' : 'Start Daily Devotion'}
+          </p>
         </div>
 
         {/* Stat 2: Praise XP */}
@@ -367,7 +554,9 @@ export default function UserProfilePage({
             <Sparkles className="w-4 h-4 text-amber-300" />
           </div>
           <p className="text-xl sm:text-2xl font-black text-white font-serif">{praiseXp} XP</p>
-          <p className="text-[10px] text-slate-400 font-medium">Level 5 Overcomer</p>
+          <p className="text-[10px] text-slate-400 font-medium">
+            {praiseXp >= 500 ? 'Level 5 Ambassador' : praiseXp >= 100 ? 'Level 2 Overcomer' : 'Level 1 Seeker'}
+          </p>
         </div>
 
         {/* Stat 3: Total Sowed */}
@@ -377,10 +566,12 @@ export default function UserProfilePage({
             <DollarSign className="w-4 h-4 text-emerald-400" />
           </div>
           <p className="text-xl sm:text-2xl font-black text-emerald-400 font-serif">${totalGivingAmount.toLocaleString()}</p>
-          <p className="text-[10px] text-slate-400 font-medium">Kingdom Pillar Member</p>
+          <p className="text-[10px] text-slate-400 font-medium">
+            {totalGivingAmount > 0 ? 'Kingdom Partner' : 'No Seeds Recorded'}
+          </p>
         </div>
 
-        {/* Stat 4: Saved Sermons */}
+        {/* Stat 4: Bookmarks */}
         <div className="p-4 rounded-2xl bg-[#181818] border border-slate-800 space-y-1">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-[10px] font-bold uppercase tracking-wider">Bookmarks</span>
@@ -391,46 +582,34 @@ export default function UserProfilePage({
         </div>
       </div>
 
-      {/* 🏆 UNLOCKED BADGES SHOWCASE */}
+      {/* 🏆 REAL ACHIEVEMENTS SHOWCASE (CALCULATED FROM LIVE USAGE) */}
       <div className="p-4 sm:p-6 rounded-3xl bg-[#181818] border border-amber-500/30 space-y-4 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
           <div>
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
               <Award className="w-4 h-4 text-amber-400" />
-              <span>Kingdom Achievement Badges & Honor Recognition</span>
+              <span>Kingdom Achievement Milestones</span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Descriptive behavioral badges earned through faithful study, devotion streaks, church membership, and referral growth.
+              Badges earned through active daily devotions, worship listening, saved sermons, and fellowship.
             </p>
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
             <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-mono font-bold">
-              8 / 11 Badges Unlocked
+              {unlockedBadgesCount} / {badges.length} Badges Unlocked
             </span>
           </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {[
-            { title: 'Diligent Sower', desc: 'Ranked #12 in Creator Momentum. High study hours.', icon: '🌾', active: true, cat: 'Spiritual Momentum', date: 'Earned May 10' },
-            { title: 'Faithful Reach', desc: 'Consistent daily study hours & 8 verified referrals.', icon: '🌱', active: true, cat: 'Discipleship', date: 'Earned Aug 2' },
-            { title: 'Rising Voice', desc: 'Accelerating growth rate trajectory in community.', icon: '✨', active: true, cat: 'Spiritual Growth', date: 'Earned Jul 18' },
-            { title: 'Pillar of Light', desc: 'Official registered member at Grace City Cathedral.', icon: '🏛️', active: true, cat: 'Church Fellowship', date: 'Earned Jun 22' },
-            { title: 'Psalmist Voice', desc: 'Active worship psalmody & sermon reflection.', icon: '🎻', active: true, cat: 'Worship', date: 'Earned Jul 01' },
-            { title: 'Overcomer 7D', desc: '7 days consecutive devotion streak maintained.', icon: '🔥', active: true, cat: 'Streak', date: 'Earned Aug 09' },
-            { title: 'Amen Warrior', desc: 'Sent over 50 Amen reactions in live altars.', icon: '🙌', active: true, cat: 'Intercession', date: 'Earned May 14' },
-            { title: 'Kingdom Ambassador', icon: '👑', desc: 'Reached 500 Praise XP milestone.', active: true, cat: 'Ambassador', date: 'Earned Jun 10' },
-            { title: 'Kingdom Catalyst', icon: '⚡', desc: 'Top 1% growth rate and disciple engagement depth.', active: false, cat: 'Spiritual Momentum', date: 'Locked (Requires Top 10 Rank)' },
-            { title: 'Anointed Melody', icon: '🎺', desc: 'Listen to 100+ hours of anointed worship.', active: false, cat: 'Worship', date: 'Locked (62/100 hrs)' },
-            { title: 'Vibrant Fellowship', icon: '🛡️', desc: 'Active participation in 5 prayer circles.', active: false, cat: 'Church Fellowship', date: 'Locked (3/5 Circles)' }
-          ].map((badge, idx) => (
+          {badges.map((badge) => (
             <div
-              key={idx}
+              key={badge.id}
               className={`p-3 rounded-2xl border text-xs space-y-1.5 flex flex-col justify-between transition ${
                 badge.active
                   ? 'bg-gradient-to-br from-amber-950/30 via-slate-900 to-slate-900 border-amber-500/40 text-white shadow-md'
-                  : 'bg-slate-950/60 border-slate-900 text-slate-500 opacity-50'
+                  : 'bg-slate-950/60 border-slate-900 text-slate-500 opacity-60'
               }`}
             >
               <div className="flex items-start justify-between gap-2">
@@ -450,16 +629,19 @@ export default function UserProfilePage({
                 <p className="text-[10px] text-slate-400 leading-snug mt-0.5">{badge.desc}</p>
               </div>
 
-              <div className="pt-1 border-t border-slate-800/80 text-[9px] font-mono text-slate-500">
-                {badge.date}
+              <div className="pt-1 border-t border-slate-800/80 text-[9px] font-mono flex items-center justify-between">
+                <span className={badge.active ? 'text-emerald-400 font-bold' : 'text-slate-500'}>
+                  {badge.active ? '✓ Unlocked' : 'Locked'}
+                </span>
+                <span className="text-slate-400">{badge.progress}</span>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ⛪ JOINED CHURCH FELLOWSHIP CARD */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-amber-950/60 via-slate-900 to-slate-900 border border-amber-500/40 space-y-4 shadow-xl">
+      {/* ⛪ JOINED CHURCH FELLOWSHIP SECTION */}
+      <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 border border-slate-800 space-y-4 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="p-3 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40">
@@ -473,25 +655,27 @@ export default function UserProfilePage({
                 </span>
               </div>
               <p className="text-xs text-slate-300">
-                Official online registered church membership with pastoral notifications & fellowship certificate
+                Online registered church memberships and fellowship family connections
               </p>
             </div>
           </div>
 
-          <button
-            onClick={() => onSelectChannelModal && onSelectChannelModal(joinedChurches[0] || 'Grace City Cathedral')}
-            className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition flex items-center justify-center gap-1.5 shadow-lg shrink-0"
-          >
-            <span>View Church Portfolio</span>
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          {joinedChurches.length > 0 && onSelectChannelModal && (
+            <button
+              onClick={() => onSelectChannelModal(joinedChurches[0])}
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition flex items-center justify-center gap-1.5 shadow-lg shrink-0"
+            >
+              <span>View Church Portfolio</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* List of Joined Churches Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
           {joinedChurches.length > 0 ? (
             joinedChurches.map((churchName) => {
-              const mCount = churchMemberCounts[churchName] || 1248;
+              const mCount = churchMemberCounts[churchName] || 1;
               return (
                 <div
                   key={churchName}
@@ -514,27 +698,39 @@ export default function UserProfilePage({
                   </div>
 
                   <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => onSelectChannelModal && onSelectChannelModal(churchName)}
-                      className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold"
-                    >
-                      Portfolio
-                    </button>
-                    <button
-                      onClick={() => onToggleJoinChurch && onToggleJoinChurch(churchName)}
-                      className="px-2 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-300 text-[10px] border border-red-800/40"
-                      title="Leave Church"
-                    >
-                      Leave
-                    </button>
+                    {onSelectChannelModal && (
+                      <button
+                        onClick={() => onSelectChannelModal(churchName)}
+                        className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold"
+                      >
+                        Portfolio
+                      </button>
+                    )}
+                    {onToggleJoinChurch && (
+                      <button
+                        onClick={() => onToggleJoinChurch(churchName)}
+                        className="px-2 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-300 text-[10px] border border-red-800/40"
+                        title="Leave Church"
+                      >
+                        Leave
+                      </button>
+                    )}
                   </div>
                 </div>
               );
             })
           ) : (
-            <div className="sm:col-span-2 p-4 text-center rounded-2xl bg-slate-950/60 border border-slate-800 text-xs text-slate-400 space-y-1">
+            <div className="sm:col-span-2 p-5 text-center rounded-2xl bg-slate-950/60 border border-slate-800 text-xs text-slate-400 space-y-2">
               <p>You have not joined any church family yet.</p>
-              <p className="text-[10px] text-amber-400 font-medium">Explore the Discover Ministries Hub to join a local or global church!</p>
+              {onOpenDiscover && (
+                <button
+                  onClick={onOpenDiscover}
+                  className="px-4 py-2 rounded-full bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold text-xs border border-amber-500/40 transition inline-flex items-center gap-1.5"
+                >
+                  <Compass className="w-3.5 h-3.5" />
+                  <span>Discover Ministries Hub</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -546,9 +742,9 @@ export default function UserProfilePage({
         <div className="flex border-b border-slate-800 pb-2 gap-2 overflow-x-auto">
           {[
             { id: 'bookmarks', label: 'Saved & Bookmarks', icon: Bookmark, count: savedIds.length },
-            { id: 'giving', label: 'Giving & Seeds Log', icon: DollarSign },
+            { id: 'giving', label: 'Giving & Seeds Log', icon: DollarSign, count: givingLogs.length },
             { id: 'prayers', label: 'My Prayers & Notes', icon: Heart, count: myPrayers.length },
-            { id: 'subscriptions', label: 'Subscribed Channels', icon: Tv, count: subscribedChannels.length },
+            { id: 'subscriptions', label: 'Followed Channels', icon: Tv, count: subscribedChannels.length },
             { id: 'settings', label: 'Preferences & Settings', icon: Settings }
           ].map((tab) => {
             const Icon = tab.icon;
@@ -565,8 +761,10 @@ export default function UserProfilePage({
               >
                 <Icon className="w-3.5 h-3.5" />
                 <span>{tab.label}</span>
-                {tab.count !== undefined && (
-                  <span className="px-1.5 py-0.2 rounded-full bg-slate-800 text-[9px] font-mono text-slate-300">
+                {tab.count !== undefined && tab.count > 0 && (
+                  <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold ${
+                    isActive ? 'bg-slate-950 text-amber-400' : 'bg-slate-800 text-slate-300'
+                  }`}>
                     {tab.count}
                   </span>
                 )}
@@ -594,7 +792,7 @@ export default function UserProfilePage({
                 {savedVideos.map((video) => (
                   <motion.div
                     key={video.id}
-                    whileHover={{ scale: 1.02, y: -2, boxShadow: "0 10px 20px -5px rgba(245, 158, 11, 0.2)" }}
+                    whileHover={{ scale: 1.02, y: -2 }}
                     transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                     className="p-3.5 rounded-2xl bg-[#181818] border border-slate-800 hover:border-amber-500/50 transition flex items-center justify-between gap-3 group"
                   >
@@ -636,7 +834,7 @@ export default function UserProfilePage({
                 {savedAudios.map((track) => (
                   <motion.div
                     key={track.id}
-                    whileHover={{ scale: 1.02, y: -2, boxShadow: "0 10px 20px -5px rgba(239, 68, 68, 0.2)" }}
+                    whileHover={{ scale: 1.02, y: -2 }}
                     transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                     className="p-3.5 rounded-2xl bg-[#181818] border border-slate-800 hover:border-amber-500/50 transition flex items-center justify-between gap-3 group"
                   >
@@ -683,7 +881,7 @@ export default function UserProfilePage({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-amber-300 uppercase tracking-wider">
-                Kingdom Seed Sowing & Offering Statement
+                Giving & Seed History
               </h3>
 
               <button
@@ -698,8 +896,8 @@ export default function UserProfilePage({
             {givingLogs.length === 0 ? (
               <div className="p-8 text-center bg-[#181818] rounded-3xl border border-slate-800 text-slate-500 text-xs space-y-2">
                 <DollarSign className="w-8 h-8 text-slate-600 mx-auto" />
-                <p>No giving history yet.</p>
-                <p className="text-[10px]">Your digital receipts and offering contributions will appear here once you sow a seed.</p>
+                <p>No giving history recorded yet.</p>
+                <p className="text-[10px]">Your receipts and giving records will appear here after sowing a seed.</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -726,9 +924,9 @@ export default function UserProfilePage({
                       </div>
 
                       <button
-                        onClick={() => alert(`Official Kingdom Giving Receipt #${log.id} copied to clipboard!`)}
+                        onClick={() => alert(`Receipt #${log.id} copied to clipboard!`)}
                         className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-bold flex items-center gap-1"
-                        title="Copy Digital Receipt"
+                        title="Copy Receipt"
                       >
                         <Copy className="w-3.5 h-3.5" />
                       </button>
@@ -745,7 +943,7 @@ export default function UserProfilePage({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-amber-300 uppercase tracking-wider">
-                My Prayer Requests & Answered Testimonies
+                My Prayer Requests & Testimonies
               </h3>
 
               <button
@@ -808,8 +1006,8 @@ export default function UserProfilePage({
             {subscribedChannels.length === 0 ? (
               <div className="p-8 text-center bg-[#181818] rounded-3xl border border-slate-800 text-slate-500 text-xs space-y-2">
                 <Tv className="w-8 h-8 text-slate-600 mx-auto" />
-                <p>You haven&apos;t followed any ministry channels yet.</p>
-                <p className="text-[10px]">Follow churches or ministries across the platform to stay updated with live broadcasts.</p>
+                <p>You have not followed any ministry channels yet.</p>
+                <p className="text-[10px]">Follow churches or ministries across the platform to receive live broadcast updates.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -843,7 +1041,7 @@ export default function UserProfilePage({
           <div className="space-y-4 max-w-2xl">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-amber-300 uppercase tracking-wider">
-                Account Preferences & Spiritual Notifications
+                Account Preferences & Notifications
               </h3>
               {onOpenSettingsModal && (
                 <button
@@ -861,25 +1059,31 @@ export default function UserProfilePage({
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                 <div>
                   <h4 className="font-bold text-white">Live Worship Service Notifications</h4>
-                  <p className="text-[10px] text-slate-400">Receive instant push alerts when subscribed churches go live.</p>
+                  <p className="text-[10px] text-slate-400">Receive alerts when followed churches go live.</p>
                 </div>
                 <input
                   type="checkbox"
                   checked={notifServiceAlerts}
-                  onChange={(e) => setNotifServiceAlerts(e.target.checked)}
+                  onChange={(e) => {
+                    setNotifServiceAlerts(e.target.checked);
+                    try { localStorage.setItem('gospread_pref_service_alerts', e.target.checked.toString()); } catch {}
+                  }}
                   className="accent-amber-500 w-4 h-4 cursor-pointer"
                 />
               </div>
 
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                 <div>
-                  <h4 className="font-bold text-white">Daily Rhema Promise Notifications</h4>
-                  <p className="text-[10px] text-slate-400">Receive morning devotional promise card popups.</p>
+                  <h4 className="font-bold text-white">Daily Devotion Notifications</h4>
+                  <p className="text-[10px] text-slate-400">Receive daily scripture promise alerts.</p>
                 </div>
                 <input
                   type="checkbox"
                   checked={notifDailyRhema}
-                  onChange={(e) => setNotifDailyRhema(e.target.checked)}
+                  onChange={(e) => {
+                    setNotifDailyRhema(e.target.checked);
+                    try { localStorage.setItem('gospread_pref_daily_rhema', e.target.checked.toString()); } catch {}
+                  }}
                   className="accent-amber-500 w-4 h-4 cursor-pointer"
                 />
               </div>
@@ -887,25 +1091,31 @@ export default function UserProfilePage({
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                 <div>
                   <h4 className="font-bold text-white">HD Audio Streaming Mode</h4>
-                  <p className="text-[10px] text-slate-400">Enable 320kbps high-fidelity gospel audio playback.</p>
+                  <p className="text-[10px] text-slate-400">Enable high-fidelity gospel audio playback.</p>
                 </div>
                 <input
                   type="checkbox"
                   checked={audioHdQuality}
-                  onChange={(e) => setAudioHdQuality(e.target.checked)}
+                  onChange={(e) => {
+                    setAudioHdQuality(e.target.checked);
+                    try { localStorage.setItem('gospread_pref_audio_hd', e.target.checked.toString()); } catch {}
+                  }}
                   className="accent-amber-500 w-4 h-4 cursor-pointer"
                 />
               </div>
 
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="font-bold text-white">Public Kingdom Profile Visibility</h4>
-                  <p className="text-[10px] text-slate-400">Allow fellow believers to view your public prayer testimonies and badges.</p>
+                  <h4 className="font-bold text-white">Public Profile Visibility</h4>
+                  <p className="text-[10px] text-slate-400">Allow community members to view your prayer testimonies.</p>
                 </div>
                 <input
                   type="checkbox"
                   checked={publicProfile}
-                  onChange={(e) => setPublicProfile(e.target.checked)}
+                  onChange={(e) => {
+                    setPublicProfile(e.target.checked);
+                    try { localStorage.setItem('gospread_pref_public_profile', e.target.checked.toString()); } catch {}
+                  }}
                   className="accent-amber-500 w-4 h-4 cursor-pointer"
                 />
               </div>

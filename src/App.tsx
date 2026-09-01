@@ -762,19 +762,39 @@ export default function App() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowUserAccountDropdown(prev => !prev)}
-                className={`flex items-center gap-1.5 sm:gap-2 p-0.5 sm:pl-1 sm:pr-2.5 sm:py-1 rounded-full border transition shrink-0 ${
+                className={`flex items-center gap-1.5 sm:gap-2 p-1 sm:pl-1.5 sm:pr-2.5 sm:py-1 rounded-full border transition shrink-0 ${
                   activeTab === 'profile' || showUserAccountDropdown
                     ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-lg shadow-amber-500/20'
                     : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-700'
                 }`}
                 title="User Account & Kingdom Control Center"
               >
-                <img
-                  src={userSession.avatarUrl || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80"}
-                  alt={userSession.fullName}
-                  className="w-7 h-7 sm:w-6 sm:h-6 rounded-full object-cover ring-2 ring-amber-400"
-                />
-                <span className="hidden lg:inline text-xs font-bold">{userSession.fullName.split(' ')[0]}</span>
+                {userSession.avatarUrl ? (
+                  <img
+                    src={userSession.avatarUrl}
+                    alt={userSession.fullName || userSession.username || 'User'}
+                    className="w-7 h-7 sm:w-6 sm:h-6 rounded-full object-cover ring-2 ring-amber-400"
+                  />
+                ) : (
+                  <div className={`w-7 h-7 sm:w-6 sm:h-6 rounded-full flex items-center justify-center font-bold text-xs ${
+                    activeTab === 'profile' || showUserAccountDropdown
+                      ? 'bg-slate-950 text-amber-400'
+                      : 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/40'
+                  }`}>
+                    {userSession.fullName ? (
+                      userSession.fullName.charAt(0).toUpperCase()
+                    ) : userSession.username ? (
+                      userSession.username.charAt(0).toUpperCase()
+                    ) : (
+                      <User className="w-3.5 h-3.5" />
+                    )}
+                  </div>
+                )}
+                <span className="hidden lg:inline text-xs font-bold">
+                  {userSession.isLoggedIn
+                    ? (userSession.fullName ? userSession.fullName.split(' ')[0] : userSession.username || 'Believer')
+                    : 'Account'}
+                </span>
               </motion.button>
 
               <UserAccountMenuDropdown
@@ -791,6 +811,20 @@ export default function App() {
                 onOpenDjango={() => setShowDjangoModal(true)}
                 onOpenAuth={() => setShowAuthModal(true)}
                 onOpenAuthPage={handleOpenAuthPage}
+                onLogout={() => {
+                  djangoApi.logout();
+                  setUserSession({
+                    id: 'guest',
+                    username: 'guest',
+                    email: '',
+                    fullName: '',
+                    churchName: '',
+                    avatarUrl: '',
+                    isLoggedIn: false,
+                    token: ''
+                  });
+                  localStorage.removeItem('gospread_user_session');
+                }}
                 theme={theme}
                 onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
               />
@@ -1276,6 +1310,7 @@ export default function App() {
                 onOpenPrayerModal={() => setPrayerModalOpen(true)}
                 onOpenSettingsModal={() => setShowSettingsModal(true)}
                 onOpenCommunity={() => setActiveTab('community')}
+                onOpenDiscover={() => setActiveTab('discover')}
                 onOpenAuthPage={handleOpenAuthPage}
                 currentUser={userSession}
               />
