@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: gospread-api
+    runtime: python
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      python manage.py collectstatic --noinput
+    startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "false"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: "gospread-api.onrender.com,localhost,127.0.0.1"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://gospread.onrender.com,https://gospread-frontend.onrender.com,http://localhost:5173,http://127.0.0.1:5173"
+      - key: CSRF_TRUSTED_ORIGINS
+        value: "https://gospread.onrender.com,https://gospread-frontend.onrender.com,http://localhost:5173,http://127.0.0.1:5173"
+      - key: PYTHON_VERSION
+        value: "3.12.5"
+
+  - type: web
+    name: gospread
+    runtime: static
+    region: oregon
+    plan: free
+    buildCommand: |
+      npm install
+      npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_DJANGO_API_URL
+        value: "https://gospread-api.onrender.com/api/v1"
