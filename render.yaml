@@ -27,7 +27,6 @@ services:
   - type: web
     name: gospread
     runtime: static
-    plan: free
     buildCommand: |
       npm install
       npm run build
