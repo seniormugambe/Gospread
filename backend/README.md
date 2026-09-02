@@ -29,6 +29,8 @@ The API runs at `http://127.0.0.1:8000/api/` and the admin at `http://127.0.0.1:
 Authenticated requests use `Authorization: Bearer <access-token>`.
 Refresh tokens rotate automatically and are blacklisted after use. The React client restores sessions, refreshes expired access tokens, protects role-specific routes, and revokes the refresh token during sign-out.
 
+Public read endpoints include the health check, random scripture, published ministry content, and church discovery. Account changes, community interactions, prayer actions, saved sermons, watch progress, ministry management, and donation checkout require an authenticated user.
+
 ## Resources
 
 - `/api/churches/`

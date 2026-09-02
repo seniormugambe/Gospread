@@ -273,6 +273,10 @@ export default function App() {
   } | null>(null);
 
   const handleToggleJoinChurch = (churchName: string) => {
+    if (!userSession.isLoggedIn) {
+      handleOpenAuthPage('signin');
+      return;
+    }
     setJoinedChurches(prev => {
       const isAlreadyJoined = prev.some(c => c.toLowerCase() === churchName.toLowerCase());
       const updated = isAlreadyJoined
@@ -390,12 +394,30 @@ export default function App() {
   const [streakDays, setStreakDays] = useState(0);
   const [praiseXp, setPraiseXp] = useState(0);
 
+  const openProtectedTab = (tab: 'profile' | 'history' | 'create') => {
+    if (!userSession.isLoggedIn) {
+      handleOpenAuthPage('signin');
+      return;
+    }
+    setActiveTab(tab);
+  };
+
+  useEffect(() => {
+    if (!userSession.isLoggedIn && ['profile', 'history', 'create'].includes(activeTab)) {
+      handleOpenAuthPage('signin');
+    }
+  }, [activeTab, userSession.isLoggedIn]);
+
   const handleClaimDailyReward = (xpGained: number) => {
     setPraiseXp(prev => prev + xpGained);
     setStreakDays(prev => Math.min(7, prev + 1));
   };
 
   const handleOpenGiving = (target?: GivingTarget) => {
+    if (!userSession.isLoggedIn) {
+      handleOpenAuthPage('signin');
+      return;
+    }
     setGivingModalTarget(target || {
       id: 'platform-global',
       name: 'Gospread Global Mission Fund',
@@ -454,6 +476,10 @@ export default function App() {
   // Category options
 
   const toggleSubscribe = (channelName: string) => {
+    if (!userSession.isLoggedIn) {
+      handleOpenAuthPage('signin');
+      return;
+    }
     setSubscribedChannels(prev => {
       const isSubbed = prev.includes(channelName);
       const newSubbed = isSubbed 
@@ -745,7 +771,7 @@ export default function App() {
 
             {/* Quick Settings Icon Button (Desktop only, mobile in drawer) */}
             <button
-              onClick={() => setShowSettingsModal(true)}
+              onClick={() => userSession.isLoggedIn ? setShowSettingsModal(true) : handleOpenAuthPage('signin')}
               className="hidden md:flex items-center justify-center p-1.5 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-amber-400 border border-slate-700 transition"
               title="Account & Streaming Settings"
             >
@@ -799,10 +825,10 @@ export default function App() {
                 userSession={userSession}
                 streakDays={streakDays}
                 praiseXp={praiseXp}
-                onOpenSettings={() => setShowSettingsModal(true)}
-                onOpenProfile={() => setActiveTab('profile')}
+                onOpenSettings={() => userSession.isLoggedIn ? setShowSettingsModal(true) : handleOpenAuthPage('signin')}
+                onOpenProfile={() => openProtectedTab('profile')}
                 onOpenCommunity={() => setActiveTab('community')}
-                onOpenHistory={() => setActiveTab('history')}
+                onOpenHistory={() => openProtectedTab('history')}
                 onOpenGiving={() => handleOpenGiving()}
                 onOpenDjango={() => setShowDjangoModal(true)}
                 onOpenAuth={() => setShowAuthModal(true)}
@@ -918,9 +944,9 @@ export default function App() {
                       key={item.id}
                       onClick={() => {
                         if (item.id === 'create') {
-                          setActiveTab('create');
+                          openProtectedTab('create');
                         } else if (item.id === 'profile') {
-                          setActiveTab('profile');
+                          openProtectedTab('profile');
                         } else if (item.id === 'auth') {
                           handleOpenAuthPage('signin');
                         } else if (item.id === 'community') {
@@ -928,9 +954,10 @@ export default function App() {
                           setIsPipDocked(false);
                           setActiveVideo(null);
                         } else if (item.id === 'settings') {
-                          setShowSettingsModal(true);
+                          if (userSession.isLoggedIn) setShowSettingsModal(true);
+                          else handleOpenAuthPage('signin');
                         } else if (item.id === 'history') {
-                          setActiveTab('history');
+                          openProtectedTab('history');
                         } else if (item.id === 'discover') {
                           setActiveTab('discover');
                           setIsPipDocked(false);
@@ -938,6 +965,10 @@ export default function App() {
                         } else if (item.id === 'giving') {
                           handleOpenGiving();
                         } else {
+                          if (item.id === 'following' && !userSession.isLoggedIn) {
+                            handleOpenAuthPage('signin');
+                            return;
+                          }
                           setActiveTab('platform');
                           setIsPipDocked(false);
                           setSelectedCategory(
@@ -988,7 +1019,7 @@ export default function App() {
                   </span>
                   <button
                     onClick={() => {
-                      setActiveTab('history');
+                      openProtectedTab('history');
                     }}
                     className="text-[10px] font-bold text-amber-400 hover:underline cursor-pointer"
                   >
@@ -1160,9 +1191,9 @@ export default function App() {
                                 onClick={() => {
                                   setIsSidebarOpen(false);
                                   if (item.id === 'create') {
-                                    setActiveTab('create');
+                                    openProtectedTab('create');
                                   } else if (item.id === 'profile') {
-                                    setActiveTab('profile');
+                                    openProtectedTab('profile');
                                   } else if (item.id === 'auth') {
                                     handleOpenAuthPage('signin');
                                   } else if (item.id === 'community') {
@@ -1170,9 +1201,10 @@ export default function App() {
                                     setIsPipDocked(false);
                                     setActiveVideo(null);
                                   } else if (item.id === 'settings') {
-                                    setShowSettingsModal(true);
+                                    if (userSession.isLoggedIn) setShowSettingsModal(true);
+                                    else handleOpenAuthPage('signin');
                                   } else if (item.id === 'history') {
-                                    setActiveTab('history');
+                                    openProtectedTab('history');
                                   } else if (item.id === 'discover') {
                                     setActiveTab('discover');
                                     setIsPipDocked(false);
@@ -1180,6 +1212,10 @@ export default function App() {
                                   } else if (item.id === 'giving') {
                                     handleOpenGiving();
                                   } else {
+                                    if (item.id === 'following' && !userSession.isLoggedIn) {
+                                      handleOpenAuthPage('signin');
+                                      return;
+                                    }
                                     setActiveTab('platform');
                                     setIsPipDocked(false);
                                     setSelectedCategory(
@@ -1656,6 +1692,8 @@ export default function App() {
                         if (cat.label === 'Discover Ministries') {
                           setActiveTab('discover');
                           setActiveVideo(null);
+                        } else if (cat.label === 'Following' && !userSession.isLoggedIn) {
+                          handleOpenAuthPage('signin');
                         } else {
                           setSelectedCategory(cat.label);
                           if (activeTab !== 'platform') setActiveTab('platform');
@@ -2464,7 +2502,7 @@ export default function App() {
       {/* 📱 Mobile Fixed Bottom Navigation Bar */}
       <MobileBottomNav
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={(tab) => tab === 'profile' ? openProtectedTab('profile') : setActiveTab(tab)}
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
         setActiveVideo={setActiveVideo}

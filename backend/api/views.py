@@ -421,7 +421,7 @@ class DonationViewSet(viewsets.ModelViewSet):
         from rest_framework.exceptions import ValidationError
         raise ValidationError("Create a church before accepting donations.")
 
-    @action(detail=False, methods=["post"], permission_classes=[permissions.AllowAny])
+    @action(detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     @transaction.atomic
     def checkout(self, request):
         serializer = DonationCheckoutSerializer(data=request.data, context={"request": request})
@@ -457,7 +457,7 @@ class DonationViewSet(viewsets.ModelViewSet):
         checkout.save(update_fields=["checkout_url"])
         return Response(PaymentGatewayCheckoutSerializer(checkout, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
-    @action(detail=False, methods=["post"], permission_classes=[permissions.AllowAny])
+    @action(detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     @transaction.atomic
     def confirm(self, request):
         reference = request.data.get("gateway_reference")

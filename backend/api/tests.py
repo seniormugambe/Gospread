@@ -199,6 +199,20 @@ class ChurchEntryTests(APITestCase):
 
 
 class MinistryFeatureTests(APITestCase):
+    def test_donation_checkout_requires_authentication(self):
+        self.client.credentials()
+        response = self.client.post("/api/v1/donations/checkout/", {
+            "amount": "50.00",
+            "currency": "usd",
+            "frequency": "one_time",
+            "donor_name": "Jane Donor",
+            "donor_email": "jane@example.com",
+            "fund_name": "Missions",
+            "provider": "stripe",
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
     def test_authenticated_user_can_create_church_without_slug(self):
         pastor = User.objects.create_user(
             username="create-church-pastor",
