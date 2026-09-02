@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { djangoApi } from '../services/djangoApi';
+import GospreadLogo from './GospreadLogo';
 
 export interface UserSession {
   id: string | number;
@@ -155,14 +156,12 @@ export default function AuthModal({
       >
         {/* Header Bar */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-gradient-to-r from-slate-900 via-amber-950/20 to-slate-900">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-100">Kingdom Account Authentication</h2>
-              <p className="text-[11px] text-slate-400">JWT Security & User Profile Sync</p>
-            </div>
+          <div className="flex items-center gap-3">
+            <GospreadLogo
+              size="xs"
+              badgeText="Auth"
+              badgeVariant="global"
+            />
           </div>
           <div className="flex items-center gap-2">
             {onOpenFullAuthPage && (

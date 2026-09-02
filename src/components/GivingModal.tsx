@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { djangoApi } from '../services/djangoApi';
+import gospreadLogoImg from '../assets/images/gospread_logo_1788335418034.jpg';
 
 export interface GivingTarget {
   id: string;
@@ -265,13 +266,14 @@ export default function GivingModal({ target, onClose, onPaymentSuccess }: Givin
                 
                 {/* Brand Logo - Vibrant Streaming Badge */}
                 <div className="relative mb-3.5 group">
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-400 via-teal-500 to-blue-600 p-0.5 shadow-lg flex items-center justify-center">
-                    <div className="w-full h-full bg-white rounded-[14px] flex flex-col items-center justify-center p-1 relative overflow-hidden">
-                      {/* Play Arrow Icon with colorful gradients matching screenshot */}
-                      <div className="w-0 h-0 border-t-[14px] border-t-transparent border-b-[14px] border-b-transparent border-l-[24px] border-l-emerald-500 filter drop-shadow-sm ml-1" />
-                      <div className="absolute bottom-1 px-1.5 py-0.5 rounded bg-blue-600 text-white font-extrabold text-[8px] tracking-tight uppercase">
-                        Free Stream
-                      </div>
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-400 via-red-500 to-amber-300 p-0.5 shadow-lg shadow-amber-500/20 flex items-center justify-center">
+                    <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center relative overflow-hidden">
+                      <img
+                        src={gospreadLogoImg}
+                        alt="Gospread Logo"
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover scale-105"
+                      />
                     </div>
                   </div>
                 </div>

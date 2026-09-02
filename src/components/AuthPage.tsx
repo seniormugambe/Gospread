@@ -34,6 +34,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { djangoApi } from '../services/djangoApi';
 import { UserSession } from './AuthModal';
+import GospreadLogo from './GospreadLogo';
 
 export interface AuthPageProps {
   initialMode?: 'signin' | 'signup';
@@ -354,19 +355,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           {/* Top Brand Header */}
           <div className="relative z-10 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500 via-red-600 to-amber-300 p-0.5 shadow-lg shadow-amber-500/20">
-                <div className="w-full h-full bg-[#0c0c0e] rounded-[14px] flex items-center justify-center">
-                  <Flame className="w-6 h-6 text-amber-400 fill-amber-400" />
-                </div>
-              </div>
-              <div>
-                <h2 className="text-xl font-black tracking-tight text-white flex items-center gap-1.5">
-                  <span>GOSPREAD</span>
-                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500 text-slate-950">GLOBAL</span>
-                </h2>
-                <p className="text-[11px] text-amber-300 font-medium">One Kingdom. One Voice. Worldwide Fellowship.</p>
-              </div>
+              <GospreadLogo
+                size="lg"
+                badgeText="Global"
+                badgeVariant="global"
+              />
             </div>
+            <p className="text-[11px] text-amber-300 font-medium">One Kingdom. One Voice. Worldwide Fellowship.</p>
 
             <div className="pt-2">
               <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight">

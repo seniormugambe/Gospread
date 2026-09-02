@@ -58,6 +58,7 @@ import {
   MessageSquareHeart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import GospreadLogo from './components/GospreadLogo';
 import youtubeGospelImg from './assets/images/youtube_gospel_ui_1785687242032.jpg';
 import CreatePage from './components/CreatePage';
 import DiscoverMinistriesHub from './components/DiscoverMinistriesHub';
@@ -638,17 +639,12 @@ export default function App() {
             <Menu className="w-5 h-5" />
           </button>
 
-          <div 
+          <GospreadLogo
+            size="sm"
+            badgeText="Live"
+            badgeVariant="live"
             onClick={() => { setActiveVideo(null); setSelectedCategory('All'); }}
-            className="flex items-center space-x-2 cursor-pointer select-none"
-          >
-            <div className="w-7 h-5 bg-red-600 rounded-md flex items-center justify-center shadow-md shadow-red-600/30">
-              <Play className="w-3 h-3 text-white fill-white ml-0.5" />
-            </div>
-            <span className="font-bold text-base tracking-tight text-white flex items-center gap-1.5 font-serif">
-              Gospread <span className="text-[9px] font-sans font-extrabold bg-amber-500 text-slate-950 px-1.5 py-0.5 rounded tracking-wider uppercase">Live</span>
-            </span>
-          </div>
+          />
         </div>
 
         {/* Center Search Bar */}
@@ -1088,12 +1084,12 @@ export default function App() {
               >
                 <div>
                   <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-7 h-5 bg-red-600 rounded flex items-center justify-center shadow-md shadow-red-600/30">
-                        <Play className="w-3.5 h-3.5 text-white fill-white ml-0.5" />
-                      </div>
-                      <span className="font-bold text-base text-white font-serif tracking-tight">Gospread Menu</span>
-                    </div>
+                    <GospreadLogo
+                      size="sm"
+                      badgeText="Menu"
+                      badgeVariant="gold"
+                      onClick={() => setIsSidebarOpen(false)}
+                    />
                     <button
                       onClick={() => setIsSidebarOpen(false)}
                       className="p-1.5 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white transition"
