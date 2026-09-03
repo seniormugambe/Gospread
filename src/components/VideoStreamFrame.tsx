@@ -29,7 +29,8 @@ import {
   Gauge,
   Sun,
   Palette,
-  Download
+  Download,
+  Headphones
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream } from '../data/gospelData';
@@ -60,6 +61,9 @@ export default function VideoStreamFrame({
   onTogglePip,
   onDownloadVideo
 }: VideoStreamFrameProps) {
+  // Playback Mode State: Seamless Switch Between Full Video & High-Fidelity Audio Mode
+  const [playbackMode, setPlaybackMode] = useState<'video' | 'audio'>('video');
+
   // Advanced Settings State
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'quality' | 'audio' | 'captions' | 'overlay' | 'telemetry'>('quality');
@@ -294,23 +298,60 @@ export default function VideoStreamFrame({
 
       {/* Main Video Frame Container */}
       <div className="relative aspect-video rounded-3xl overflow-hidden bg-black border border-slate-800/90 shadow-2xl group select-none z-10">
-      {/* Active Camera Video Preview */}
-      <img
-        src={
-          activeCamAngle === 'cam2'
-            ? 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1200&q=80'
-            : activeCamAngle === 'cam3'
-            ? 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80'
-            : activeCamAngle === 'cam4'
-            ? 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=1200&q=80'
-            : video.thumbnail
-        }
-        alt={video.title}
-        referrerPolicy="no-referrer"
-        className={`w-full h-full object-cover transition-all duration-300 ${
-          aspectRatio === 'Zoom' ? 'scale-110' : ''
-        }`}
-      />
+      {/* Active Camera Video Preview OR Anointed Audio Mode Canvas */}
+      {playbackMode === 'audio' ? (
+        <div className="w-full h-full bg-gradient-to-b from-slate-900 via-slate-950 to-black flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
+          {/* Ambient audio background glow */}
+          <div className="absolute inset-0 bg-radial from-amber-500/10 via-transparent to-transparent pointer-events-none" />
+          
+          {/* Ambient Pulse Ring & Album Artwork */}
+          <div
+            className="relative mb-3.5 group/art cursor-pointer"
+            onClick={() => setPlaybackMode('video')}
+            title="Click to switch back to video"
+          >
+            <div className={`w-28 h-28 sm:w-36 sm:h-36 rounded-full overflow-hidden ring-4 ring-amber-400/50 shadow-2xl relative ${isPlaying ? 'animate-[spin_24s_linear_infinite]' : ''}`}>
+              <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover/art:opacity-100 transition backdrop-blur-[1px]">
+              <span className="text-[10px] font-bold text-white bg-black/80 px-2.5 py-1 rounded-full flex items-center gap-1 shadow">
+                <Tv className="w-3 h-3 text-amber-400" /> Watch Video
+              </span>
+            </div>
+          </div>
+
+          {/* Preacher and Title */}
+          <span className="px-3 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5 shadow-sm">
+            <Headphones className="w-3 h-3 text-amber-400 animate-pulse" />
+            Background Audio Stream • Vocal Clarity Enhanced
+          </span>
+          <h3 className="text-sm sm:text-base font-black text-white max-w-lg line-clamp-1 px-4">{video.title}</h3>
+          <p className="text-xs text-slate-400 mt-0.5">{video.churchOrMinistry} • {video.speakerOrArtist}</p>
+
+          {/* Dynamic Soundwave Visualizer Bars */}
+          <div className="flex items-end gap-1 h-7 mt-3.5">
+            {[10, 22, 16, 26, 14, 20, 28, 15, 24, 18, 26, 12, 22, 9, 18].map((h, i) => (
+              <span
+                key={i}
+                className={`w-1 rounded-full bg-gradient-to-t from-amber-600 to-amber-300 transition-all ${isPlaying ? 'animate-pulse' : 'opacity-30'}`}
+                style={{
+                  height: isPlaying ? `${Math.max(6, Math.round(h * (i % 2 === 0 ? 1 : 0.85)))}px` : '4px',
+                  animationDelay: `${(i * 0.08).toFixed(2)}s`,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <img
+          src={activeFrameSrc}
+          alt={video.title}
+          referrerPolicy="no-referrer"
+          className={`w-full h-full object-cover transition-all duration-300 ${
+            aspectRatio === 'Zoom' ? 'scale-110' : ''
+          }`}
+        />
+      )}
 
       {/* Floating Amen Reaction Effects */}
       <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden">
@@ -768,6 +809,34 @@ export default function VideoStreamFrame({
               <span>Cam: {activeCamAngle.toUpperCase()}</span>
               <ChevronDown className="w-3 h-3" />
             </button>
+
+            {/* Seamless Mode Switch: Never force viewer to choose between Video and Audio */}
+            <div className="flex items-center bg-black/70 backdrop-blur-md rounded-full p-0.5 border border-slate-700/80 shadow-md">
+              <button
+                type="button"
+                onClick={() => setPlaybackMode('video')}
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition flex items-center gap-1 ${
+                  playbackMode === 'video'
+                    ? 'bg-red-600 text-white shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Tv className="w-3 h-3" />
+                <span>Watch</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlaybackMode('audio')}
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition flex items-center gap-1 ${
+                  playbackMode === 'audio'
+                    ? 'bg-amber-400 text-slate-950 shadow font-black'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Headphones className="w-3 h-3" />
+                <span>Listen</span>
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">

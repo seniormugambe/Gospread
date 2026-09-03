@@ -85,6 +85,7 @@ import LiveViewerTrendSparkline from './components/LiveViewerTrendSparkline';
 import AudioPodcastPlayer from './components/AudioPodcastPlayer';
 import AudioPodcastHub from './components/AudioPodcastHub';
 import KingdomHomeFeed from './components/KingdomHomeFeed';
+import StreamingVideoCard from './components/StreamingVideoCard';
 import { SearchEngineOverlay } from './components/SearchEngineOverlay';
 import { WatchHistoryView, WatchHistoryItem } from './components/WatchHistoryView';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -458,17 +459,13 @@ export default function App() {
 
   const promptText = "A sleek dark-themed YouTube style Gospel streaming interface mockup, featuring a centered search bar, top category filter chips, main live worship video player with live chat panel, grid of video thumbnails, and 24/7 praise audio stream cards.";
 
-  const categories = [
+  const categories: { label: string; icon: any; count?: number }[] = [
     { label: 'All', icon: Compass },
-    { label: 'Discover Ministries', icon: Building2 },
-    { label: 'Podcasts', icon: Music },
-    { label: 'Church Schedules', icon: Calendar },
-    { label: 'Following', icon: UserCheck, count: subscribedChannels.length },
-    { label: 'Live Worship', icon: Tv },
-    { label: '24/7 Gospel Radio', icon: Radio },
+    { label: 'Live', icon: Tv },
     { label: 'Sermons', icon: Mic2 },
-    { label: 'Gospel Music', icon: Music },
-    { label: 'Choir Special', icon: Headphones },
+    { label: 'Worship', icon: Music },
+    { label: 'Podcasts', icon: Headphones },
+    { label: 'Ministries', icon: Building2 },
   ];
 
   // Category options
@@ -631,13 +628,21 @@ export default function App() {
     let matchesCategory = false;
     if (selectedCategory === 'All') {
       matchesCategory = true;
+    } else if (selectedCategory === 'Live' || selectedCategory === 'Live Worship') {
+      matchesCategory = v.isLive;
+    } else if (selectedCategory === 'Sermons') {
+      matchesCategory = v.category === 'Sermon';
+    } else if (selectedCategory === 'Worship' || selectedCategory === 'Gospel Music' || selectedCategory === 'Choir Special') {
+      matchesCategory = v.category === 'Live Worship' || v.category === 'Choir Special' || v.category === 'Gospel Music';
+    } else if (selectedCategory === 'Podcasts' || selectedCategory === '24/7 Gospel Radio') {
+      matchesCategory = false;
+    } else if (selectedCategory === 'Ministries' || selectedCategory === 'Discover Ministries') {
+      matchesCategory = true;
     } else if (selectedCategory === 'Following') {
       matchesCategory = subscribedChannels.some(ch => 
         v.churchOrMinistry.toLowerCase().includes(ch.toLowerCase()) || 
         v.speakerOrArtist.toLowerCase().includes(ch.toLowerCase())
       );
-    } else if (selectedCategory === '24/7 Gospel Radio') {
-      matchesCategory = false;
     } else {
       matchesCategory = v.category === selectedCategory;
     }
@@ -664,14 +669,16 @@ export default function App() {
         </div>
       )}
       
-      {/* 🔴 HEADER */}
-      <header className="sticky top-0 z-40 bg-[#0f0f0f]/95 backdrop-blur-md border-b border-slate-800/80 px-4 py-2.5 flex items-center justify-between gap-4">
+      {/* 🔴 CONTENT-FIRST STREAMING HEADER */}
+      <header className="sticky top-0 z-40 bg-[#0f0f0f]/95 backdrop-blur-md border-b border-slate-800/80 px-3 sm:px-5 py-2.5 flex items-center justify-between gap-3 sm:gap-4">
         
-        {/* Left Logo */}
-        <div className="flex items-center space-x-3">
+        {/* Left: Brand Logo & Top Navigation Links */}
+        <div className="flex items-center space-x-3 sm:space-x-6 shrink-0">
+          {/* Mobile Drawer Hamburger (mobile only) */}
           <button 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="p-2 rounded-full hover:bg-slate-800 text-slate-300 transition"
+            className="md:hidden p-2 rounded-full hover:bg-slate-800 text-slate-300 transition"
+            title="Open Menu"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -679,223 +686,235 @@ export default function App() {
           <GospreadLogo
             size="sm"
             showBadge={false}
-            onClick={() => { setActiveVideo(null); setSelectedCategory('All'); }}
+            onClick={() => {
+              setActiveVideo(null);
+              setSelectedCategory('All');
+              setActiveTab('platform');
+              setSearchQuery('');
+            }}
           />
+
+          {/* Desktop Top Navigation (Content-First: Home | Live | Sermons | Worship | Ministries) */}
+          <nav className="hidden md:flex items-center space-x-1 lg:space-x-1.5">
+            <button
+              onClick={() => {
+                setActiveTab('platform');
+                setSelectedCategory('All');
+                setActiveVideo(null);
+                setSearchQuery('');
+              }}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition ${
+                activeTab === 'platform' && selectedCategory === 'All' && !activeVideo && searchQuery === ''
+                  ? 'bg-amber-400 text-slate-950 font-black shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              Home
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('platform');
+                setSelectedCategory('Live');
+                setActiveVideo(null);
+                setSearchQuery('');
+              }}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${
+                activeTab === 'platform' && (selectedCategory === 'Live' || selectedCategory === 'Live Worship') && !activeVideo
+                  ? 'bg-red-600 text-white font-black shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              Live
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('platform');
+                setSelectedCategory('Sermons');
+                setActiveVideo(null);
+                setSearchQuery('');
+              }}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition ${
+                activeTab === 'platform' && selectedCategory === 'Sermons' && !activeVideo
+                  ? 'bg-amber-400 text-slate-950 font-black shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              Sermons
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('platform');
+                setSelectedCategory('Worship');
+                setActiveVideo(null);
+                setSearchQuery('');
+              }}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition ${
+                activeTab === 'platform' && (selectedCategory === 'Worship' || selectedCategory === 'Gospel Music') && !activeVideo
+                  ? 'bg-amber-400 text-slate-950 font-black shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              Worship
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('discover');
+                setActiveVideo(null);
+              }}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition ${
+                activeTab === 'discover'
+                  ? 'bg-amber-400 text-slate-950 font-black shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              Ministries
+            </button>
+          </nav>
         </div>
 
         {/* Center Search Bar */}
-        <SearchEngineOverlay
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          onSelectVideo={handleSelectVideo}
-          onSelectAudioTrack={handlePlayAudioTrack}
-          onSelectChannel={(channelName) => setSelectedChannelModal(channelName)}
-          activeVideo={activeVideo}
-          selectedCategory={selectedCategory}
-          setSelectedCategory={setSelectedCategory}
-          subscribedChannels={subscribedChannels}
-          onDownloadVideo={handleOpenDownloadModal}
-        />
+        <div className="flex-1 max-w-md mx-1 sm:mx-4">
+          <SearchEngineOverlay
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            onSelectVideo={handleSelectVideo}
+            onSelectAudioTrack={handlePlayAudioTrack}
+            onSelectChannel={(channelName) => setSelectedChannelModal(channelName)}
+            activeVideo={activeVideo}
+            selectedCategory={selectedCategory}
+            setSelectedCategory={setSelectedCategory}
+            subscribedChannels={subscribedChannels}
+            onDownloadVideo={handleOpenDownloadModal}
+          />
+        </div>
 
-        {/* Right Header Actions & Engagement Psychology Triggers */}
-        <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
-          {/* Group 1: Faith Progress & Daily Rhema */}
-          <div className="flex items-center gap-1 bg-slate-900/90 p-0.5 sm:p-1 rounded-full border border-slate-800">
-            {/* Daily Streak & Praise XP Badge */}
-            <button
-              onClick={() => setShowStreakModal(true)}
-              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-full bg-slate-950 hover:bg-slate-800 text-amber-400 border border-amber-500/40 text-xs font-black shadow-md transition shrink-0"
-              title="Daily Faith Streak & Kingdom Level"
-            >
-              <Flame className="w-3.5 h-3.5 text-amber-400 fill-amber-400 animate-pulse" />
-              <span>{streakDays}d</span>
-              <span className="hidden sm:inline-flex items-center gap-1">
-                <span className="text-[10px] text-slate-500 font-normal">|</span>
-                <Sparkles className="w-3 h-3 text-amber-300" />
-                <span className="text-[10px] font-mono text-slate-200">{praiseXp} XP</span>
-              </span>
-            </button>
-
-            {/* Daily Rhema Promise Card Button */}
-            <button
-              onClick={() => setShowPromiseModal(true)}
-              className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-bold transition shrink-0"
-              title="Draw Today's Rhema Promise Word"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Rhema</span>
-            </button>
-          </div>
-
-          {/* Group 2: Media & Shorts */}
+        {/* Right Header: Studio Switcher, Theme Toggle, Sign In / Avatar Menu */}
+        <div className="flex items-center space-x-2 sm:space-x-2.5 shrink-0">
+          {/* Creator Studio Switch */}
           <button
-            onClick={() => setShowShortsModal(true)}
-            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold text-xs shadow-md shadow-red-600/20 transition shrink-0"
-            title="Watch Bite-sized Grace Shorts & Sermons"
+            onClick={() => {
+              setActiveTab('create');
+              setActiveVideo(null);
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+              activeTab === 'create'
+                ? 'bg-gradient-to-r from-red-600 to-amber-500 text-white shadow-md font-bold'
+                : 'bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-amber-300 border border-slate-700/80'
+            }`}
+            title="Kingdom Creator Studio (For Ministries & Broadcasters)"
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Shorts</span>
+            <RadioTower className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Creator Studio</span>
           </button>
 
-          {/* 🎙️ Separate World Switcher: Kingdom Creator Studio (For Ministries & Broadcasters) */}
-          <div className="relative">
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => {
-                setActiveTab('create');
-                setActiveVideo(null);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition shrink-0 ${
-                activeTab === 'create'
-                  ? 'bg-gradient-to-r from-red-600 to-amber-500 text-white shadow-md shadow-red-600/30 font-bold'
-                  : 'bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-amber-300 border border-slate-700/80 hover:border-amber-500/40'
-              }`}
-              title="Kingdom Creator Studio (For Ministries & Broadcasters)"
-            >
-              <RadioTower className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">Creator Studio</span>
-            </motion.button>
-          </div>
+          {/* Theme Toggle Button */}
+          <button
+            onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
+            className={`p-2 rounded-full transition flex items-center justify-center border shadow-sm ${
+              theme === 'light'
+                ? 'bg-gradient-to-r from-pink-500 via-purple-500 to-sky-500 text-white border-pink-300/80 shadow-pink-500/25'
+                : 'bg-slate-900 text-pink-400 border-slate-700 hover:bg-slate-800'
+            }`}
+            title={theme === 'light' ? "Sunset 🌸 Theme Active" : "Night Theme Active"}
+          >
+            {theme === 'light' ? (
+              <Sun className="w-3.5 h-3.5 text-pink-200 fill-pink-200" />
+            ) : (
+              <Moon className="w-3.5 h-3.5 text-pink-400" />
+            )}
+          </button>
 
-          {/* 🕊️ "Watch first. Belong later" — Invitation to Belong */}
+          {/* Sign In Button (when not logged in) */}
           {!userSession.isLoggedIn && (
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => handleOpenAuthPage('signin')}
-              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs shadow-md shadow-amber-500/20 transition shrink-0"
-              title="Watch first. Belong later — Join Fellowship or Sign In"
+              className="px-4 py-1.5 rounded-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-sm transition shrink-0"
+              title="Sign in to your Gospread account"
             >
-              <ShieldCheck className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Belong</span>
+              Sign In
             </motion.button>
           )}
 
-          {/* Group 3: Kingdom Support & Django Backend Integration */}
-          <div className="hidden lg:flex items-center gap-1.5">
-            <button
-              onClick={() => handleOpenGiving()}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition shrink-0 shadow-sm"
-              title="Support Gospread Platform & Kingdom Ministries"
-            >
-              <DollarSign className="w-3.5 h-3.5" />
-              <span>Support</span>
-            </button>
-          </div>
-
-          {/* Group 4: Quick Activity & User Account */}
-          <div className="flex items-center gap-1 sm:gap-1.5 pl-0.5 sm:pl-1">
-            {/* 🌸 Sky Pink & Blue Theme Toggle Button */}
-            <button
-              onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
-              className={`p-1.5 rounded-full transition flex items-center justify-center sm:px-2.5 py-1 text-xs font-bold border shadow-md ${
-                theme === 'light'
-                  ? 'bg-gradient-to-r from-pink-500 via-purple-500 to-sky-500 text-white border-pink-300/80 shadow-pink-500/25'
-                  : 'bg-slate-900 text-pink-400 border-slate-700 hover:bg-slate-800'
+          {/* User Profile Avatar Header Button with Account Dropdown Popover */}
+          <div className="relative">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowUserAccountDropdown(prev => !prev)}
+              className={`flex items-center gap-1.5 p-1 rounded-full border transition shrink-0 ${
+                activeTab === 'profile' || showUserAccountDropdown
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-md shadow-amber-500/20'
+                  : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-700'
               }`}
-              title={theme === 'light' ? "Sky Pink & Blue Sunset Theme Active" : "Switch to Sky Pink & Blue Sunset Theme"}
+              title="Account Menu"
             >
-              {theme === 'light' ? (
-                <Sun className="w-3.5 h-3.5 text-pink-200 fill-pink-200" />
+              {userSession.avatarUrl ? (
+                <img
+                  src={userSession.avatarUrl}
+                  alt={userSession.fullName || userSession.username || 'User'}
+                  className="w-7 h-7 rounded-full object-cover ring-1 ring-amber-400"
+                />
               ) : (
-                <Moon className="w-3.5 h-3.5 text-pink-400" />
-              )}
-              <span className="hidden xl:inline text-[11px] font-bold text-white ml-1">
-                {theme === 'light' ? 'Sunset 🌸' : 'Night'}
-              </span>
-            </button>
-
-            <button 
-              className="hidden sm:flex p-1.5 sm:p-2 rounded-full hover:bg-slate-800 text-slate-300 relative transition"
-              title="Notifications"
-            >
-              <Bell className="w-4 h-4" />
-              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-600 animate-ping" />
-            </button>
-
-            {/* Quick Settings Icon Button (Desktop only, mobile in drawer) */}
-            <button
-              onClick={() => userSession.isLoggedIn ? setShowSettingsModal(true) : handleOpenAuthPage('signin')}
-              className="hidden md:flex items-center justify-center p-1.5 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-amber-400 border border-slate-700 transition"
-              title="Account & Streaming Settings"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-
-            {/* User Profile Avatar Header Button with Account Dropdown Popover */}
-            <div className="relative">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowUserAccountDropdown(prev => !prev)}
-                className={`flex items-center gap-1.5 sm:gap-2 p-1 sm:pl-1.5 sm:pr-2.5 sm:py-1 rounded-full border transition shrink-0 ${
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${
                   activeTab === 'profile' || showUserAccountDropdown
-                    ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-lg shadow-amber-500/20'
-                    : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-700'
-                }`}
-                title="User Account & Kingdom Control Center"
-              >
-                {userSession.avatarUrl ? (
-                  <img
-                    src={userSession.avatarUrl}
-                    alt={userSession.fullName || userSession.username || 'User'}
-                    className="w-7 h-7 sm:w-6 sm:h-6 rounded-full object-cover ring-2 ring-amber-400"
-                  />
-                ) : (
-                  <div className={`w-7 h-7 sm:w-6 sm:h-6 rounded-full flex items-center justify-center font-bold text-xs ${
-                    activeTab === 'profile' || showUserAccountDropdown
-                      ? 'bg-slate-950 text-amber-400'
-                      : 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/40'
-                  }`}>
-                    {userSession.fullName ? (
-                      userSession.fullName.charAt(0).toUpperCase()
-                    ) : userSession.username ? (
-                      userSession.username.charAt(0).toUpperCase()
-                    ) : (
-                      <User className="w-3.5 h-3.5" />
-                    )}
-                  </div>
-                )}
-                <span className="hidden lg:inline text-xs font-bold">
-                  {userSession.isLoggedIn
-                    ? (userSession.fullName ? userSession.fullName.split(' ')[0] : userSession.username || 'Believer')
-                    : 'Account'}
-                </span>
-              </motion.button>
+                    ? 'bg-slate-950 text-amber-400'
+                    : 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/40'
+                }`}>
+                  {userSession.fullName ? (
+                    userSession.fullName.charAt(0).toUpperCase()
+                  ) : userSession.username ? (
+                    userSession.username.charAt(0).toUpperCase()
+                  ) : (
+                    <User className="w-3.5 h-3.5" />
+                  )}
+                </div>
+              )}
+            </motion.button>
 
-              <UserAccountMenuDropdown
-                isOpen={showUserAccountDropdown}
-                onClose={() => setShowUserAccountDropdown(false)}
-                userSession={userSession}
-                streakDays={streakDays}
-                praiseXp={praiseXp}
-                onOpenSettings={() => userSession.isLoggedIn ? setShowSettingsModal(true) : handleOpenAuthPage('signin')}
-                onOpenProfile={() => openProtectedTab('profile')}
-                onOpenCommunity={() => setActiveTab('community')}
-                onOpenHistory={() => openProtectedTab('history')}
-                onOpenGiving={() => handleOpenGiving()}
-                onOpenDjango={() => setShowDjangoModal(true)}
-                onOpenAuth={() => setShowAuthModal(true)}
-                onOpenAuthPage={handleOpenAuthPage}
-                onLogout={() => {
-                  djangoApi.logout();
-                  setUserSession({
-                    id: 'guest',
-                    username: 'guest',
-                    email: '',
-                    fullName: '',
-                    churchName: '',
-                    avatarUrl: '',
-                    isLoggedIn: false,
-                    token: ''
-                  });
-                  localStorage.removeItem('gospread_user_session');
-                }}
-                theme={theme}
-                onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
-              />
-            </div>
+            {/* Dropdown containing Following, Saved, History, Prayer, Notifications, Profile, Settings */}
+            <UserAccountMenuDropdown
+              isOpen={showUserAccountDropdown}
+              onClose={() => setShowUserAccountDropdown(false)}
+              userSession={userSession}
+              onOpenSettings={() => userSession.isLoggedIn ? setShowSettingsModal(true) : handleOpenAuthPage('signin')}
+              onOpenProfile={() => openProtectedTab('profile')}
+              onOpenCommunity={() => setActiveTab('community')}
+              onOpenHistory={() => openProtectedTab('history')}
+              onOpenGiving={() => handleOpenGiving()}
+              onOpenFollowing={() => {
+                setSelectedCategory('Following');
+                setActiveTab('platform');
+                setActiveVideo(null);
+              }}
+              onOpenSaved={() => openProtectedTab('profile')}
+              onOpenPrayer={() => setPrayerModalOpen(true)}
+              onOpenNotifications={() => {
+                setFollowToast('🔔 Notifications are active for followed ministries');
+                setTimeout(() => setFollowToast(null), 3000);
+              }}
+              onOpenDjango={() => setShowDjangoModal(true)}
+              onOpenAuth={() => setShowAuthModal(true)}
+              onOpenAuthPage={handleOpenAuthPage}
+              onLogout={() => {
+                djangoApi.logout();
+                setUserSession({
+                  id: 'guest',
+                  username: 'guest',
+                  email: '',
+                  fullName: '',
+                  churchName: '',
+                  avatarUrl: '',
+                  isLoggedIn: false,
+                  token: ''
+                });
+                localStorage.removeItem('gospread_user_session');
+              }}
+              theme={theme}
+              onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
+            />
           </div>
         </div>
       </header>
@@ -904,241 +923,7 @@ export default function App() {
       {/* Main Layout */}
       <div className="flex-1 flex overflow-hidden">
         
-        {/* 🔴 DESKTOP SIDEBAR */}
-        <aside className={`${isSidebarOpen ? 'w-56' : 'w-16'} bg-[#0d0d0f] border-r border-slate-800/80 flex-col justify-between py-3 transition-all duration-300 shrink-0 hidden md:flex select-none`}>
-          <div className="space-y-4 px-2 overflow-y-auto max-h-[calc(100vh-80px)] scrollbar-none">
-            {[
-              {
-                section: 'Discover & Watch 🌍',
-                items: [
-                  { id: 'home', label: 'Home Feed', icon: Compass },
-                  { id: 'live', label: 'Live Broadcasts', icon: Tv, badge: 'LIVE', badgeStyle: 'bg-red-600 text-white font-bold' },
-                  { id: 'radio', label: '24/7 Gospel Radio', icon: RadioIcon, badge: '24/7', badgeStyle: 'bg-amber-400 text-slate-950 font-black' },
-                  { id: 'podcasts', label: 'Audio Podcasts', icon: Music },
-                  { id: 'discover', label: 'Discover Ministries', icon: Building2, badge: 'EXPLORE', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
-                  { id: 'schedule', label: 'Church Service Times', icon: Calendar, badge: 'TIMES', badgeStyle: 'bg-amber-400/90 text-slate-950 font-black' },
-                ],
-              },
-              {
-                section: 'Fellowship & Engage',
-                items: [
-                  { id: 'community', label: 'Fellowship & Voices', icon: MessageSquareHeart, badge: 'COMMUNITY', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
-                  { id: 'history', label: 'Watch History', icon: History, badge: watchHistory.length > 0 ? `${watchHistory.length}` : undefined, badgeStyle: 'bg-amber-500/20 text-amber-400 border border-amber-500/30' },
-                  { id: 'giving', label: 'Kingdom Giving', icon: DollarSign, badge: 'SUPPORT', badgeStyle: 'bg-emerald-500 text-slate-950 font-black' },
-                ],
-              },
-              {
-                section: userSession.isLoggedIn ? 'My Sanctuary' : 'Belong Later 🕊️',
-                items: [
-                  userSession.isLoggedIn
-                    ? { id: 'profile', label: 'My Sanctuary Profile', icon: User, badge: 'YOU', badgeStyle: 'bg-amber-500 text-slate-950 font-black' }
-                    : { id: 'auth', label: 'Join Fellowship (Free)', icon: ShieldCheck, badge: 'JOIN', badgeStyle: 'bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 font-black' },
-                  { id: 'settings', label: 'Account Settings', icon: Settings, badge: 'PREFS', badgeStyle: 'bg-slate-800 text-amber-400 border border-slate-700' },
-                ],
-              },
-              {
-                section: 'Creator World 🎙️',
-                items: [
-                  { id: 'create', label: 'Kingdom Creator Studio', icon: RadioTower, badge: 'STUDIO', badgeStyle: 'bg-gradient-to-r from-red-600 to-amber-500 text-white font-black shadow-sm' },
-                ],
-              },
-            ].map((grp, idx) => (
-              <div key={grp.section} className="space-y-1">
-                {isSidebarOpen && (
-                  <div className="px-2 pt-2 pb-1 text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
-                    {grp.section}
-                  </div>
-                )}
-                {idx > 0 && !isSidebarOpen && <hr className="border-slate-800/80 my-2" />}
-
-                {grp.items.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = item.id === 'create' 
-                    ? activeTab === 'create' 
-                    : item.id === 'profile'
-                    ? activeTab === 'profile'
-                    : item.id === 'auth'
-                    ? activeTab === 'auth'
-                    : item.id === 'community'
-                    ? activeTab === 'community'
-                    : item.id === 'history'
-                    ? activeTab === 'history'
-                    : item.id === 'discover'
-                    ? activeTab === 'discover'
-                    : (activeTab === 'platform' && (
-                        (item.id === 'home' && selectedCategory === 'All') || 
-                        (item.id === 'schedule' && selectedCategory === 'Church Schedules') ||
-                        (item.id === 'podcasts' && selectedCategory === 'Podcasts') ||
-                        (item.id === 'radio' && selectedCategory === '24/7 Gospel Radio')
-                      ));
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        if (item.id === 'create') {
-                          setActiveTab('create');
-                          setActiveVideo(null);
-                        } else if (item.id === 'profile') {
-                          setActiveTab('profile');
-                          setActiveVideo(null);
-                        } else if (item.id === 'auth') {
-                          handleOpenAuthPage('signup');
-                        } else if (item.id === 'community') {
-                          setActiveTab('community');
-                          setIsPipDocked(false);
-                          setActiveVideo(null);
-                        } else if (item.id === 'settings') {
-                          setShowSettingsModal(true);
-                        } else if (item.id === 'history') {
-                          setActiveTab('history');
-                          setIsPipDocked(false);
-                          setActiveVideo(null);
-                        } else if (item.id === 'discover') {
-                          setActiveTab('discover');
-                          setIsPipDocked(false);
-                          setActiveVideo(null);
-                        } else if (item.id === 'giving') {
-                          handleOpenGiving();
-                        } else {
-                          setActiveTab('platform');
-                          setIsPipDocked(false);
-                          setSelectedCategory(
-                            item.id === 'radio' ? '24/7 Gospel Radio' :
-                            item.id === 'podcasts' ? 'Podcasts' :
-                            item.id === 'schedule' ? 'Church Schedules' : 'All'
-                          );
-                        }
-                      }}
-                      className={`w-full flex transition group relative ${
-                        isSidebarOpen 
-                          ? 'items-center justify-between px-3.5 py-2.5 rounded-xl' 
-                          : 'items-center justify-center p-2.5 rounded-xl'
-                      } ${
-                        isActive 
-                          ? 'bg-amber-500/15 text-amber-300 font-bold border border-amber-500/30 shadow-sm' 
-                          : 'text-slate-300 hover:bg-slate-800/70 border border-transparent'
-                      }`}
-                      title={item.label}
-                    >
-                      {isSidebarOpen ? (
-                        <>
-                          <span className={`tracking-tight leading-snug truncate text-xs text-left ${
-                            isActive 
-                              ? 'text-amber-300 font-bold' 
-                              : 'text-slate-300 group-hover:text-white font-medium'
-                          }`}>
-                            {item.label}
-                          </span>
-                          {item.badge && (
-                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider shrink-0 ml-1.5 ${item.badgeStyle || 'bg-amber-500 text-slate-950 font-bold'}`}>
-                              {item.badge}
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <div className="relative flex items-center justify-center">
-                          <Icon className={`w-5 h-5 transition-colors ${
-                            isActive ? 'text-amber-400' : 'text-slate-400 group-hover:text-white'
-                          }`} />
-                          {item.badge && (
-                            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-[#0d0d0f]" />
-                          )}
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-
-            <hr className="border-slate-800/80 my-2" />
-
-            {/* Dedicated Watch History Quick Access Section */}
-            {isSidebarOpen && (
-              <div className="px-2 space-y-2">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    Watch History
-                  </span>
-                  <button
-                    onClick={() => {
-                      openProtectedTab('history');
-                    }}
-                    className="text-[10px] font-bold text-amber-400 hover:underline cursor-pointer"
-                  >
-                    View All
-                  </button>
-                </div>
-
-                {watchHistory.length === 0 ? (
-                  <p className="text-[10px] text-slate-500 italic px-1">No videos watched yet</p>
-                ) : (
-                  <div className="space-y-1">
-                    {watchHistory.slice(0, 3).map((item) => (
-                      <div
-                        key={`${item.video.id}-${item.watchedAt}`}
-                        onClick={() => handleSelectVideo(item.video)}
-                        className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-800/80 cursor-pointer transition group"
-                        title={`Watch "${item.video.title}"`}
-                      >
-                        <div className="relative w-9 h-6 rounded overflow-hidden bg-slate-900 shrink-0">
-                          <img
-                            src={item.video.thumbnail}
-                            alt={item.video.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
-                          />
-                        </div>
-                        <div className="overflow-hidden">
-                          <p className="text-[11px] text-slate-300 font-medium truncate group-hover:text-amber-400 transition">
-                            {item.video.title}
-                          </p>
-                          <p className="text-[9px] text-slate-500 truncate">
-                            {item.video.speakerOrArtist}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <hr className="border-slate-800/80 my-2" />
-
-            {/* Followed Channels */}
-            {isSidebarOpen && (
-              <div className="px-2 space-y-2 pb-4">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Followed Channels</span>
-                  <span className="text-[10px] font-bold text-amber-400">{subscribedChannels.length}</span>
-                </div>
-                <div className="space-y-1">
-                  {SUBSCRIPTION_CHANNELS.map((ch) => {
-                    const isFollowed = subscribedChannels.includes(ch.name);
-                    return (
-                      <div
-                        key={ch.name}
-                        onClick={() => setSelectedChannelModal(ch.name)}
-                        className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-800/80 cursor-pointer transition group"
-                      >
-                        <div className="flex items-center gap-2.5 overflow-hidden">
-                          <img src={ch.avatar} alt={ch.name} className="w-5 h-5 rounded-full object-cover shrink-0" />
-                          <span className="text-xs text-slate-300 truncate group-hover:text-amber-400 transition">{ch.name}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {ch.liveNow && <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse shrink-0" />}
-                          {isFollowed && <CheckCircle2 className="w-3 h-3 text-amber-400" />}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        </aside>
-
-        {/* 📱 MOBILE SLIDE-OUT DRAWER SIDEBAR */}
+        {/* 📱 MOBILE SLIDE-OUT DRAWER SIDEBAR (Accessible via hamburger on mobile) */}
         <AnimatePresence>
           {isSidebarOpen && (
             <div className="md:hidden fixed inset-0 z-50 flex select-none">
@@ -1919,8 +1704,8 @@ export default function App() {
                     setActiveVideo(null);
                   }}
                   followerCounts={followerCounts}
-                  streakDays={streakDays}
-                  praiseXp={praiseXp}
+                  userSession={userSession}
+                  onOpenAuthPage={handleOpenAuthPage}
                 />
               )}
 
@@ -2087,91 +1872,14 @@ export default function App() {
                         </div>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
                         {filteredVideos.map((video) => (
-                          <motion.div
+                          <StreamingVideoCard
                             key={video.id}
-                            whileHover={{ y: -4 }}
-                            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                            onClick={() => handleSelectVideo(video)}
-                            className="flex flex-col space-y-2.5 cursor-pointer group bg-slate-900/30 sm:bg-transparent p-2.5 sm:p-0 rounded-3xl sm:rounded-none border border-slate-800/50 sm:border-none"
-                          >
-                            {/* Media Card Preview */}
-                            <motion.div
-                              whileHover={{ scale: 1.02, boxShadow: "0 20px 30px -5px rgba(0, 0, 0, 0.7), 0 10px 20px -5px rgba(239, 68, 68, 0.25)" }}
-                              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                              className="relative aspect-video rounded-2xl overflow-hidden bg-slate-900 border border-slate-800/80 shadow-md"
-                            >
-                              <img
-                                src={video.thumbnail}
-                                alt={video.title}
-                                referrerPolicy="no-referrer"
-                                className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                                <div className="w-12 h-12 rounded-full bg-red-600 text-white flex items-center justify-center shadow-xl transform group-hover:scale-110 transition">
-                                  <Play className="w-6 h-6 fill-white ml-0.5" />
-                                </div>
-                              </div>
-
-                              {video.isLive ? (
-                                <span className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-md bg-red-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-lg">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> LIVE
-                                </span>
-                              ) : (
-                                <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/85 text-white text-[11px] sm:text-[10px] font-mono shadow-lg">
-                                  {video.duration}
-                                </span>
-                              )}
-                            </motion.div>
-
-                            {/* Info Row */}
-                            <div className="flex items-start space-x-3 pt-0.5">
-                              <motion.img
-                                src={video.channelAvatar}
-                                alt={video.speakerOrArtist}
-                                whileHover={{ scale: 1.15, rotate: 3, boxShadow: "0 4px 12px rgba(245, 158, 11, 0.4)" }}
-                                transition={{ type: 'spring', stiffness: 350, damping: 15 }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedChannelModal(video.churchOrMinistry);
-                                }}
-                                className="w-10 h-10 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 mt-0.5 ring-1 ring-slate-700 hover:ring-2 hover:ring-amber-400 transition cursor-pointer"
-                                title="View channel profile"
-                              />
-                              <div className="flex-1 overflow-hidden min-w-0">
-                                <h3 className="text-sm sm:text-xs font-bold text-white line-clamp-2 leading-snug group-hover:text-red-400 transition">
-                                  {video.title}
-                                </h3>
-                                <div className="flex items-center justify-between gap-2 mt-1.5 flex-wrap">
-                                  <p 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedChannelModal(video.churchOrMinistry);
-                                    }}
-                                    className="text-xs sm:text-[11px] text-slate-400 flex items-center gap-1 cursor-pointer hover:text-amber-400 transition truncate"
-                                  >
-                                    <span>{video.churchOrMinistry}</span>
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
-                                  </p>
-
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleSubscribe(video.churchOrMinistry);
-                                    }}
-                                    className={`px-3 py-1 sm:px-2 sm:py-0.5 rounded-full text-xs sm:text-[9px] font-bold transition shrink-0 min-h-[32px] sm:min-h-[24px] flex items-center justify-center ${
-                                      subscribedChannels.includes(video.churchOrMinistry)
-                                        ? 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700'
-                                        : 'bg-red-600 hover:bg-red-500 text-white shadow-sm'
-                                    }`}
-                                  >
-                                    {subscribedChannels.includes(video.churchOrMinistry) ? 'Following' : '+ Follow'}
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </motion.div>
+                            video={video}
+                            onSelect={handleSelectVideo}
+                            onOpenChannel={(churchOrMinistry) => setSelectedChannelModal(churchOrMinistry)}
+                          />
                         ))}
                       </div>
                     )}

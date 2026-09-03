@@ -2,8 +2,6 @@ import React, { useRef, useEffect } from 'react';
 import {
   User,
   Settings,
-  Flame,
-  Sparkles,
   History,
   DollarSign,
   LogOut,
@@ -12,10 +10,10 @@ import {
   ShieldCheck,
   ChevronRight,
   Database,
-  Tv,
-  Radio,
-  BookOpen,
-  MessageSquareHeart
+  Bookmark,
+  Users,
+  Heart,
+  Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserSession } from './AuthModal';
@@ -24,13 +22,17 @@ interface UserAccountMenuDropdownProps {
   isOpen: boolean;
   onClose: () => void;
   userSession: UserSession;
-  streakDays: number;
-  praiseXp: number;
+  streakDays?: number;
+  praiseXp?: number;
   onOpenSettings: () => void;
   onOpenProfile: () => void;
   onOpenCommunity?: () => void;
   onOpenHistory: () => void;
   onOpenGiving: () => void;
+  onOpenFollowing?: () => void;
+  onOpenSaved?: () => void;
+  onOpenPrayer?: () => void;
+  onOpenNotifications?: () => void;
   onOpenDjango: () => void;
   onOpenAuth: () => void;
   onOpenAuthPage?: (mode?: 'signin' | 'signup') => void;
@@ -43,13 +45,15 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
   isOpen,
   onClose,
   userSession,
-  streakDays,
-  praiseXp,
   onOpenSettings,
   onOpenProfile,
   onOpenCommunity,
   onOpenHistory,
   onOpenGiving,
+  onOpenFollowing,
+  onOpenSaved,
+  onOpenPrayer,
+  onOpenNotifications,
   onOpenDjango,
   onOpenAuth,
   onOpenAuthPage,
@@ -117,7 +121,7 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
             </div>
             <div className="min-w-0 flex-1">
               <h4 className="text-xs font-bold text-white truncate">
-                {isLoggedIn ? (userSession.fullName || userSession.username) : 'Guest Believer'}
+                {isLoggedIn ? (userSession.fullName || userSession.username) : 'Guest Worshipper'}
               </h4>
               {isLoggedIn && userSession.username && (
                 <p className="text-[11px] text-amber-400 font-mono truncate">@{userSession.username}</p>
@@ -133,99 +137,58 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
               <button
                 onClick={() => {
                   onClose();
-                  if (onOpenAuthPage) onOpenAuthPage('signup');
+                  if (onOpenAuthPage) onOpenAuthPage('signin');
                   else onOpenAuth();
                 }}
                 className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 transition shadow-md shadow-amber-500/20"
               >
                 <ShieldCheck className="w-4 h-4" />
-                <span>Belong to Gospread (Free Account)</span>
+                <span>Sign In / Create Account</span>
               </button>
-              <p className="text-[10px] text-center text-slate-400 font-medium">
-                Watch first. Belong later.
-              </p>
             </div>
           )}
-
-          {/* Gamification Stats Banner */}
-          <div className="grid grid-cols-2 gap-2 bg-slate-950/70 p-2 rounded-2xl border border-slate-800/80">
-            <div className="flex items-center gap-1.5 px-1.5 py-0.5">
-              <Flame className="w-4 h-4 text-amber-400 fill-amber-400 animate-pulse" />
-              <div>
-                <div className="text-[11px] font-black text-amber-400">{streakDays} Days</div>
-                <div className="text-[9px] text-slate-500 font-medium uppercase">Grace Streak</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 px-1.5 py-0.5 border-l border-slate-800">
-              <Sparkles className="w-4 h-4 text-amber-300" />
-              <div>
-                <div className="text-[11px] font-black text-amber-300">{praiseXp} XP</div>
-                <div className="text-[9px] text-slate-500 font-medium uppercase">Praise XP</div>
-              </div>
-            </div>
-          </div>
         </div>
 
-        {/* Menu Actions */}
+        {/* Menu Actions: Following, Saved, History, Prayer, Notifications, Profile, Settings */}
         <div className="p-2 space-y-0.5 text-xs">
           
-          {/* 1. Account Settings Button */}
+          {/* 1. Following */}
           <button
             onClick={() => {
               onClose();
-              onOpenSettings();
-            }}
-            className="w-full flex items-center justify-between px-3 py-2.5 rounded-2xl hover:bg-amber-500/15 hover:text-amber-300 text-slate-200 font-bold transition group"
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-slate-950 transition">
-                <Settings className="w-4 h-4" />
-              </div>
-              <div className="text-left">
-                <div className="text-xs font-bold">Account Settings</div>
-                <div className="text-[10px] text-slate-400 font-normal">Streaming, audio & privacy</div>
-              </div>
-            </div>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-amber-400 transition" />
-          </button>
-
-          {/* 2. Fellowship & Testimonies Community */}
-          {onOpenCommunity && (
-            <button
-              onClick={() => {
-                onClose();
-                onOpenCommunity();
-              }}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-2xl hover:bg-slate-800/80 text-slate-200 transition group"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center">
-                  <MessageSquareHeart className="w-4 h-4" />
-                </div>
-                <span className="font-medium text-xs">Fellowship & Testimonies</span>
-              </div>
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold">COMMUNITY</span>
-            </button>
-          )}
-
-          {/* 3. My Kingdom Profile */}
-          <button
-            onClick={() => {
-              onClose();
-              onOpenProfile();
+              if (onOpenFollowing) onOpenFollowing();
+              else onOpenProfile();
             }}
             className="w-full flex items-center justify-between px-3 py-2 rounded-2xl hover:bg-slate-800/80 text-slate-200 transition group"
           >
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center group-hover:text-amber-400 transition">
-                <User className="w-4 h-4" />
+                <Users className="w-4 h-4" />
               </div>
-              <span className="font-medium text-xs">My Kingdom Profile</span>
+              <span className="font-medium text-xs">Following</span>
             </div>
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold">YOU</span>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-amber-400 transition" />
           </button>
 
-          {/* 3. Watch History */}
+          {/* 2. Saved */}
+          <button
+            onClick={() => {
+              onClose();
+              if (onOpenSaved) onOpenSaved();
+              else onOpenProfile();
+            }}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-2xl hover:bg-slate-800/80 text-slate-200 transition group"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center group-hover:text-amber-400 transition">
+                <Bookmark className="w-4 h-4" />
+              </div>
+              <span className="font-medium text-xs">Saved Videos</span>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-amber-400 transition" />
+          </button>
+
+          {/* 3. History */}
           <button
             onClick={() => {
               onClose();
@@ -239,9 +202,79 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
               </div>
               <span className="font-medium text-xs">Watch History</span>
             </div>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-amber-400 transition" />
           </button>
 
-          {/* 4. Support & Kingdom Giving */}
+          {/* 4. Prayer */}
+          <button
+            onClick={() => {
+              onClose();
+              if (onOpenPrayer) onOpenPrayer();
+              else if (onOpenCommunity) onOpenCommunity();
+            }}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-2xl hover:bg-slate-800/80 text-slate-200 transition group"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-xl bg-slate-800 text-red-400 flex items-center justify-center group-hover:text-red-300 transition">
+                <Heart className="w-4 h-4" />
+              </div>
+              <span className="font-medium text-xs">Prayer Altar</span>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-amber-400 transition" />
+          </button>
+
+          {/* 5. Notifications */}
+          <button
+            onClick={() => {
+              onClose();
+              if (onOpenNotifications) onOpenNotifications();
+            }}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-2xl hover:bg-slate-800/80 text-slate-200 transition group"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center group-hover:text-amber-400 transition">
+                <Bell className="w-4 h-4" />
+              </div>
+              <span className="font-medium text-xs">Notifications</span>
+            </div>
+            <span className="text-[10px] text-amber-400 font-mono">Active</span>
+          </button>
+
+          {/* 6. Profile */}
+          <button
+            onClick={() => {
+              onClose();
+              onOpenProfile();
+            }}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-2xl hover:bg-slate-800/80 text-slate-200 transition group"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-slate-950 transition">
+                <User className="w-4 h-4" />
+              </div>
+              <span className="font-medium text-xs">Profile</span>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-amber-400 transition" />
+          </button>
+
+          {/* 7. Settings */}
+          <button
+            onClick={() => {
+              onClose();
+              onOpenSettings();
+            }}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-2xl hover:bg-slate-800/80 text-slate-200 transition group"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center group-hover:text-amber-400 transition">
+                <Settings className="w-4 h-4" />
+              </div>
+              <span className="font-medium text-xs">Settings</span>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-amber-400 transition" />
+          </button>
+
+          {/* 8. Give inside user account */}
           <button
             onClick={() => {
               onClose();
@@ -253,12 +286,12 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
               <div className="w-7 h-7 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
                 <DollarSign className="w-4 h-4" />
               </div>
-              <span className="font-medium text-xs">Giving & Tithe Ledger</span>
+              <span className="font-medium text-xs">Giving &amp; Tithes</span>
             </div>
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">501(c)3</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">LEDGER</span>
           </button>
 
-          {/* 5. Theme Toggle */}
+          {/* 9. Theme Toggle */}
           <button
             onClick={() => {
               onToggleTheme();
@@ -269,13 +302,13 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
               <div className="w-7 h-7 rounded-xl bg-slate-800 text-pink-400 flex items-center justify-center">
                 {theme === 'light' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-pink-400" />}
               </div>
-              <span className="font-medium text-xs">Theme: {theme === 'light' ? 'Sky Pink & Blue' : 'Midnight Dark'}</span>
+              <span className="font-medium text-xs">Theme: {theme === 'light' ? 'Sunset 🌸' : 'Night'}</span>
             </div>
           </button>
 
           <hr className="border-slate-800/90 my-1" />
 
-          {/* 6. Django REST Backend Inspector */}
+          {/* Django Backend Inspector */}
           <button
             onClick={() => {
               onClose();
@@ -320,8 +353,8 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
                   <ShieldCheck className="w-4 h-4" />
                 </div>
                 <div className="text-left">
-                  <div className="text-xs font-bold">Sign In / Register</div>
-                  <div className="text-[10px] text-slate-400 font-normal">Sanctuary User Portal</div>
+                  <div className="text-xs font-bold">Sign In</div>
+                  <div className="text-[10px] text-slate-400 font-normal">Sanctuary Account</div>
                 </div>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-amber-400 transition" />

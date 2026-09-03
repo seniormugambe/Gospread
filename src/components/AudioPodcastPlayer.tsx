@@ -28,7 +28,8 @@ import {
   Music,
   Download,
   Info,
-  Waves
+  Waves,
+  Tv
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AudioTrack, AudioChapter } from '../data/gospelData';
@@ -44,6 +45,7 @@ interface AudioPodcastPlayerProps {
   audioQueue: AudioTrack[];
   onSelectTrackFromQueue: (track: AudioTrack) => void;
   onOpenGivingModal: (target: GivingTarget) => void;
+  onSwitchToVideo?: (track: AudioTrack) => void;
 }
 
 export default function AudioPodcastPlayer({
@@ -54,7 +56,8 @@ export default function AudioPodcastPlayer({
   onToggleMute,
   audioQueue,
   onSelectTrackFromQueue,
-  onOpenGivingModal
+  onOpenGivingModal,
+  onSwitchToVideo
 }: AudioPodcastPlayerProps) {
   // Player UI Expansion State
   const [isExpanded, setIsExpanded] = useState(false);
@@ -317,6 +320,19 @@ export default function AudioPodcastPlayer({
 
           {/* Right Actions & Expand Button */}
           <div className="flex items-center justify-end gap-1.5 sm:gap-2 shrink-0">
+            {/* Seamless Watch Video button: never force viewer to choose audio-only */}
+            {onSwitchToVideo && (
+              <button
+                type="button"
+                onClick={() => onSwitchToVideo(currentTrack)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white border border-amber-500/30 text-[10px] font-bold transition shadow-sm"
+                title="Switch to Full Video Stream"
+              >
+                <Tv className="w-3 h-3 text-amber-400" />
+                <span className="hidden sm:inline">Watch Video</span>
+              </button>
+            )}
+
             {/* Sow Seed button */}
             <button
               onClick={() => onOpenGivingModal({

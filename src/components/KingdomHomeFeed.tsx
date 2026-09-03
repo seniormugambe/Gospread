@@ -10,28 +10,17 @@ import {
   UserCheck,
   Building2,
   BookOpen,
-  Heart,
-  DollarSign,
-  Flame,
-  Globe,
-  Sparkles,
-  ArrowRight,
-  Share2,
-  Calendar,
-  Volume2,
+  Music,
   Headphones,
-  Compass,
-  TrendingUp,
-  Award,
   ChevronRight,
-  Users,
-  HeartHandshake
+  Sparkles,
+  Volume2
 } from 'lucide-react';
 import { VideoStream, AudioTrack, LIVE_VIDEO_STREAMS, AUDIO_TRACKS } from '../data/gospelData';
 import { decodeHtml } from '../lib/utils';
 import { GivingTarget } from './GivingModal';
 import { DISCOVER_MINISTRIES } from './DiscoverMinistriesHub';
-import WatchFirstBelongLaterCard from './WatchFirstBelongLaterCard';
+import StreamingVideoCard from './StreamingVideoCard';
 import { UserSession } from './AuthModal';
 
 interface KingdomHomeFeedProps {
@@ -44,16 +33,13 @@ interface KingdomHomeFeedProps {
   subscribedChannels: string[];
   onToggleFollow: (channelName: string) => void;
   onOpenChannelModal: (channelName: string) => void;
-  onOpenGivingModal: (target?: GivingTarget) => void;
-  onOpenDailyPromise: () => void;
-  onOpenDailyStreak: () => void;
-  onOpenPrayerModal: () => void;
+  onOpenGivingModal?: (target?: GivingTarget) => void;
+  onOpenDailyPromise?: () => void;
+  onOpenDailyStreak?: () => void;
+  onOpenPrayerModal?: () => void;
   onNavigateTab: (tab: 'platform' | 'discover' | 'community' | 'profile' | 'create') => void;
   followerCounts: Record<string, number>;
-  streakDays?: number;
-  praiseXp?: number;
   userSession?: UserSession;
-  watchHistoryCount?: number;
   onOpenAuthPage?: (mode?: 'signin' | 'signup') => void;
 }
 
@@ -67,82 +53,248 @@ export default function KingdomHomeFeed({
   subscribedChannels = [],
   onToggleFollow,
   onOpenChannelModal,
-  onOpenGivingModal,
-  onOpenDailyPromise,
-  onOpenDailyStreak,
-  onOpenPrayerModal,
   onNavigateTab,
   followerCounts = {},
-  streakDays = 5,
-  praiseXp = 1250,
-  userSession = {
-    id: 'guest',
-    username: 'guest_worshipper',
-    fullName: 'Guest Worshipper',
-    isLoggedIn: false
-  } as UserSession,
-  watchHistoryCount = 0,
-  onOpenAuthPage = () => {}
+  userSession,
+  onOpenAuthPage = () => {},
 }: KingdomHomeFeedProps) {
-  const [selectedWatchCategory, setSelectedWatchCategory] = useState<string>('All');
-  const [activeTabJourney, setActiveTabJourney] = useState<'now' | 'watch' | 'follow' | 'grow'>('now');
+  // Simplified Filters: All | Live | Sermons | Worship | Podcasts | Ministries
+  const [selectedFilter, setSelectedFilter] = useState<'All' | 'Live' | 'Sermons' | 'Worship' | 'Podcasts' | 'Ministries'>('All');
 
-  // Safe fallbacks to guarantee streams are never undefined
   const safeVideos = (videoStreams && videoStreams.length > 0) ? videoStreams : LIVE_VIDEO_STREAMS;
   const safeAudio = (audioQueue && audioQueue.length > 0) ? audioQueue : AUDIO_TRACKS;
 
-  const liveRadioTrack = safeAudio.find((a) => a?.isLiveRadio || a?.category === '24/7 Gospel Radio') || safeAudio[0] || AUDIO_TRACKS[0];
+  // Categorized video streams
+  const liveStreams = safeVideos.filter((v) => v.isLive);
+  const sermonVideos = safeVideos.filter((v) => !v.isLive && v.category === 'Sermon');
+  const worshipVideos = safeVideos.filter((v) => !v.isLive && (v.category === 'Live Worship' || v.category === 'Choir Special' || v.category === 'Gospel Music'));
 
-  // Filter video list based on category for "What should I watch?"
-  const watchCategories = [
-    { id: 'All', label: 'All Curated' },
-    { id: 'Sermon', label: 'Apostolic Sermons' },
-    { id: 'Live Worship', label: 'Worship Sanctuaries' },
-    { id: 'Choir Special', label: 'Choir Anthems' },
-    { id: 'Gospel Music', label: 'Psalmist Concerts' }
+  // Spotlight Live Stream for the Hero Banner
+  const heroLiveStream = liveStreams[0] || safeVideos[0];
+  const heroViewers = heroLiveStream?.viewersCount 
+    ? `${(heroLiveStream.viewersCount / 1000).toFixed(1)}K watching`
+    : '2.4K watching';
+
+  const liveRadioTrack = safeAudio.find((a) => a?.isLiveRadio || a?.category === '24/7 Gospel Radio') || safeAudio[0];
+
+  const filterTabs: Array<{ id: 'All' | 'Live' | 'Sermons' | 'Worship' | 'Podcasts' | 'Ministries'; label: string; icon?: React.ElementType }> = [
+    { id: 'All', label: 'All' },
+    { id: 'Live', label: 'Live' },
+    { id: 'Sermons', label: 'Sermons' },
+    { id: 'Worship', label: 'Worship' },
+    { id: 'Podcasts', label: 'Podcasts' },
+    { id: 'Ministries', label: 'Ministries' },
   ];
 
-  const curatedVideos = selectedWatchCategory === 'All'
-    ? safeVideos
-    : safeVideos.filter((v) => v?.category === selectedWatchCategory);
-
   return (
-    <div className="space-y-8 sm:space-y-10 pb-12 max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+    <div className="space-y-10 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* ========================================================================= */}
-      {/* 🔴 1. WHAT'S HAPPENING NOW? (REAL-TIME LIVE SANCTUARIES & GLOBAL PULSE)     */}
+      {/* 🧭 SIMPLIFIED CATEGORY FILTERS: All | Live | Sermons | Worship | Podcasts | Ministries */}
       {/* ========================================================================= */}
-      <section id="section-now" className="space-y-4 scroll-mt-20">
-        
-        {/* Section Header */}
-        <div className="flex flex-row items-center justify-between gap-3 border-b border-slate-800/80 pb-2.5">
-          <div className="flex items-center gap-2.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping" />
-            <h2 className="text-lg sm:text-xl font-bold text-white font-serif tracking-tight">
-              What&apos;s happening NOW?
-            </h2>
-            <span className="hidden sm:inline-block text-xs text-slate-400 font-normal">
-              • Live broadcasts &amp; 24/7 radio
-            </span>
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-2 scrollbar-none border-b border-slate-800/60">
+        {filterTabs.map((tab) => {
+          const isActive = selectedFilter === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setSelectedFilter(tab.id)}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition-all shrink-0 select-none ${
+                isActive
+                  ? 'bg-amber-400 text-slate-950 font-black shadow-md shadow-amber-400/20'
+                  : 'bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800'
+              }`}
+            >
+              {tab.id === 'Live' && <span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1.5 animate-pulse" />}
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 🔴 HERO: LIVE NOW (CONTENT-FIRST WIDESCREEN SPOTLIGHT)                    */}
+      {/* ========================================================================= */}
+      {(selectedFilter === 'All' || selectedFilter === 'Live') && heroLiveStream && (
+        <section className="relative rounded-3xl overflow-hidden bg-slate-950 border border-slate-800/80 shadow-2xl group">
+          {/* Ambient Background & Thumbnail */}
+          <div className="relative aspect-[21/9] sm:aspect-[24/9] md:aspect-[21/8] w-full max-h-[460px] overflow-hidden">
+            <img
+              src={heroLiveStream.thumbnail}
+              alt={heroLiveStream.title}
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+            />
+            {/* Cinematic Gradients */}
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/40 to-transparent" />
+
+            {/* Top Live Badge */}
+            <div className="absolute top-4 left-4 sm:top-6 sm:left-6 flex items-center gap-2">
+              <span className="px-3 py-1 rounded-md bg-red-600 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-red-600/30">
+                <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                LIVE NOW
+              </span>
+              {heroLiveStream.seriesName && (
+                <span className="px-2.5 py-1 rounded-md bg-black/60 backdrop-blur-md text-amber-300 text-xs font-semibold">
+                  {heroLiveStream.seriesName}
+                </span>
+              )}
+            </div>
+
+            {/* Center / Bottom Content Overlay */}
+            <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+              <div className="max-w-2xl space-y-2">
+                <div 
+                  onClick={() => onOpenChannelModal(heroLiveStream.churchOrMinistry)}
+                  className="flex items-center gap-2 cursor-pointer group/min hover:text-amber-400 transition"
+                >
+                  <img
+                    src={heroLiveStream.channelAvatar}
+                    alt={heroLiveStream.churchOrMinistry}
+                    className="w-8 h-8 rounded-full object-cover ring-2 ring-amber-400/60"
+                  />
+                  <span className="text-sm font-bold text-amber-300 group-hover/min:text-amber-200 flex items-center gap-1">
+                    {heroLiveStream.churchOrMinistry}
+                    <CheckCircle2 className="w-4 h-4 text-amber-400 fill-amber-400/20" />
+                  </span>
+                </div>
+
+                <h1 
+                  onClick={() => onSelectVideo(heroLiveStream)}
+                  className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black text-white font-serif tracking-tight leading-snug cursor-pointer hover:text-amber-200 transition"
+                >
+                  {decodeHtml(heroLiveStream.title)}
+                </h1>
+
+                <div className="flex items-center gap-3 text-xs text-slate-300">
+                  <span className="flex items-center gap-1 font-semibold text-emerald-400">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Verified Ministry
+                  </span>
+                  <span>•</span>
+                  <span className="text-amber-300 font-mono font-bold">{heroViewers}</span>
+                </div>
+              </div>
+
+              {/* Watch Live Primary Action */}
+              <div className="flex items-center gap-3 shrink-0">
+                <button
+                  onClick={() => onSelectVideo(heroLiveStream)}
+                  className="px-6 py-3 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-sm transition flex items-center gap-2 shadow-xl shadow-red-600/30 hover:scale-[1.02] active:scale-95"
+                >
+                  <Play className="w-4 h-4 fill-white" />
+                  <span>WATCH LIVE</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 🔴 1. LIVE SECTION                                                        */}
+      {/* ========================================================================= */}
+      {(selectedFilter === 'All' || selectedFilter === 'Live') && (
+        <section id="section-live" className="space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping" />
+              <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                <span>🔴 Live Broadcasts</span>
+                <span className="text-xs font-normal text-slate-400">
+                  ({liveStreams.length} active)
+                </span>
+              </h2>
+            </div>
           </div>
 
-          {/* Real-time Global Counter Indicator */}
-          <div className="px-3 py-1 rounded-xl bg-slate-900 border border-red-500/30 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-xs font-black text-amber-300 font-mono">
-              38,420 Believers
-            </span>
-            <span className="text-[10px] text-slate-400 hidden md:inline">
-              worshipping now
-            </span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            {liveStreams.map((video) => (
+              <StreamingVideoCard
+                key={video.id}
+                video={video}
+                onSelect={onSelectVideo}
+                onOpenChannel={onOpenChannelModal}
+              />
+            ))}
           </div>
-        </div>
+        </section>
+      )}
 
-        {/* 📻 SECONDARY REAL-TIME FEEDS: 24/7 GLOBAL GOSPEL RADIO & PRAYER ALTAR TICKER */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          
-          {/* 24/7 Gospel Radio Live Feed */}
-          {liveRadioTrack && (
-            <div className="p-4 rounded-3xl bg-gradient-to-r from-slate-900 via-red-950/40 to-slate-900 border border-red-500/30 flex items-center justify-between gap-4 shadow-xl">
+      {/* ========================================================================= */}
+      {/* 📖 2. SERMONS SECTION                                                     */}
+      {/* ========================================================================= */}
+      {(selectedFilter === 'All' || selectedFilter === 'Sermons') && (
+        <section id="section-sermons" className="space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">📖</span>
+              <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                Sermons &amp; Teachings
+              </h2>
+            </div>
+            <span className="text-xs text-slate-400 hidden sm:inline">Apostolic exposition &amp; revelation</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            {sermonVideos.map((video) => (
+              <StreamingVideoCard
+                key={video.id}
+                video={video}
+                onSelect={onSelectVideo}
+                onOpenChannel={onOpenChannelModal}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 🎵 3. WORSHIP SECTION                                                     */}
+      {/* ========================================================================= */}
+      {(selectedFilter === 'All' || selectedFilter === 'Worship') && (
+        <section id="section-worship" className="space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🎵</span>
+              <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                Anointed Worship &amp; Praise
+              </h2>
+            </div>
+            <span className="text-xs text-slate-400 hidden sm:inline">Praise nights, choirs &amp; acoustic sanctuaries</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            {worshipVideos.map((video) => (
+              <StreamingVideoCard
+                key={video.id}
+                video={video}
+                onSelect={onSelectVideo}
+                onOpenChannel={onOpenChannelModal}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 📻 4. PODCASTS & AUDIO FEEDS                                              */}
+      {/* ========================================================================= */}
+      {(selectedFilter === 'All' || selectedFilter === 'Podcasts') && liveRadioTrack && (
+        <section id="section-podcasts" className="space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <div className="flex items-center gap-2">
+              <Headphones className="w-5 h-5 text-red-400" />
+              <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                Podcasts &amp; 24/7 Gospel Radio
+              </h2>
+            </div>
+            <span className="text-xs text-slate-400 hidden sm:inline">Continuous audio stream</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Live Radio Banner */}
+            <div className="p-4 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-4 shadow-xl">
               <div className="flex items-center gap-3 min-w-0">
                 <div 
                   onClick={() => onPlayAudioTrack(liveRadioTrack)}
@@ -182,436 +334,127 @@ export default function KingdomHomeFeed({
                 )}
               </button>
             </div>
-          )}
 
-          {/* 🕊️ Real-Time Prayer Altar Agreement Feed */}
-          <div className="p-4 rounded-3xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-4 shadow-xl">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
-                <Heart className="w-6 h-6 text-red-400 fill-red-400/30 animate-pulse" />
-              </div>
-              <div className="overflow-hidden min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 font-bold text-[9px] rounded uppercase">
-                    Prayer Altar Active
-                  </span>
-                  <span className="text-[10px] text-emerald-400 font-bold">14 Amens this min</span>
+            {/* Audio Sermons & Devotionals Quick List */}
+            <div className="p-4 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0 text-amber-400">
+                  <BookOpen className="w-6 h-6" />
                 </div>
-                <p className="text-xs font-semibold text-white truncate mt-1">
-                  &quot;Standing for complete healing in family & financial open heavens&quot;
-                </p>
-                <p className="text-[10px] text-slate-400">Sister Joy (Atlanta Campus) • 2 min ago</p>
+                <div className="overflow-hidden min-w-0">
+                  <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 font-bold text-[9px] rounded uppercase">
+                    Daily Audio Manna
+                  </span>
+                  <h4 className="text-xs sm:text-sm font-bold text-white truncate mt-1">Faith for Supernatural Increase</h4>
+                  <p className="text-[11px] text-slate-400 truncate">Senior Pastor David Williams • 28 min</p>
+                </div>
               </div>
+              <button
+                onClick={() => {
+                  const podcastTrack = safeAudio.find(a => a.category === 'Audio Sermon') || liveRadioTrack;
+                  onPlayAudioTrack(podcastTrack);
+                }}
+                className="px-4 py-2 rounded-2xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 font-bold text-xs transition flex items-center gap-1.5 shrink-0"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>Play Episode</span>
+              </button>
             </div>
+          </div>
+        </section>
+      )}
 
+      {/* ========================================================================= */}
+      {/* ⛪ 5. MINISTRIES SECTION                                                   */}
+      {/* ========================================================================= */}
+      {(selectedFilter === 'All' || selectedFilter === 'Ministries') && (
+        <section id="section-ministries" className="space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">⛪</span>
+              <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                Ministries &amp; Sanctuaries
+              </h2>
+            </div>
             <button
-              onClick={onOpenPrayerModal}
-              className="px-4 py-2 rounded-2xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 font-bold text-xs transition shrink-0"
+              onClick={() => onNavigateTab('discover')}
+              className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 font-bold transition"
             >
-              Join Prayer
+              <span>Explore All Ministries</span>
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
-        </div>
-      </section>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {DISCOVER_MINISTRIES.slice(0, 4).map((ministry) => {
+              const isFollowed = subscribedChannels.includes(ministry.name);
+              const count = followerCounts[ministry.name] || 12000;
+              const followersFormatted = count > 1000 ? `${(count / 1000).toFixed(1)}K` : count.toString();
 
-      {/* ========================================================================= */}
-      {/* 📺 2. WHAT SHOULD I WATCH? (CURATED REVELATIONS & ANCHORED SERMONS)       */}
-      {/* ========================================================================= */}
-      <section id="section-watch" className="space-y-6 scroll-mt-20">
-        
-        {/* Section Header & Subtitle */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-slate-800 pb-3">
-          <div>
-            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase tracking-widest">
-              CURATED FOR YOUR SPIRIT
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-black text-white font-serif mt-1">
-              What should I watch?
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-              Anointed teachings, covenant revelations, and apostolic sermon series for your growth.
-            </p>
-          </div>
-
-          {/* Watch Category Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            {watchCategories.map((cat) => {
-              const isSelected = selectedWatchCategory === cat.id;
               return (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedWatchCategory(cat.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
-                    isSelected
-                      ? 'bg-amber-400 text-slate-950 shadow-md font-black'
-                      : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
-                  }`}
+                <div
+                  key={ministry.id}
+                  className="rounded-2xl bg-slate-900 border border-slate-800/80 hover:border-amber-500/40 p-4 flex flex-col justify-between space-y-3 transition-colors shadow-md"
                 >
-                  {cat.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 🌟 FEATURED SPOTLIGHT SERMON */}
-        {(() => {
-          const featuredSermon = safeVideos.find(v => !v?.isLive) || safeVideos[1] || safeVideos[0];
-          if (!featuredSermon) return null;
-          return (
-            <div className="p-5 sm:p-6 rounded-3xl bg-slate-900/90 border border-slate-800 hover:border-amber-500/40 transition shadow-2xl grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-              <div 
-                onClick={() => onSelectVideo(featuredSermon)}
-                className="md:col-span-5 relative aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 cursor-pointer group shadow-xl"
-              >
-                <img src={featuredSermon.thumbnail} alt={featuredSermon.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
-                <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition flex items-center justify-center">
-                  <div className="w-12 h-12 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center shadow-xl group-hover:scale-110 transition">
-                    <Play className="w-5 h-5 fill-current ml-0.5" />
-                  </div>
-                </div>
-                <span className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/80 text-white font-mono text-[10px] rounded">
-                  {featuredSermon.duration || 'Full Sermon'}
-                </span>
-                {featuredSermon.seriesName && (
-                  <span className="absolute top-2 left-2 px-2.5 py-1 bg-amber-500 text-slate-950 font-black text-[10px] rounded-lg shadow-md uppercase">
-                    {featuredSermon.seriesName}
-                  </span>
-                )}
-              </div>
-
-              <div className="md:col-span-7 space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px]">
-                    Recommended Message Today
-                  </span>
-                  <span className="text-xs text-slate-400">{featuredSermon.viewsText || (featuredSermon.viewersCount ? `${featuredSermon.viewersCount} watching` : '142K views')}</span>
-                </div>
-
-                <h3 
-                  onClick={() => onSelectVideo(featuredSermon)}
-                  className="text-lg sm:text-2xl font-black text-white font-serif leading-snug cursor-pointer hover:text-amber-300 transition"
-                >
-                  {decodeHtml(featuredSermon.title)}
-                </h3>
-
-                <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
-                  {decodeHtml(featuredSermon.description)}
-                </p>
-
-                {featuredSermon.bibleVerse && (
-                  <p className="text-xs text-amber-300/90 font-serif italic">
-                    📖 {featuredSermon.bibleVerse}
-                  </p>
-                )}
-
-                <div className="flex items-center gap-3 pt-1">
-                  <button
-                    onClick={() => onSelectVideo(featuredSermon)}
-                    className="px-5 py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs transition flex items-center gap-2 shadow-lg shadow-amber-500/20"
-                  >
-                    <Play className="w-4 h-4 fill-current" />
-                    <span>Watch Sermon</span>
-                  </button>
-
-                  <button
-                    onClick={() => onOpenChannelModal(featuredSermon.churchOrMinistry)}
-                    className="px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition"
-                  >
-                    View Ministry Series
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* Video Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {curatedVideos.map((video) => (
-            <motion.div
-              key={video.id}
-              whileHover={{ y: -4 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-              onClick={() => onSelectVideo(video)}
-              className="p-3 rounded-3xl bg-slate-900/60 hover:bg-slate-900 border border-slate-800/80 hover:border-amber-500/40 transition cursor-pointer group space-y-3 shadow-md"
-            >
-              {/* Thumbnail */}
-              <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800">
-                <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition flex items-center justify-center">
-                  <div className="w-10 h-10 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition">
-                    <Play className="w-4 h-4 fill-white ml-0.5" />
-                  </div>
-                </div>
-                {video.isLive ? (
-                  <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-red-600 text-white text-[9px] font-black uppercase">
-                    LIVE
-                  </span>
-                ) : (
-                  <span className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/80 text-white text-[10px] font-mono">
-                    {video.duration}
-                  </span>
-                )}
-                {video.seriesName && (
-                  <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/75 text-amber-300 text-[9px] font-bold">
-                    {video.seriesName}
-                  </span>
-                )}
-              </div>
-
-              {/* Video Info */}
-              <div className="space-y-1.5">
-                <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-2 group-hover:text-amber-300 transition leading-snug">
-                  {decodeHtml(video.title)}
-                </h4>
-                
-                <div className="flex items-center justify-between text-[11px] text-slate-400">
-                  <span 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenChannelModal(video.churchOrMinistry);
-                    }}
-                    className="hover:text-amber-400 truncate max-w-[65%]"
-                  >
-                    {decodeHtml(video.churchOrMinistry)}
-                  </span>
-                  <span>{video.date}</span>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 🏛️ 3. WHO SHOULD I FOLLOW? (ANOINTED MINISTRIES, CHURCHES & PSALMISTS)   */}
-      {/* ========================================================================= */}
-      <section id="section-follow" className="space-y-6 scroll-mt-20">
-        
-        {/* Section Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-slate-800 pb-3">
-          <div>
-            <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-300 text-[10px] font-black uppercase tracking-widest">
-              ANOINTED VOICES & SANCTUARIES
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-black text-white font-serif mt-1">
-              Who should I follow?
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-              Connect with apostolic ministries, global worship psalmists, and Bible expositors.
-            </p>
-          </div>
-
-          <button
-            onClick={() => onNavigateTab('discover')}
-            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-300 font-bold text-xs border border-amber-500/30 flex items-center gap-1.5 self-start sm:self-auto transition"
-          >
-            <span>Explore All 24+ Ministries</span>
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Ministries Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-          {DISCOVER_MINISTRIES.map((ministry) => {
-            const isFollowed = subscribedChannels.includes(ministry.name);
-            return (
-              <motion.div
-                key={ministry.id}
-                whileHover={{ y: -3 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                className="rounded-3xl bg-slate-900/80 border border-slate-800 hover:border-amber-500/40 p-4 sm:p-5 flex flex-col justify-between space-y-4 shadow-xl relative overflow-hidden"
-              >
-                <div className="space-y-3">
-                  {/* Avatar & Follow Header */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <img 
-                        src={ministry.avatar} 
-                        alt={ministry.name} 
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={ministry.avatar}
+                      alt={ministry.name}
+                      onClick={() => onOpenChannelModal(ministry.name)}
+                      className="w-12 h-12 rounded-full object-cover ring-2 ring-slate-800 cursor-pointer hover:ring-amber-400 transition shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <h4
                         onClick={() => onOpenChannelModal(ministry.name)}
-                        className="w-12 h-12 rounded-2xl object-cover ring-2 ring-amber-500/30 cursor-pointer hover:ring-amber-400 transition shrink-0"
-                      />
-                      <div>
-                        <h4 
-                          onClick={() => onOpenChannelModal(ministry.name)}
-                          className="text-sm font-bold text-white hover:text-amber-300 cursor-pointer flex items-center gap-1 leading-snug"
-                        >
-                          {ministry.name}
-                          {ministry.isVerified && <CheckCircle2 className="w-3.5 h-3.5 text-blue-400 fill-blue-400 shrink-0" />}
-                        </h4>
-                        <p className="text-[11px] text-amber-300/90 font-medium">{ministry.followersFormatted} Followers</p>
-                      </div>
+                        className="text-sm font-bold text-white hover:text-amber-300 truncate cursor-pointer flex items-center gap-1"
+                      >
+                        {ministry.name}
+                        {ministry.isVerified && (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20 shrink-0" />
+                        )}
+                      </h4>
+                      <p className="text-[11px] text-slate-400">{followersFormatted} followers</p>
                     </div>
+                  </div>
 
+                  <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                    {ministry.description}
+                  </p>
+
+                  <div className="flex items-center gap-2 pt-1 border-t border-slate-800/80">
+                    <button
+                      onClick={() => onOpenChannelModal(ministry.name)}
+                      className="flex-1 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition text-center"
+                    >
+                      Sanctuary
+                    </button>
                     <button
                       onClick={() => onToggleFollow(ministry.name)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1 shrink-0 ${
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
                         isFollowed
-                          ? 'bg-slate-800 text-slate-200 border border-slate-700'
-                          : 'bg-red-600 hover:bg-red-500 text-white shadow-md shadow-red-600/20'
+                          ? 'bg-slate-800 text-emerald-400 border border-slate-700'
+                          : 'bg-amber-400 hover:bg-amber-300 text-slate-950 shadow'
                       }`}
                     >
                       {isFollowed ? (
                         <>
-                          <UserCheck className="w-3 h-3 text-emerald-400" />
-                          <span>Following</span>
+                          <UserCheck className="w-3.5 h-3.5" />
+                          <span>Joined</span>
                         </>
                       ) : (
                         <>
-                          <UserPlus className="w-3 h-3" />
+                          <UserPlus className="w-3.5 h-3.5" />
                           <span>Follow</span>
                         </>
                       )}
                     </button>
                   </div>
-
-                  <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
-                    {ministry.description}
-                  </p>
-
-                  <div className="text-[10px] text-slate-400 flex items-center gap-1">
-                    <Globe className="w-3 h-3 text-slate-500 shrink-0" />
-                    <span className="truncate">{ministry.locationOrOrigin}</span>
-                  </div>
                 </div>
-
-                {/* Bottom Action Footer */}
-                <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
-                  <button
-                    onClick={() => onOpenChannelModal(ministry.name)}
-                    className="w-full py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-amber-300 text-xs font-bold transition flex items-center justify-center gap-1.5"
-                  >
-                    <Building2 className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Digital Sanctuary Home</span>
-                  </button>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 🌱 4. HOW CAN I GROW? (DAILY RHEMA, DISCIPLESHIP, PRAYER & GIVING)       */}
-      {/* ========================================================================= */}
-      <section id="section-grow" className="space-y-6 scroll-mt-20">
-        
-        {/* Section Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-slate-800 pb-3">
-          <div>
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[10px] font-black uppercase tracking-widest">
-              SPIRITUAL DISCIPLESHIP & MOMENTUM
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-black text-white font-serif mt-1">
-              How can I grow?
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-              Cultivate daily intimacy with Christ through the Word, audio meditation, intercession, and kingdom stewardship.
-            </p>
+              );
+            })}
           </div>
-
-          <div 
-            onClick={onOpenDailyStreak}
-            className="px-4 py-2 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-2 cursor-pointer hover:bg-amber-500/20 transition self-start sm:self-auto"
-          >
-            <Flame className="w-4 h-4 text-amber-400 animate-bounce" />
-            <span className="text-xs font-bold text-amber-300 font-mono">{streakDays} Day Faith Streak</span>
-            <span className="text-[10px] text-slate-400">• {praiseXp} Praise XP</span>
-          </div>
-        </div>
-
-        {/* 4 Interactive Growth Pillars */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          
-          {/* Pillar 1: Daily Rhema Promise */}
-          <div className="p-5 rounded-3xl bg-gradient-to-b from-slate-900 to-slate-950 border border-amber-500/30 hover:border-amber-500/60 transition flex flex-col justify-between space-y-4 shadow-xl">
-            <div className="space-y-3">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
-                <BookOpen className="w-5 h-5" />
-              </div>
-              <h3 className="text-sm font-bold text-white">Daily Rhema Promise</h3>
-              <p className="text-xs text-amber-200/90 font-serif italic">
-                &quot;Fear not, for I am with you; be not dismayed, for I am your God.&quot;
-              </p>
-              <p className="text-[10px] text-slate-400 font-bold">— Isaiah 41:10</p>
-            </div>
-
-            <button
-              onClick={onOpenDailyPromise}
-              className="w-full py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs transition shadow-md"
-            >
-              Read Today&apos;s Word
-            </button>
-          </div>
-
-          {/* Pillar 2: 24/7 Audio & Podcasts */}
-          <div className="p-5 rounded-3xl bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 hover:border-red-500/40 transition flex flex-col justify-between space-y-4 shadow-xl">
-            <div className="space-y-3">
-              <div className="w-10 h-10 rounded-2xl bg-red-600/20 text-red-400 flex items-center justify-center">
-                <Headphones className="w-5 h-5" />
-              </div>
-              <h3 className="text-sm font-bold text-white">Audio Podcasts & Radio</h3>
-              <p className="text-xs text-slate-300">
-                Immerse your spirit in daily devotionals, continuous gospel radio, and audio sermons on the go.
-              </p>
-            </div>
-
-            <button
-              onClick={() => {
-                if (liveRadioTrack) onPlayAudioTrack(liveRadioTrack);
-              }}
-              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition border border-slate-700"
-            >
-              Listen to Audio Feed
-            </button>
-          </div>
-
-          {/* Pillar 3: 24/7 Prayer Altar & Community */}
-          <div className="p-5 rounded-3xl bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 hover:border-indigo-500/40 transition flex flex-col justify-between space-y-4 shadow-xl">
-            <div className="space-y-3">
-              <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
-                <Heart className="w-5 h-5 text-indigo-400" />
-              </div>
-              <h3 className="text-sm font-bold text-white">Prayer Wall & Fellowship</h3>
-              <p className="text-xs text-slate-300">
-                Post your prayer burden or praise report, and join global saints praying in real-time agreement.
-              </p>
-            </div>
-
-            <button
-              onClick={() => onNavigateTab('community')}
-              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 font-bold text-xs transition border border-slate-700"
-            >
-              Enter Fellowship Wall
-            </button>
-          </div>
-
-          {/* Pillar 4: Kingdom Stewardship / Sowing */}
-          <div className="p-5 rounded-3xl bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 hover:border-emerald-500/40 transition flex flex-col justify-between space-y-4 shadow-xl">
-            <div className="space-y-3">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                <DollarSign className="w-5 h-5" />
-              </div>
-              <h3 className="text-sm font-bold text-white">Kingdom Stewardship</h3>
-              <p className="text-xs text-slate-300">
-                Sow tithes, cathedral expansion seeds, and world mission offerings directly to verified ministries.
-              </p>
-            </div>
-
-            <button
-              onClick={() => onOpenGivingModal()}
-              className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition shadow-md shadow-emerald-600/20"
-            >
-              Give / Sow Seed
-            </button>
-          </div>
-
-        </div>
-      </section>
-
+        </section>
+      )}
     </div>
   );
 }
