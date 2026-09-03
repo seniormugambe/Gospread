@@ -14,9 +14,12 @@ import {
   Headphones,
   ChevronRight,
   Sparkles,
-  Volume2
+  Volume2,
+  Clapperboard,
+  Podcast,
+  Users
 } from 'lucide-react';
-import { VideoStream, AudioTrack, LIVE_VIDEO_STREAMS, AUDIO_TRACKS } from '../data/gospelData';
+import { VideoStream, AudioTrack, LIVE_VIDEO_STREAMS, AUDIO_TRACKS, GRACE_SHORTS } from '../data/gospelData';
 import { decodeHtml } from '../lib/utils';
 import { GivingTarget } from './GivingModal';
 import { DISCOVER_MINISTRIES } from './DiscoverMinistriesHub';
@@ -41,6 +44,7 @@ interface KingdomHomeFeedProps {
   followerCounts: Record<string, number>;
   userSession?: UserSession;
   onOpenAuthPage?: (mode?: 'signin' | 'signup') => void;
+  onOpenShorts?: () => void;
 }
 
 export default function KingdomHomeFeed({
@@ -57,9 +61,10 @@ export default function KingdomHomeFeed({
   followerCounts = {},
   userSession,
   onOpenAuthPage = () => {},
+  onOpenShorts = () => {},
 }: KingdomHomeFeedProps) {
   // Simplified Filters: All | Live | Sermons | Worship | Podcasts | Ministries
-  const [selectedFilter, setSelectedFilter] = useState<'All' | 'Live' | 'Sermons' | 'Worship' | 'Podcasts' | 'Ministries'>('All');
+  const [selectedFilter, setSelectedFilter] = useState<'All' | 'Live' | 'Sermons' | 'Worship' | 'Shorts' | 'Podcasts' | 'Ministries'>('All');
 
   const safeVideos = (videoStreams && videoStreams.length > 0) ? videoStreams : LIVE_VIDEO_STREAMS;
   const safeAudio = (audioQueue && audioQueue.length > 0) ? audioQueue : AUDIO_TRACKS;
@@ -68,6 +73,9 @@ export default function KingdomHomeFeed({
   const liveStreams = safeVideos.filter((v) => v.isLive);
   const sermonVideos = safeVideos.filter((v) => !v.isLive && v.category === 'Sermon');
   const worshipVideos = safeVideos.filter((v) => !v.isLive && (v.category === 'Live Worship' || v.category === 'Choir Special' || v.category === 'Gospel Music'));
+  const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date());
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
   // Spotlight Live Stream for the Hero Banner
   const heroLiveStream = liveStreams[0] || safeVideos[0];
@@ -77,21 +85,51 @@ export default function KingdomHomeFeed({
 
   const liveRadioTrack = safeAudio.find((a) => a?.isLiveRadio || a?.category === '24/7 Gospel Radio') || safeAudio[0];
 
-  const filterTabs: Array<{ id: 'All' | 'Live' | 'Sermons' | 'Worship' | 'Podcasts' | 'Ministries'; label: string; icon?: React.ElementType }> = [
-    { id: 'All', label: 'All' },
-    { id: 'Live', label: 'Live' },
-    { id: 'Sermons', label: 'Sermons' },
-    { id: 'Worship', label: 'Worship' },
-    { id: 'Podcasts', label: 'Podcasts' },
-    { id: 'Ministries', label: 'Ministries' },
+  const filterTabs: Array<{ id: 'All' | 'Live' | 'Sermons' | 'Worship' | 'Shorts' | 'Podcasts' | 'Ministries'; label: string; icon: React.ElementType }> = [
+    { id: 'Live', label: 'Live', icon: Radio },
+    { id: 'Sermons', label: 'Sermons', icon: BookOpen },
+    { id: 'Worship', label: 'Worship', icon: Music },
+    { id: 'Shorts', label: 'Shorts', icon: Clapperboard },
+    { id: 'Podcasts', label: 'Podcasts', icon: Podcast },
+    { id: 'Ministries', label: 'Ministries', icon: Users },
   ];
 
   return (
     <div className="space-y-10 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="pt-4 sm:pt-8 space-y-5">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">{dayName} on Gospread</p>
+          <h1 className="mt-2 text-3xl sm:text-4xl font-black text-white tracking-tight">{greeting}{userSession?.fullName ? `, ${userSession.fullName.split(' ')[0]}` : ''}.</h1>
+          <p className="mt-2 text-sm text-slate-400">What would you like to watch, hear, or carry with you today?</p>
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {filterTabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setSelectedFilter(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-black shrink-0 transition ${selectedFilter === tab.id ? 'bg-amber-400 border-amber-300 text-slate-950 shadow-lg shadow-amber-400/20' : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:border-amber-500/50 hover:text-white'}`}
+              >
+                <Icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       {/* ========================================================================= */}
       {/* 🧭 SIMPLIFIED CATEGORY FILTERS: All | Live | Sermons | Worship | Podcasts | Ministries */}
       {/* ========================================================================= */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-2 scrollbar-none border-b border-slate-800/60">
+        <button
+          onClick={() => setSelectedFilter('All')}
+          className={`px-4 py-2 rounded-full text-xs font-bold transition-all shrink-0 select-none ${selectedFilter === 'All' ? 'bg-amber-400 text-slate-950 font-black shadow-md shadow-amber-400/20' : 'bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800'}`}
+        >
+          For You
+        </button>
         {filterTabs.map((tab) => {
           const isActive = selectedFilter === tab.id;
           return (
@@ -110,6 +148,49 @@ export default function KingdomHomeFeed({
           );
         })}
       </div>
+
+      {/* ========================================================================= */}
+      {/* ⚡ FOR YOU: SHORTS KEEP THE PLATFORM ALIVE BETWEEN BROADCASTS             */}
+      {/* ========================================================================= */}
+      {(selectedFilter === 'All' || selectedFilter === 'Shorts') && GRACE_SHORTS.length > 0 && (
+        <section id="section-shorts" className="space-y-4">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500 text-slate-950"><Sparkles className="w-4 h-4" /></span>
+                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">For You</h2>
+              </div>
+              <p className="mt-1 text-xs text-slate-400">A little faith for the space between moments.</p>
+            </div>
+            <button onClick={onOpenShorts} className="text-xs font-black text-amber-400 hover:text-amber-300 flex items-center gap-1 shrink-0">
+              Open Shorts <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+            {GRACE_SHORTS.slice(0, 4).map((short, index) => (
+              <motion.button
+                key={short.id}
+                type="button"
+                onClick={onOpenShorts}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.07 }}
+                className="group text-left relative aspect-[4/5] overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 shadow-lg"
+              >
+                <img src={short.thumbnail} alt={short.title} className="absolute inset-0 w-full h-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
+                <span className="absolute top-3 right-3 rounded-md bg-slate-950/80 px-2 py-1 text-[10px] font-mono font-bold text-white">{short.duration}</span>
+                <span className="absolute top-3 left-3 rounded-md bg-orange-500 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-slate-950">Short</span>
+                <div className="absolute inset-x-3 bottom-3">
+                  <p className="text-[10px] font-bold text-amber-300 truncate">{short.speaker}</p>
+                  <h3 className="mt-1 text-sm font-black leading-snug text-white line-clamp-3">{short.title}</h3>
+                </div>
+              </motion.button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ========================================================================= */}
       {/* 🔴 HERO: LIVE NOW (CONTENT-FIRST WIDESCREEN SPOTLIGHT)                    */}

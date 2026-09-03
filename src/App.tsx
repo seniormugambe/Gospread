@@ -1706,6 +1706,7 @@ export default function App() {
                   followerCounts={followerCounts}
                   userSession={userSession}
                   onOpenAuthPage={handleOpenAuthPage}
+                  onOpenShorts={() => setShowShortsModal(true)}
                 />
               )}
 
