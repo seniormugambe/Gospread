@@ -418,9 +418,10 @@ class DjangoApiClient {
   }
 
   // === 3. VIDEO STREAMS & SERMONS ===
-  public async getVideos(category?: string, isLive?: boolean): Promise<VideoStream[]> {
+  public async getVideos(category?: string, isLive?: boolean, search?: string): Promise<VideoStream[]> {
     const params = new URLSearchParams();
     if (category && category !== 'all') params.append('category', category);
+    if (search?.trim()) params.append('search', search.trim());
 
     const streamsPromise = this.request<any[] | { results: any[] }>(`/streams/${params.toString() ? `?${params.toString()}` : ''}`).catch(() => []);
     const sermonsPromise = this.request<any[] | { results: any[] }>(`/sermons/${params.toString() ? `?${params.toString()}` : ''}`).catch(() => []);
@@ -449,7 +450,7 @@ class DjangoApiClient {
         thumbnail: s.thumbnail_url || 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
         description: s.description || 'Live congregational worship and preaching.',
         date: s.scheduled_for ? new Date(s.scheduled_for).toLocaleDateString() : 'Today',
-        streamUrl: s.stream_url || s.recording_url,
+        streamUrl: s.playback_url || s.recording_url,
       });
     }
 
@@ -483,6 +484,29 @@ class DjangoApiClient {
 
   public async getLiveStreams(category?: string): Promise<VideoStream[]> {
     return this.getVideos(category, true);
+  }
+
+  public async getShorts(): Promise<VideoStream[]> {
+    const res = await this.request<any[] | { results: any[] }>('/shorts/');
+    const items = Array.isArray(res) ? res : (res?.results || []);
+    return items.map((short: any) => ({
+      id: String(short.id),
+      title: short.title,
+      speakerOrArtist: short.speaker || short.church_name || 'Ministry Leader',
+      churchOrMinistry: short.church_name || 'Gospread Ministry',
+      channelAvatar: short.thumbnail_url || '',
+      subscribersCount: 'Verified',
+      likesCount: String(short.like_count || 0),
+      category: 'Sermon',
+      isLive: false,
+      viewersCount: short.view_count || 0,
+      viewsText: `${short.view_count || 0} views`,
+      duration: short.duration_seconds ? `${Math.floor(short.duration_seconds / 60)}:${String(short.duration_seconds % 60).padStart(2, '0')}` : '',
+      thumbnail: short.thumbnail_url || '',
+      description: short.caption || '',
+      date: short.created_at ? new Date(short.created_at).toLocaleDateString() : '',
+      videoUrl: short.video_url,
+    }));
   }
 
   // === 4. AUDIO & PODCASTS ===

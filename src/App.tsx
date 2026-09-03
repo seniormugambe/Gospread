@@ -94,15 +94,12 @@ import SocialMediaLinksBar from './components/SocialMediaLinksBar';
 import LiveChatPanel from './components/LiveChatPanel';
 import ChurchScheduleTimetable from './components/ChurchScheduleTimetable';
 import { 
-  SUBSCRIPTION_CHANNELS,
   CHURCH_SCHEDULES,
   VideoStream, 
   AudioTrack,
   ChatMessage,
   ReactionType,
-  LIVE_VIDEO_STREAMS
 } from './data/gospelData';
-import { youtubeApi } from './services/youtubeApi';
 
 export default function App() {
   // 🌤️ Sky Light Theme State (Defaulting to the requested Heavenly Sky Light Theme)
@@ -138,48 +135,50 @@ export default function App() {
     setIsPipDocked(false);
     setActiveVideo(null);
   };
-  const [videoStreams, setVideoStreams] = useState<VideoStream[]>(LIVE_VIDEO_STREAMS);
+  const [videoStreams, setVideoStreams] = useState<VideoStream[]>([]);
+  const [shorts, setShorts] = useState<VideoStream[]>([]);
+  const [churches, setChurches] = useState<Awaited<ReturnType<typeof djangoApi.getChurchLocations>>>([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isRealYoutubeData, setIsRealYoutubeData] = useState(false);
   const [isYoutubeLoading, setIsYoutubeLoading] = useState(false);
 
-  // 📺 Fetch real YouTube Data API v3 live streams & audio tracks dynamically
+  // Fetch published media from Django.
   useEffect(() => {
     let isMounted = true;
-    const loadYoutubeStreams = async () => {
+    const loadMedia = async () => {
       setIsYoutubeLoading(true);
-      const queryTerm = searchQuery.trim() || (selectedCategory === 'All' ? 'Gospel Live Worship Sermon' : `Gospel ${selectedCategory}`);
-      const isLiveOnly = selectedCategory === 'Live Worship';
-      
       try {
-        const backendStreams = await djangoApi.getLiveStreams();
-        if (isMounted && backendStreams && backendStreams.length > 0) {
-          setVideoStreams(backendStreams);
-          if (!activeVideo && backendStreams[0]) {
-            setActiveVideo(backendStreams[0]);
-          }
-        } else {
-          const res = await youtubeApi.searchGospelVideos(queryTerm, isLiveOnly);
-          if (isMounted && res.videos && res.videos.length > 0) {
-            setVideoStreams(res.videos);
-            setIsRealYoutubeData(res.isRealYoutubeData);
-            if (res.isRealYoutubeData && res.videos[0]) {
-              setActiveVideo(prev => prev ? prev : res.videos[0]);
-            }
-          }
+        const backendChurches = await djangoApi.getChurchLocations();
+        if (isMounted) setChurches(backendChurches);
+      } catch (e) {
+        console.error('Error fetching churches:', e);
+        if (isMounted) setChurches([]);
+      }
+
+      try {
+        const backendVideos = await djangoApi.getVideos(
+          selectedCategory === 'All' ? undefined : selectedCategory,
+          undefined,
+          searchQuery,
+        );
+        if (isMounted) {
+          setVideoStreams(backendVideos);
+          setActiveVideo(prev => prev && backendVideos.some(video => video.id === prev.id)
+            ? prev
+            : backendVideos[0] || null);
         }
       } catch (e) {
-        console.error('Error fetching live streams:', e);
-        const res = await youtubeApi.searchGospelVideos(queryTerm, isLiveOnly);
-        if (isMounted && res.videos && res.videos.length > 0) {
-          setVideoStreams(res.videos);
-          setIsRealYoutubeData(res.isRealYoutubeData);
-          if (res.isRealYoutubeData && res.videos[0]) {
-            setActiveVideo(prev => prev ? prev : res.videos[0]);
-          }
-        }
+        console.error('Error fetching media:', e);
+        if (isMounted) setVideoStreams([]);
+      }
+
+      try {
+        const backendShorts = await djangoApi.getShorts();
+        if (isMounted) setShorts(backendShorts);
+      } catch (e) {
+        console.error('Error fetching shorts:', e);
+        if (isMounted) setShorts([]);
       }
 
       try {
@@ -189,23 +188,18 @@ export default function App() {
           if (!currentAudio && backendTracks[0]) {
             setCurrentAudio(backendTracks[0]);
           }
-        } else {
-          const audioRes = await youtubeApi.searchGospelAudio(searchQuery.trim() || 'Gospel Worship Podcast Audio Sermon');
-          if (isMounted && audioRes.tracks && audioRes.tracks.length > 0) {
-            setAudioQueue(audioRes.tracks);
-            if (audioRes.isRealYoutubeData && audioRes.tracks[0]) {
-              setCurrentAudio(prev => prev ? prev : audioRes.tracks[0]);
-            }
-          }
+        } else if (isMounted) {
+          setAudioQueue([]);
         }
       } catch (e) {
         console.error('Error fetching audio tracks:', e);
+        if (isMounted) setAudioQueue([]);
       }
 
       if (isMounted) setIsYoutubeLoading(false);
     };
 
-    loadYoutubeStreams();
+    loadMedia();
     return () => { isMounted = false; };
   }, [searchQuery, selectedCategory]);
 
@@ -514,10 +508,16 @@ export default function App() {
       v.speakerOrArtist.toLowerCase().includes(channelName.toLowerCase())
     );
     if (match) return match.channelAvatar;
-    const subMatch = SUBSCRIPTION_CHANNELS.find(c => c.name.toLowerCase().includes(channelName.toLowerCase()));
+    const subMatch = churches.find(c => c.name.toLowerCase().includes(channelName.toLowerCase()));
     if (subMatch) return subMatch.avatar;
-    return 'https://images.unsplash.com/photo-[#1534528741775-53994a69daeb]?auto=format&fit=crop&w=120&q=80';
+    return '';
   };
+
+  const subscriptionChannels = churches.map(church => ({
+    name: church.name,
+    avatar: church.avatar,
+    liveNow: videoStreams.some(video => video.churchOrMinistry === church.name && video.isLive),
+  }));
 
   const toggleLike = (videoId: string) => {
     setLikedVideos(prev =>
@@ -1081,7 +1081,7 @@ export default function App() {
                         </span>
                       </div>
                       <div className="space-y-1">
-                        {SUBSCRIPTION_CHANNELS.map((ch) => (
+                        {subscriptionChannels.map((ch) => (
                           <div
                             key={ch.name}
                             onClick={() => {
@@ -1622,7 +1622,7 @@ export default function App() {
                     </div>
 
                     {/* Single-column on mobile, multi-column on tablet and desktop */}
-                    {SUBSCRIPTION_CHANNELS.length === 0 ? (
+                    {subscriptionChannels.length === 0 ? (
                       <div className="p-8 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800 text-center space-y-2">
                         <UserCheck className="w-6 h-6 text-slate-600 mx-auto" />
                         <p className="text-xs font-semibold text-slate-300">No Channels Available</p>
@@ -1630,7 +1630,7 @@ export default function App() {
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-3">
-                        {SUBSCRIPTION_CHANNELS.map((ch) => {
+                        {subscriptionChannels.map((ch) => {
                           const isFollowed = subscribedChannels.includes(ch.name);
                           return (
                             <motion.div
@@ -1707,6 +1707,7 @@ export default function App() {
                   userSession={userSession}
                   onOpenAuthPage={handleOpenAuthPage}
                   onOpenShorts={() => setShowShortsModal(true)}
+                  shorts={shorts}
                 />
               )}
 

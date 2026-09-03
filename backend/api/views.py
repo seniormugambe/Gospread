@@ -170,6 +170,9 @@ class SermonViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = Sermon.objects.select_related("church").prefetch_related("saved_by")
+        category = self.request.query_params.get("category")
+        if category and category.lower() != "all":
+            queryset = queryset.filter(category__iexact=category)
         if self.request.user.is_authenticated:
             return queryset.filter(Q(is_published=True) | Q(church__owner=self.request.user)).distinct()
         return queryset.filter(is_published=True)

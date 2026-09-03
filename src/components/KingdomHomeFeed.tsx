@@ -19,7 +19,7 @@ import {
   Podcast,
   Users
 } from 'lucide-react';
-import { VideoStream, AudioTrack, LIVE_VIDEO_STREAMS, AUDIO_TRACKS, GRACE_SHORTS } from '../data/gospelData';
+import { VideoStream, AudioTrack } from '../data/gospelData';
 import { decodeHtml } from '../lib/utils';
 import { GivingTarget } from './GivingModal';
 import { DISCOVER_MINISTRIES } from './DiscoverMinistriesHub';
@@ -45,6 +45,7 @@ interface KingdomHomeFeedProps {
   userSession?: UserSession;
   onOpenAuthPage?: (mode?: 'signin' | 'signup') => void;
   onOpenShorts?: () => void;
+  shorts?: VideoStream[];
 }
 
 export default function KingdomHomeFeed({
@@ -62,12 +63,13 @@ export default function KingdomHomeFeed({
   userSession,
   onOpenAuthPage = () => {},
   onOpenShorts = () => {},
+  shorts = [],
 }: KingdomHomeFeedProps) {
   // Simplified Filters: All | Live | Sermons | Worship | Podcasts | Ministries
   const [selectedFilter, setSelectedFilter] = useState<'All' | 'Live' | 'Sermons' | 'Worship' | 'Shorts' | 'Podcasts' | 'Ministries'>('All');
 
-  const safeVideos = (videoStreams && videoStreams.length > 0) ? videoStreams : LIVE_VIDEO_STREAMS;
-  const safeAudio = (audioQueue && audioQueue.length > 0) ? audioQueue : AUDIO_TRACKS;
+  const safeVideos = videoStreams;
+  const safeAudio = audioQueue;
 
   // Categorized video streams
   const liveStreams = safeVideos.filter((v) => v.isLive);
@@ -79,7 +81,7 @@ export default function KingdomHomeFeed({
 
   // Spotlight Live Stream for the Hero Banner
   const heroLiveStream = liveStreams[0] || safeVideos[0];
-  const heroViewers = heroLiveStream?.viewersCount 
+  const heroViewers = heroLiveStream?.viewersCount
     ? `${(heroLiveStream.viewersCount / 1000).toFixed(1)}K watching`
     : '2.4K watching';
 
@@ -152,7 +154,7 @@ export default function KingdomHomeFeed({
       {/* ========================================================================= */}
       {/* ⚡ FOR YOU: SHORTS KEEP THE PLATFORM ALIVE BETWEEN BROADCASTS             */}
       {/* ========================================================================= */}
-      {(selectedFilter === 'All' || selectedFilter === 'Shorts') && GRACE_SHORTS.length > 0 && (
+          {(selectedFilter === 'All' || selectedFilter === 'Shorts') && shorts.length > 0 && (
         <section id="section-shorts" className="space-y-4">
           <div className="flex items-end justify-between gap-4">
             <div>
@@ -168,7 +170,7 @@ export default function KingdomHomeFeed({
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-            {GRACE_SHORTS.slice(0, 4).map((short, index) => (
+            {shorts.slice(0, 4).map((short, index) => (
               <motion.button
                 key={short.id}
                 type="button"
