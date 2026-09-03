@@ -56,6 +56,8 @@ export interface UserProfileData {
   last_name?: string;
   bio?: string;
   church_name?: string;
+  ministry_name?: string;
+  creator_type?: 'church' | 'artiste' | 'creator' | 'radio';
   praise_xp?: number;
   streak_days?: number;
   avatar_url?: string;

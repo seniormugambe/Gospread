@@ -55,12 +55,14 @@ import {
   ShieldCheck,
   Download,
   Settings,
-  MessageSquareHeart
+  MessageSquareHeart,
+  RadioTower
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import GospreadLogo from './components/GospreadLogo';
 import youtubeGospelImg from './assets/images/youtube_gospel_ui_1785687242032.jpg';
-import CreatePage from './components/CreatePage';
+import CreatePage, { StudioAction } from './components/CreatePage';
+import CreateModalDropdown from './components/CreateModalDropdown';
 import DiscoverMinistriesHub from './components/DiscoverMinistriesHub';
 import UserProfilePage from './components/UserProfilePage';
 import FellowshipCommunityHub from './components/FellowshipCommunityHub';
@@ -89,6 +91,7 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import ChurchLocationsCard from './components/ChurchLocationsCard';
 import SocialMediaLinksBar from './components/SocialMediaLinksBar';
 import LiveChatPanel from './components/LiveChatPanel';
+import ChurchScheduleTimetable from './components/ChurchScheduleTimetable';
 import { 
   SUBSCRIPTION_CHANNELS,
   CHURCH_SCHEDULES,
@@ -249,7 +252,15 @@ export default function App() {
   // Watch view state & Channel Following state
   const [activeVideo, setActiveVideo] = useState<VideoStream | null>(null);
   const [isPipDocked, setIsPipDocked] = useState(false);
-  const [subscribedChannels, setSubscribedChannels] = useState<string[]>([]);
+  const [subscribedChannels, setSubscribedChannels] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('gospread_subscribed_channels');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return ['Grace City Cathedral', 'Elevation Worship'];
+  });
   const [followerCounts, setFollowerCounts] = useState<Record<string, number>>({});
   const [bellSettings, setBellSettings] = useState<Record<string, 'all' | 'personalized' | 'none'>>({});
   const [selectedChannelModal, setSelectedChannelModal] = useState<string | null>(null);
@@ -381,11 +392,12 @@ export default function App() {
       console.error(e);
     }
     return {
-      id: '',
-      username: '',
+      id: 'usr-guest',
+      username: 'guest_worshipper',
       email: '',
-      fullName: '',
+      fullName: 'Guest Believer',
       churchName: '',
+      ministryName: '',
       avatarUrl: '',
       isLoggedIn: false,
       token: ''
@@ -395,18 +407,8 @@ export default function App() {
   const [praiseXp, setPraiseXp] = useState(0);
 
   const openProtectedTab = (tab: 'profile' | 'history' | 'create') => {
-    if (!userSession.isLoggedIn) {
-      handleOpenAuthPage('signin');
-      return;
-    }
     setActiveTab(tab);
   };
-
-  useEffect(() => {
-    if (!userSession.isLoggedIn && ['profile', 'history', 'create'].includes(activeTab)) {
-      handleOpenAuthPage('signin');
-    }
-  }, [activeTab, userSession.isLoggedIn]);
 
   const handleClaimDailyReward = (xpGained: number) => {
     setPraiseXp(prev => prev + xpGained);
@@ -414,10 +416,6 @@ export default function App() {
   };
 
   const handleOpenGiving = (target?: GivingTarget) => {
-    if (!userSession.isLoggedIn) {
-      handleOpenAuthPage('signin');
-      return;
-    }
     setGivingModalTarget(target || {
       id: 'platform-global',
       name: 'Gospread Global Mission Fund',
@@ -476,15 +474,17 @@ export default function App() {
   // Category options
 
   const toggleSubscribe = (channelName: string) => {
-    if (!userSession.isLoggedIn) {
-      handleOpenAuthPage('signin');
-      return;
-    }
     setSubscribedChannels(prev => {
-      const isSubbed = prev.includes(channelName);
+      const isSubbed = prev.some(c => c.toLowerCase() === channelName.toLowerCase());
       const newSubbed = isSubbed 
         ? prev.filter(c => c.toLowerCase() !== channelName.toLowerCase()) 
         : [...prev, channelName];
+
+      try {
+        localStorage.setItem('gospread_subscribed_channels', JSON.stringify(newSubbed));
+      } catch (e) {
+        console.error(e);
+      }
       
       // Update follower count
       setFollowerCounts(fc => ({
@@ -494,7 +494,7 @@ export default function App() {
 
       // Trigger notification toast
       if (!isSubbed) {
-        setFollowToast(`🔔 You are now following ${channelName}! Live worship notifications enabled.`);
+        setFollowToast(`🔔 Following ${channelName}! Added to your Following feed. (Create an account anytime to sync)`);
         setBellSettings(bs => ({ ...bs, [channelName]: 'all' }));
       } else {
         setFollowToast(`Unfollowed ${channelName}`);
@@ -609,6 +609,17 @@ export default function App() {
     }, 1800);
   };
 
+  const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false);
+  const [initialStudioAction, setInitialStudioAction] = useState<StudioAction>('choose');
+  const [initialUploadSource, setInitialUploadSource] = useState<'device' | 'url' | 'youtube'>('device');
+
+  const handleCreateMenuSelect = (action: StudioAction, importSource: 'device' | 'url' | 'youtube' = 'device') => {
+    setInitialStudioAction(action);
+    setInitialUploadSource(importSource);
+    setActiveTab('create');
+    setIsCreateDropdownOpen(false);
+  };
+
   const handlePublishSuccess = (newStream: VideoStream) => {
     setVideoStreams(prev => [newStream, ...prev]);
     setActiveVideo(newStream);
@@ -667,8 +678,7 @@ export default function App() {
 
           <GospreadLogo
             size="sm"
-            badgeText="Live"
-            badgeVariant="live"
+            showBadge={false}
             onClick={() => { setActiveVideo(null); setSelectedCategory('All'); }}
           />
         </div>
@@ -726,6 +736,41 @@ export default function App() {
             <Sparkles className="w-3.5 h-3.5" />
             <span>Shorts</span>
           </button>
+
+          {/* 🎙️ Separate World Switcher: Kingdom Creator Studio (For Ministries & Broadcasters) */}
+          <div className="relative">
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => {
+                setActiveTab('create');
+                setActiveVideo(null);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition shrink-0 ${
+                activeTab === 'create'
+                  ? 'bg-gradient-to-r from-red-600 to-amber-500 text-white shadow-md shadow-red-600/30 font-bold'
+                  : 'bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-amber-300 border border-slate-700/80 hover:border-amber-500/40'
+              }`}
+              title="Kingdom Creator Studio (For Ministries & Broadcasters)"
+            >
+              <RadioTower className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Creator Studio</span>
+            </motion.button>
+          </div>
+
+          {/* 🕊️ "Watch first. Belong later" — Invitation to Belong */}
+          {!userSession.isLoggedIn && (
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => handleOpenAuthPage('signin')}
+              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs shadow-md shadow-amber-500/20 transition shrink-0"
+              title="Watch first. Belong later — Join Fellowship or Sign In"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Belong</span>
+            </motion.button>
+          )}
 
           {/* Group 3: Kingdom Support & Django Backend Integration */}
           <div className="hidden lg:flex items-center gap-1.5">
@@ -855,26 +900,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* 🚀 Community Social Proof Live Ticker */}
-      <div className="bg-slate-950/90 border-b border-slate-800 px-4 py-1.5 text-[11px] text-slate-400 flex items-center justify-between gap-3 overflow-hidden select-none">
-        <div className="flex items-center gap-2 text-amber-400 font-extrabold text-[10px] uppercase tracking-wider shrink-0">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Global Kingdom Activity</span>
-        </div>
-
-        <div className="flex-1 overflow-hidden">
-          <motion.div
-            animate={{ x: ['100%', '-100%'] }}
-            transition={{ repeat: Infinity, duration: 30, ease: 'linear' }}
-            className="whitespace-nowrap flex items-center gap-8 text-slate-300 font-medium"
-          >
-            <span>🙌 <strong className="text-amber-300">Grace City Cathedral</strong> live stream reached 14,280 active worshipers!</span>
-            <span>🌱 <strong className="text-emerald-400">Sister Hannah</strong> sowed $100 Super Amen Seed for Pastor Mark Anthony!</span>
-            <span>🔥 <strong className="text-amber-400">Brother David</strong> reached 7-Day Grace Streak and unlocked 'Overcomer' badge!</span>
-            <span>🎙️ <strong className="text-blue-300">Gospread Radio</strong> 24/7 Praise Feed active across 84 nations!</span>
-          </motion.div>
-        </div>
-      </div>
 
       {/* Main Layout */}
       <div className="flex-1 flex overflow-hidden">
@@ -884,30 +909,37 @@ export default function App() {
           <div className="space-y-4 px-2 overflow-y-auto max-h-[calc(100vh-80px)] scrollbar-none">
             {[
               {
-                section: 'Platform',
+                section: 'Discover & Watch 🌍',
                 items: [
                   { id: 'home', label: 'Home Feed', icon: Compass },
-                  { id: 'community', label: 'Fellowship & Voices', icon: MessageSquareHeart, badge: 'COMMUNITY', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
-                  { id: 'discover', label: 'Discover Ministries', icon: Building2, badge: 'EXPLORE', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
-                  { id: 'history', label: 'Watch History', icon: History, badge: watchHistory.length > 0 ? `${watchHistory.length}` : undefined, badgeStyle: 'bg-amber-500/20 text-amber-400 border border-amber-500/30' },
-                  { id: 'profile', label: 'My Profile', icon: User, badge: 'YOU', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
-                  { id: 'settings', label: 'Account Settings', icon: Settings, badge: 'PREFS', badgeStyle: 'bg-slate-800 text-amber-400 border border-slate-700' },
-                ],
-              },
-              {
-                section: 'Worship & Media',
-                items: [
                   { id: 'live', label: 'Live Broadcasts', icon: Tv, badge: 'LIVE', badgeStyle: 'bg-red-600 text-white font-bold' },
                   { id: 'radio', label: '24/7 Gospel Radio', icon: RadioIcon, badge: '24/7', badgeStyle: 'bg-amber-400 text-slate-950 font-black' },
                   { id: 'podcasts', label: 'Audio Podcasts', icon: Music },
+                  { id: 'discover', label: 'Discover Ministries', icon: Building2, badge: 'EXPLORE', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
                   { id: 'schedule', label: 'Church Service Times', icon: Calendar, badge: 'TIMES', badgeStyle: 'bg-amber-400/90 text-slate-950 font-black' },
                 ],
               },
               {
-                section: 'Ministry & Support',
+                section: 'Fellowship & Engage',
                 items: [
+                  { id: 'community', label: 'Fellowship & Voices', icon: MessageSquareHeart, badge: 'COMMUNITY', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
+                  { id: 'history', label: 'Watch History', icon: History, badge: watchHistory.length > 0 ? `${watchHistory.length}` : undefined, badgeStyle: 'bg-amber-500/20 text-amber-400 border border-amber-500/30' },
                   { id: 'giving', label: 'Kingdom Giving', icon: DollarSign, badge: 'SUPPORT', badgeStyle: 'bg-emerald-500 text-slate-950 font-black' },
-                  { id: 'create', label: 'Register Ministry', icon: UserCheck, badge: 'NEW', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
+                ],
+              },
+              {
+                section: userSession.isLoggedIn ? 'My Sanctuary' : 'Belong Later 🕊️',
+                items: [
+                  userSession.isLoggedIn
+                    ? { id: 'profile', label: 'My Sanctuary Profile', icon: User, badge: 'YOU', badgeStyle: 'bg-amber-500 text-slate-950 font-black' }
+                    : { id: 'auth', label: 'Join Fellowship (Free)', icon: ShieldCheck, badge: 'JOIN', badgeStyle: 'bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 font-black' },
+                  { id: 'settings', label: 'Account Settings', icon: Settings, badge: 'PREFS', badgeStyle: 'bg-slate-800 text-amber-400 border border-slate-700' },
+                ],
+              },
+              {
+                section: 'Creator World 🎙️',
+                items: [
+                  { id: 'create', label: 'Kingdom Creator Studio', icon: RadioTower, badge: 'STUDIO', badgeStyle: 'bg-gradient-to-r from-red-600 to-amber-500 text-white font-black shadow-sm' },
                 ],
               },
             ].map((grp, idx) => (
@@ -944,20 +976,23 @@ export default function App() {
                       key={item.id}
                       onClick={() => {
                         if (item.id === 'create') {
-                          openProtectedTab('create');
+                          setActiveTab('create');
+                          setActiveVideo(null);
                         } else if (item.id === 'profile') {
-                          openProtectedTab('profile');
+                          setActiveTab('profile');
+                          setActiveVideo(null);
                         } else if (item.id === 'auth') {
-                          handleOpenAuthPage('signin');
+                          handleOpenAuthPage('signup');
                         } else if (item.id === 'community') {
                           setActiveTab('community');
                           setIsPipDocked(false);
                           setActiveVideo(null);
                         } else if (item.id === 'settings') {
-                          if (userSession.isLoggedIn) setShowSettingsModal(true);
-                          else handleOpenAuthPage('signin');
+                          setShowSettingsModal(true);
                         } else if (item.id === 'history') {
-                          openProtectedTab('history');
+                          setActiveTab('history');
+                          setIsPipDocked(false);
+                          setActiveVideo(null);
                         } else if (item.id === 'discover') {
                           setActiveTab('discover');
                           setIsPipDocked(false);
@@ -965,10 +1000,6 @@ export default function App() {
                         } else if (item.id === 'giving') {
                           handleOpenGiving();
                         } else {
-                          if (item.id === 'following' && !userSession.isLoggedIn) {
-                            handleOpenAuthPage('signin');
-                            return;
-                          }
                           setActiveTab('platform');
                           setIsPipDocked(false);
                           setSelectedCategory(
@@ -978,29 +1009,41 @@ export default function App() {
                           );
                         }
                       }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition ${
+                      className={`w-full flex transition group relative ${
+                        isSidebarOpen 
+                          ? 'items-center justify-between px-3.5 py-2.5 rounded-xl' 
+                          : 'items-center justify-center p-2.5 rounded-xl'
+                      } ${
                         isActive 
-                          ? 'bg-amber-500/15 text-amber-300 font-bold border border-amber-500/30' 
-                          : 'text-slate-300 hover:bg-slate-800/70'
+                          ? 'bg-amber-500/15 text-amber-300 font-bold border border-amber-500/30 shadow-sm' 
+                          : 'text-slate-300 hover:bg-slate-800/70 border border-transparent'
                       }`}
                       title={item.label}
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <Icon className={`w-4 h-4 shrink-0 ${
-                          isActive 
-                            ? 'text-amber-400' 
-                            : item.id === 'history' 
-                            ? 'text-amber-400/80' 
-                            : item.id === 'giving' 
-                            ? 'text-emerald-400' 
-                            : 'text-slate-400'
-                        }`} />
-                        {isSidebarOpen && <span className="truncate">{item.label}</span>}
-                      </div>
-                      {isSidebarOpen && item.badge && (
-                        <span className={`px-1.5 py-0.2 rounded text-[8px] shrink-0 ${item.badgeStyle || 'bg-amber-500 text-slate-950 font-bold'}`}>
-                          {item.badge}
-                        </span>
+                      {isSidebarOpen ? (
+                        <>
+                          <span className={`tracking-tight leading-snug truncate text-xs text-left ${
+                            isActive 
+                              ? 'text-amber-300 font-bold' 
+                              : 'text-slate-300 group-hover:text-white font-medium'
+                          }`}>
+                            {item.label}
+                          </span>
+                          {item.badge && (
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider shrink-0 ml-1.5 ${item.badgeStyle || 'bg-amber-500 text-slate-950 font-bold'}`}>
+                              {item.badge}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <div className="relative flex items-center justify-center">
+                          <Icon className={`w-5 h-5 transition-colors ${
+                            isActive ? 'text-amber-400' : 'text-slate-400 group-hover:text-white'
+                          }`} />
+                          {item.badge && (
+                            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-[#0d0d0f]" />
+                          )}
+                        </div>
                       )}
                     </button>
                   );
@@ -1014,8 +1057,8 @@ export default function App() {
             {isSidebarOpen && (
               <div className="px-2 space-y-2">
                 <div className="flex items-center justify-between px-1">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                    <History className="w-3 h-3 text-amber-400" /> Watch History
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Watch History
                   </span>
                   <button
                     onClick={() => {
@@ -1231,10 +1274,7 @@ export default function App() {
                                     : 'text-slate-200 hover:bg-slate-800/80'
                                 }`}
                               >
-                                <div className="flex items-center gap-3">
-                                  <Icon className={`w-4 h-4 ${isActive ? 'text-amber-400' : 'text-amber-400/80'}`} />
-                                  <span>{item.label}</span>
-                                </div>
+                                <span className={isActive ? 'text-amber-300 font-bold' : 'text-slate-200 font-medium'}>{item.label}</span>
                                 {item.badge && (
                                   <span className={`px-2 py-0.5 rounded text-[9px] ${item.badgeStyle || 'bg-amber-500 text-slate-950 font-extrabold'}`}>
                                     {item.badge}
@@ -1402,10 +1442,45 @@ export default function App() {
               praiseXp={praiseXp}
             />
           ) : activeTab === 'create' ? (
-            <CreatePage 
-              onPublishSuccess={handlePublishSuccess}
-              onCancel={() => setActiveTab('platform')}
-            />
+            <div className="w-full">
+              {/* Distinct Creator World Portal Header */}
+              <div className="bg-stone-950 border-b border-stone-800/80 px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-gradient-to-br from-red-600/30 to-amber-500/20 border border-red-500/40 text-red-400">
+                    <RadioTower className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-red-950/80 text-red-400 border border-red-800/60 px-2 py-0.5 rounded-full">
+                        CREATOR WORLD
+                      </span>
+                      <span className="text-[11px] text-stone-400 hidden sm:inline">
+                        Broadcast & Ministry Studio
+                      </span>
+                    </div>
+                    <h2 className="text-sm font-bold text-white mt-0.5">
+                      Kingdom Broadcasting Studio
+                    </h2>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setActiveTab('platform')}
+                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-amber-400 border border-stone-700 text-xs font-bold transition shadow-sm"
+                >
+                  <Compass className="w-4 h-4" />
+                  <span>Return to Viewer Experience</span>
+                </button>
+              </div>
+
+              <CreatePage 
+                currentUser={userSession}
+                initialAction={initialStudioAction}
+                initialUploadSource={initialUploadSource}
+                onPublishSuccess={handlePublishSuccess}
+                onCancel={() => setActiveTab('platform')}
+              />
+            </div>
           ) : activeTab === 'generated' ? (
             /* Visual Artwork Showcase */
             <div className="max-w-6xl w-full mx-auto px-4 py-6 flex flex-col items-center gap-6">
@@ -1732,127 +1807,22 @@ export default function App() {
                 />
               )}
 
-              {/* 📅 CHURCH SCHEDULES SPECIAL SECTION */}
+              {/* 📅 CHURCH SCHEDULES SPECIAL SECTION (RESPONSIVE TABLE & CARD TIMETABLE) */}
               {selectedCategory === 'Church Schedules' && (
-                <div className="space-y-6">
-                  <div className="bg-gradient-to-r from-slate-900 via-amber-950/40 to-slate-900 border border-amber-500/30 p-4 sm:p-5 rounded-3xl space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-6 h-6 text-amber-400" />
-                      <div>
-                        <h2 className="text-base font-bold text-white">Global Church Service Schedules & Broadcasting Times</h2>
-                        <p className="text-xs text-slate-400">Weekly live service times, midweek prayer altars, and special fellowship gatherings</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-6">
-                    {Object.entries(CHURCH_SCHEDULES).length === 0 ? (
-                      <div className="p-12 rounded-3xl bg-[#0f0f0f] border border-dashed border-slate-800 text-center space-y-3">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto">
-                          <Calendar className="w-6 h-6" />
-                        </div>
-                        <h3 className="text-base font-bold text-white">No Church Schedules Found</h3>
-                        <p className="text-xs text-slate-400 max-w-md mx-auto">
-                          Church broadcasting schedules and weekly service times will be listed here once registered by verified ministries.
-                        </p>
-                      </div>
-                    ) : (
-                      Object.entries(CHURCH_SCHEDULES).map(([churchName, schedules]) => (
-                      <div
-                        key={churchName}
-                        className="bg-[#0f0f0f] border border-slate-800 rounded-3xl p-4 sm:p-5 space-y-5 hover:border-amber-500/30 transition shadow-xl"
-                      >
-                        {/* Header & Channel Profile Button */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={
-                                churchName.includes('Grace City') 
-                                  ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80'
-                                  : churchName.includes('Covenant')
-                                  ? 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80'
-                                  : churchName.includes('Global')
-                                  ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80'
-                                  : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80'
-                              }
-                              alt={churchName}
-                              className="w-12 h-12 rounded-2xl object-cover ring-2 ring-amber-500/30 shadow-md shrink-0"
-                            />
-                            <div>
-                              <h3 className="text-base font-bold text-white flex items-center gap-1.5">
-                                {churchName}
-                                <CheckCircle2 className="w-4 h-4 text-blue-400 fill-blue-400" />
-                              </h3>
-                              <p className="text-xs text-slate-400">{schedules.length} Weekly Broadcast Services</p>
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={() => setSelectedChannelModal(churchName)}
-                            className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl sm:rounded-full bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-amber-300 font-bold text-xs transition border border-slate-700 flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[36px]"
-                          >
-                            <span>View Church Profile</span>
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
-                        </div>
-
-                        {/* Social Media Links Bar for Ministry */}
-                        <div className="bg-slate-950/60 p-3 rounded-2xl border border-slate-800/80">
-                          <SocialMediaLinksBar
-                            churchOrChannelName={churchName}
-                            variant="compact"
-                          />
-                        </div>
-
-                        {/* Multi-Campus Locations Component */}
-                        <ChurchLocationsCard
-                          churchName={churchName}
-                        />
-
-                        {/* Weekly Service Schedule List */}
-                        <div className="space-y-2.5 pt-2">
-                          <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                            <Clock className="w-4 h-4 text-amber-400" /> Weekly Service & Gathering Times
-                          </h4>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {schedules.map((sch) => (
-                              <div
-                                key={sch.id}
-                                className="p-4 sm:p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800/90 space-y-2 hover:border-amber-500/40 transition"
-                              >
-                                <div className="flex items-center justify-between gap-2 flex-wrap">
-                                  <div className="flex items-center gap-2">
-                                    <span className="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-black text-[10px] uppercase tracking-wider">
-                                      {sch.day}
-                                    </span>
-                                    <span className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 text-[10px] font-mono flex items-center gap-1 border border-slate-700">
-                                      <Clock className="w-3 h-3 text-amber-400" />
-                                      {sch.time}
-                                    </span>
-                                  </div>
-                                  {sch.isLiveNow && (
-                                    <span className="px-2.5 py-1 rounded-full bg-red-600 text-white font-extrabold text-[9px] uppercase tracking-wider animate-pulse flex items-center gap-1">
-                                      <Radio className="w-3 h-3" /> Streaming Live
-                                    </span>
-                                  )}
-                                </div>
-
-                                <h4 className="text-xs font-bold text-white mt-1">{sch.title}</h4>
-                                <p className="text-xs sm:text-[10px] text-slate-400 leading-normal">{sch.description}</p>
-                                
-                                <div className="flex items-center justify-between text-xs sm:text-[10px] text-slate-500 pt-2 border-t border-slate-800/60 flex-wrap gap-1">
-                                  <span className="text-slate-400">Location / Stream: {sch.locationOrStream}</span>
-                                  <span className="text-amber-400 font-bold">{sch.speakerOrLeader}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )))}
-                  </div>
-                </div>
+                <ChurchScheduleTimetable
+                  onSelectChannelModal={(channel) => setSelectedChannelModal(channel)}
+                  onWatchLiveService={(churchName) => {
+                    const match = videoStreams.find(v => 
+                      v.churchOrMinistry.toLowerCase().includes(churchName.toLowerCase()) || 
+                      v.speakerOrArtist.toLowerCase().includes(churchName.toLowerCase()) ||
+                      v.isLive
+                    );
+                    if (match) {
+                      handleSelectVideo(match);
+                    }
+                  }}
+                  theme={theme}
+                />
               )}
               {selectedCategory === 'Following' && (
                 <div className="space-y-6">

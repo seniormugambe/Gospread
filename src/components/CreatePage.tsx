@@ -1,4 +1,4 @@
-import React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, useEffect, useRef } from 'react';
 import { 
   Building2, 
   Music2, 
@@ -42,14 +42,140 @@ import {
   Link as LinkIcon,
   Coffee,
   Navigation,
-  X
+  X,
+  Tv,
+  Users,
+  UploadCloud,
+  RadioTower,
+  Bell,
+  ArrowLeft,
+  CalendarDays,
+  Send,
+  HelpCircle,
+  Film,
+  Tag,
+  BookOpen,
+  ListOrdered,
+  AlertCircle,
+  Loader2,
+  Wifi,
+  CheckCheck,
+  Image as ImageIcon,
+  Wand2,
+  Globe2,
+  Lock,
+  Link2,
+  ShieldAlert,
+  Save,
+  FileCheck,
+  Baby,
+  Layers as LayersIcon,
+  Eye,
+  EyeOff,
+  Cpu,
+  MonitorPlay,
+  Youtube
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream, ChurchLocation, SocialLink, registerChurchProfile } from '../data/gospelData';
+import { UserSession } from './AuthModal';
+import LiveControlRoom from './LiveControlRoom';
+import LiveRecordingVODModal, { RecordedStreamData } from './LiveRecordingVODModal';
+import KingdomStudioSections from './KingdomStudioSections';
 
-type CreatorCategory = 'Church' | 'Artiste' | 'Creator';
+export type CreatorCategory = 'Church' | 'Artiste' | 'Creator' | 'Radio';
+export type StudioAction = 'choose' | 'upload' | 'live' | 'schedule' | 'live_control_room' | 'dashboard' | 'content' | 'analytics' | 'community' | 'giving' | 'settings';
+export type UploadStep = 'select' | 'uploading' | 'processing' | 'details' | 'thumbnail' | 'visibility' | 'publish';
+export type UploadMode = 'device' | 'url' | 'youtube';
+export type LiveBroadcastType = 'Sunday Service' | 'Bible Study' | 'Prayer' | 'Worship' | 'Conference' | 'Other';
 
-interface CreatePageProps {
+export interface VideoExtractedFrame {
+  id: string;
+  time: string;
+  label: string;
+  url: string;
+}
+
+export interface AiThumbnailPreset {
+  id: string;
+  name: string;
+  description: string;
+  bgImage: string;
+  overlayGradient: string;
+  accentColor: string;
+  badgeBg: string;
+}
+
+export const VIDEO_EXTRACTED_FRAMES: VideoExtractedFrame[] = [
+  {
+    id: 'frame-1',
+    time: '00:04:12',
+    label: 'Pastor at the Pulpit',
+    url: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80'
+  },
+  {
+    id: 'frame-2',
+    time: '00:15:30',
+    label: 'Worship Hands Raised',
+    url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80'
+  },
+  {
+    id: 'frame-3',
+    time: '00:28:45',
+    label: 'Open Bible & Altar Light',
+    url: 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?auto=format&fit=crop&w=1200&q=80'
+  },
+  {
+    id: 'frame-4',
+    time: '00:41:10',
+    label: 'Congregation in Prayer',
+    url: 'https://images.unsplash.com/photo-1519834785169-98be25ec3f84?auto=format&fit=crop&w=1200&q=80'
+  }
+];
+
+export const AI_THUMBNAIL_PRESETS: AiThumbnailPreset[] = [
+  {
+    id: 'cathedral_gold',
+    name: 'Cathedral Gold & Light',
+    description: 'Warm sanctuary beams, gold typography, majestic atmosphere',
+    bgImage: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
+    overlayGradient: 'from-amber-950/90 via-black/60 to-black/90',
+    accentColor: 'text-amber-300',
+    badgeBg: 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+  },
+  {
+    id: 'prophetic_fire',
+    name: 'Prophetic Fire & Power',
+    description: 'Deep crimson revival glow, bold modern display title',
+    bgImage: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80',
+    overlayGradient: 'from-red-950/90 via-black/60 to-black/90',
+    accentColor: 'text-red-400',
+    badgeBg: 'bg-red-500/20 text-red-300 border-red-500/30'
+  },
+  {
+    id: 'peaceful_sunrise',
+    name: 'Peaceful Sunrise & Grace',
+    description: 'Early morning mountain dawn, serene covenant aesthetic',
+    bgImage: 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?auto=format&fit=crop&w=1200&q=80',
+    overlayGradient: 'from-blue-950/90 via-black/60 to-black/90',
+    accentColor: 'text-sky-300',
+    badgeBg: 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+  },
+  {
+    id: 'modern_bold',
+    name: 'Modern Minimalist Gospel',
+    description: 'High-contrast studio dark, bold serif typography card',
+    bgImage: 'https://images.unsplash.com/photo-1519834785169-98be25ec3f84?auto=format&fit=crop&w=1200&q=80',
+    overlayGradient: 'from-slate-950/95 via-slate-900/80 to-black/95',
+    accentColor: 'text-emerald-300',
+    badgeBg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+  }
+];
+
+export interface CreatePageProps {
+  currentUser?: UserSession;
+  initialAction?: StudioAction;
+  initialUploadSource?: UploadMode;
   onPublishSuccess: (newStream: VideoStream) => void;
   onCancel: () => void;
 }
@@ -94,7 +220,7 @@ export interface ChurchCampusItem {
   isMain: boolean;
 }
 
-// 🌐 Predefined Social Media Links Structure (Matching exact user screenshot design)
+// 🌐 Predefined Social Media Links Structure
 export interface SocialPlatformRow {
   id: string;
   platform: 'tiktok' | 'substack' | 'twitter' | 'linkedin' | 'facebook' | 'instagram' | 'medium' | 'revue' | 'youtube' | 'buymeacoffee' | 'spotify' | 'telegram' | 'whatsapp' | 'website' | 'custom';
@@ -107,64 +233,268 @@ export interface SocialPlatformRow {
   customLabel?: string;
 }
 
-export default function CreatePage({ onPublishSuccess, onCancel }: CreatePageProps) {
-  const [selectedCategory, setSelectedCategory] = useState<CreatorCategory>('Church');
+const CREATOR_TYPE_CONFIG: Record<CreatorCategory, {
+  label: string;
+  badge: string;
+  icon: any;
+  color: string;
+  badgeColor: string;
+}> = {
+  Church: {
+    label: 'Church / Ministry',
+    badge: 'Ministry Account',
+    icon: Building2,
+    color: 'text-amber-400',
+    badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+  },
+  Artiste: {
+    label: 'Gospel Artiste',
+    badge: 'Artiste Account',
+    icon: Music2,
+    color: 'text-red-400',
+    badgeColor: 'bg-red-500/20 text-red-300 border-red-500/30',
+  },
+  Creator: {
+    label: 'Gospel Creator',
+    badge: 'Creator Account',
+    icon: Mic,
+    color: 'text-blue-400',
+    badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+  },
+  Radio: {
+    label: 'Gospel Media / Radio',
+    badge: 'Radio & Media Account',
+    icon: Radio,
+    color: 'text-emerald-400',
+    badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+  }
+};
+
+export default function CreatePage({ 
+  currentUser, 
+  initialAction = 'choose',
+  initialUploadSource = 'device',
+  onPublishSuccess, 
+  onCancel 
+}: CreatePageProps) {
+  // Current studio action mode: 'choose' | 'upload' | 'live' | 'schedule' | 'live_control_room' | 'dashboard' | 'content' | 'analytics' | 'community' | 'giving' | 'settings'
+  const [studioAction, setStudioAction] = useState<StudioAction>(initialAction);
+  const [uploadMode, setUploadMode] = useState<UploadMode>(initialUploadSource);
+
+  // Studio Navigation Tab: 'overview' | 'dashboard' | 'content' | 'live_hub' | 'schedule_hub' | 'analytics' | 'community' | 'giving' | 'settings'
+  const [studioNavTab, setStudioNavTab] = useState<'overview' | 'dashboard' | 'content' | 'live_hub' | 'schedule_hub' | 'analytics' | 'community' | 'giving' | 'settings'>('overview');
+
+  // Sub-tabs
+  const [contentSubTab, setContentSubTab] = useState<'videos' | 'shorts' | 'drafts' | 'scheduled'>('videos');
+  const [liveSubTab, setLiveSubTab] = useState<'go_live' | 'streams' | 'recordings'>('go_live');
+  const [communitySubTab, setCommunitySubTab] = useState<'comments' | 'prayers' | 'chat'>('comments');
+
+  // Sync props if initialAction/initialUploadSource changes
+  useEffect(() => {
+    if (initialAction) {
+      if (['dashboard', 'content', 'analytics', 'community', 'giving', 'settings'].includes(initialAction)) {
+        setStudioNavTab(initialAction as any);
+        setStudioAction('choose');
+      } else if (initialAction === 'schedule') {
+        setStudioAction('schedule');
+        setStudioNavTab('schedule_hub');
+      } else if (initialAction === 'live' || initialAction === 'live_control_room') {
+        setStudioAction(initialAction);
+        setStudioNavTab('live_hub');
+      } else if (initialAction === 'upload') {
+        setStudioAction('upload');
+      } else {
+        setStudioAction('choose');
+        setStudioNavTab('overview');
+      }
+    }
+  }, [initialAction]);
+
+  useEffect(() => {
+    if (initialUploadSource) setUploadMode(initialUploadSource);
+  }, [initialUploadSource]);
+
+  // VOD modal state for recording publish
+  const [activeVODModalData, setActiveVODModalData] = useState<RecordedStreamData | null>(null);
+
+  // External Import fields
+  const [youtubeImportUrl, setYoutubeImportUrl] = useState('');
+  const [videoDirectUrl, setVideoDirectUrl] = useState('');
+  const [isImportingExternal, setIsImportingExternal] = useState(false);
+  const [externalImportError, setExternalImportError] = useState<string | null>(null);
+
+  // Derive profile directly from currentUser session
+  const initialCategory: CreatorCategory = (currentUser?.creatorType === 'artiste' ? 'Artiste' :
+    currentUser?.creatorType === 'creator' ? 'Creator' :
+    currentUser?.creatorType === 'radio' ? 'Radio' : 'Church');
+
+  const [selectedCategory, setSelectedCategory] = useState<CreatorCategory>(initialCategory);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [createdStream, setCreatedStream] = useState<VideoStream | null>(null);
-  const [activePortalTab, setActivePortalTab] = useState<'overview' | 'broadcast' | 'campuses' | 'socials' | 'payouts' | 'prayers' | 'analytics'>('overview');
+  const [activePortalTab, setActivePortalTab] = useState<'overview' | 'broadcast' | 'campuses' | 'socials' | 'payouts' | 'prayers'>('overview');
   const [copiedKey, setCopiedKey] = useState(false);
-  const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
-  // Common Registration Fields
-  const [contactEmail, setContactEmail] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [agreeTerms, setAgreeTerms] = useState(true);
+  // Active Ministry / Account Details
+  const ministryName = currentUser?.ministryName || currentUser?.churchName || 'Grace City Cathedral';
+  const ownerName = currentUser?.fullName || 'Senior Pastor David Lawson';
+  const avatarUrl = currentUser?.avatarUrl || currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80';
 
-  // 💳 1. MULTIPLE GIVING & PAYOUT ACCOUNTS STATE
-  const [payoutAccounts, setPayoutAccounts] = useState<PayoutAccountItem[]>([]);
+  // Common Fields
+  const [contactEmail, setContactEmail] = useState(currentUser?.email || 'broadcast@gracecity.org');
+  const [phoneNumber, setPhoneNumber] = useState('+1 (800) 555-7700');
 
-  // 🌐 2. MULTIPLE SOCIAL MEDIA LINKS STATE
+  // -------------------------------------------------------------
+  // 📤 1. UPLOAD VIDEO MULTI-STEP WORKFLOW STATE
+  // -------------------------------------------------------------
+  const [uploadStep, setUploadStep] = useState<UploadStep>('select');
+  const [selectedFile, setSelectedFile] = useState<{
+    name: string;
+    sizeFormatted: string;
+    sizeBytes: number;
+    type: string;
+  } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Upload progress simulation state (Direct creator upload / Cloudflare Stream resumable session)
+  const [uploadProgressPercent, setUploadProgressPercent] = useState(0);
+  const [uploadedBytes, setUploadedBytes] = useState(0);
+  const [totalBytes, setTotalBytes] = useState(1.8 * 1024 * 1024 * 1024); // default ~1.8 GB
+  const [uploadSpeed, setUploadSpeed] = useState('18.4 MB/s');
+  const [isUploadPaused, setIsUploadPaused] = useState(false);
+
+  // Video processing stages state
+  const [processingPercent, setProcessingPercent] = useState(0);
+  const [processingStepIndex, setProcessingStepIndex] = useState(0);
+
+  // Video Details form state (Step 4)
+  const [uploadTitle, setUploadTitle] = useState('Sunday Worship Service — Walking by Faith');
+  const [uploadDescription, setUploadDescription] = useState('Join us for today\'s worship service uncovering biblical revelation, powerful intercession, and how faith anchors the believer in all seasons.');
+  const [uploadSpeaker, setUploadSpeaker] = useState(ownerName);
+  const [uploadMinistry, setUploadMinistry] = useState(ministryName);
+  const [uploadCategory, setUploadCategory] = useState<'Sermons' | 'Worship & Praise' | 'Bible Study' | 'Gospel Music' | 'Youth & Family' | 'Healing & Miracles'>('Sermons');
+  const [tagsInput, setTagsInput] = useState('faith, prayer, worship, sunday-service, grace');
+  const [uploadScripture, setUploadScripture] = useState('Isaiah 40:31');
+  const [keyTakeaways, setKeyTakeaways] = useState<string[]>([
+    'Trust God during difficult seasons and rely on His sovereign timing.',
+    'Renew your faith daily through intentional scripture prayer and fellowship.',
+    'Wait upon the Lord and your strength will be miraculously renewed.'
+  ]);
+  const [newTakeawayInput, setNewTakeawayInput] = useState('');
+  
+  // 🖼️ Step 5: Thumbnail Studio State
+  const [uploadThumbnail, setUploadThumbnail] = useState('https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80');
+  const [thumbnailMode, setThumbnailMode] = useState<'ai' | 'frames' | 'upload'>('ai');
+  const [selectedFrameIndex, setSelectedFrameIndex] = useState(0);
+  const [selectedAiPresetId, setSelectedAiPresetId] = useState('cathedral_gold');
+  const [aiOverlayTitle, setAiOverlayTitle] = useState('WALKING BY FAITH');
+  const [aiOverlaySpeaker, setAiOverlaySpeaker] = useState('Pastor John');
+  const [aiOverlayMinistry, setAiOverlayMinistry] = useState('Grace City Cathedral');
+  const [aiOverlayVerse, setAiOverlayVerse] = useState('ISAIAH 40:31');
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [aiAppliedSuccess, setAiAppliedSuccess] = useState(false);
+  const [customThumbnailInput, setCustomThumbnailInput] = useState('');
+  const thumbnailFileInputRef = useRef<HTMLInputElement>(null);
+
+  // 👥 Step 6: Audience & Visibility State
+  const [videoVisibility, setVideoVisibility] = useState<'public' | 'private' | 'unlisted'>('public');
+  const [audienceKidsOption, setAudienceKidsOption] = useState<'all_ages' | 'made_for_kids'>('all_ages');
+  const [isFaithPolicyConfirmed, setIsFaithPolicyConfirmed] = useState(true);
+  const [isCopyrightConfirmed, setIsCopyrightConfirmed] = useState(true);
+
+  // 🚀 Step 7: Publish Options State
+  const [publishActionOption, setPublishActionOption] = useState<'publish_now' | 'schedule' | 'save_draft'>('publish_now');
+  const [publishScheduledDate, setPublishScheduledDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 4);
+    return d.toISOString().split('T')[0];
+  });
+  const [publishScheduledTime, setPublishScheduledTime] = useState('10:00');
+  const [publishScheduledTimezone, setPublishScheduledTimezone] = useState('Africa/Kampala (EAT - UTC+3)');
+  const [publishNotifyFollowers, setPublishNotifyFollowers] = useState(true);
+
+  // 🔴 2. GO LIVE STATE (Broadcast live service/event)
+  // Step in Go Live flow: 'setup' | 'credentials'
+  const [liveSetupStep, setLiveSetupStep] = useState<'setup' | 'credentials'>('setup');
+  
+  // What are you broadcasting? options: 'Sunday Service' | 'Bible Study' | 'Prayer' | 'Worship' | 'Conference' | 'Other'
+  const [broadcastType, setBroadcastType] = useState<LiveBroadcastType>('Sunday Service');
+  const [liveTitle, setLiveTitle] = useState('Sunday Morning Celebration Service & Prophetic Worship');
+  const [liveDescription, setLiveDescription] = useState('Join our live church congregation now for an anointed atmosphere of worship, intercession, and the revelatory Word.');
+  const [liveCategory, setLiveCategory] = useState<string>('Live Worship');
+  const [liveSpeaker, setLiveSpeaker] = useState(ownerName);
+  const [liveScripture, setLiveScripture] = useState('Isaiah 40:29-31');
+
+  // Gospread Generated Live-Stream Credentials (RTMPS & Stream Key)
+  const [rtmpServerUrl, setRtmpServerUrl] = useState('rtmps://live.gospread.com/live');
+  const [liveStreamKey, setLiveStreamKey] = useState(() => {
+    const slug = (currentUser?.ministryName || currentUser?.churchName || 'gracecity').toLowerCase().replace(/[^a-z0-9]/g, '');
+    return `live_${slug}_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString().slice(-4)}`;
+  });
+  const [showStreamKey, setShowStreamKey] = useState(false);
+  const [copiedServer, setCopiedServer] = useState(false);
+  const [copiedStreamKey, setCopiedStreamKey] = useState(false);
+  const [isGeneratingCredentials, setIsGeneratingCredentials] = useState(false);
+
+  // Encoder Guide Tab: 'obs' | 'streamlabs' | 'vmix' | 'wirecast' | 'hardware'
+  const [activeEncoderTab, setActiveEncoderTab] = useState<'obs' | 'streamlabs' | 'vmix' | 'wirecast' | 'hardware'>('obs');
+  
+  // Live broadcast active stream simulation
+  const [isLiveSignalDetected, setIsLiveSignalDetected] = useState(true);
+  const [enableLiveChat, setEnableLiveChat] = useState(true);
+  const [enablePrayerAltar, setEnablePrayerAltar] = useState(true);
+  const [enableGivingOverlay, setEnableGivingOverlay] = useState(true);
+
+  // 📅 3. SCHEDULE BROADCAST STATE (Future release)
+  const [scheduleTitle, setScheduleTitle] = useState('Midweek Word & Power Encounter');
+  const [scheduleSpeaker, setScheduleSpeaker] = useState(ownerName);
+  const [scheduleDate, setScheduleDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    return d.toISOString().split('T')[0];
+  });
+  const [scheduleTime, setScheduleTime] = useState('19:00');
+  const [scheduleTimezone, setScheduleTimezone] = useState('EST (UTC-5)');
+  const [scheduleType, setScheduleType] = useState<'Live Broadcast Premiere' | 'Prerecorded Video Premiere' | 'Prayer Summit'>('Live Broadcast Premiere');
+  const [scheduleScripture, setScheduleScripture] = useState('Romans 8:28');
+  const [scheduleDescription, setScheduleDescription] = useState('Set your reminder! Join believers worldwide for this scheduled Kingdom broadcast and communion.');
+  const [notifySubscribers, setNotifySubscribers] = useState(true);
+
+  // 💳 GIVING & PAYOUT ACCOUNTS STATE
+  const [payoutAccounts, setPayoutAccounts] = useState<PayoutAccountItem[]>([
+    {
+      id: 'payout-1',
+      label: 'Main Tithes & Offerings',
+      type: 'Direct Bank Wire',
+      currency: 'USD ($)',
+      accountHolder: ministryName,
+      bankOrProvider: 'Kingdom Sanctuary Trust',
+      accountNumber: '•••• 8829',
+      routingOrSwift: 'WFBIUS6S',
+      isPrimary: true
+    },
+    {
+      id: 'payout-2',
+      label: 'Global Missions & Media Outreach',
+      type: 'Stripe Connect',
+      currency: 'USD ($)',
+      accountHolder: `${ministryName} Missions`,
+      bankOrProvider: 'Stripe Connect',
+      accountNumber: 'acct_1KingdomMissions',
+      routingOrSwift: 'STRIPE_GLOBAL',
+      isPrimary: false
+    }
+  ]);
+
+  // 🌐 SOCIAL MEDIA CHANNELS STATE
   const [socialRows, setSocialRows] = useState<SocialPlatformRow[]>([
     {
-      id: 'soc-tiktok',
-      platform: 'tiktok',
-      name: 'TikTok',
-      prefix: 'https://www.tiktok.com/@',
-      placeholder: 'your username',
-      username: ''
-    },
-    {
-      id: 'soc-substack',
-      platform: 'substack',
-      name: 'Substack',
-      prefix: 'https://',
-      suffix: '.substack.com/',
-      placeholder: 'publication-name',
-      username: ''
-    },
-    {
-      id: 'soc-twitter',
-      platform: 'twitter',
-      name: 'Twitter / X',
-      prefix: 'twitter.com/',
-      placeholder: 'your username',
-      username: ''
-    },
-    {
-      id: 'soc-linkedin',
-      platform: 'linkedin',
-      name: 'LinkedIn',
-      prefix: 'linkedin.com/in/',
-      placeholder: 'your username or company',
-      username: ''
-    },
-    {
-      id: 'soc-facebook',
-      platform: 'facebook',
-      name: 'Facebook',
-      prefix: 'facebook.com/',
-      placeholder: 'your username',
-      username: ''
+      id: 'soc-youtube',
+      platform: 'youtube',
+      name: 'YouTube',
+      prefix: 'youtube.com/@',
+      placeholder: 'channel handle',
+      username: ministryName.toLowerCase().replace(/[^a-z0-9]/g, '')
     },
     {
       id: 'soc-instagram',
@@ -172,63 +502,7 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
       name: 'Instagram',
       prefix: 'instagram.com/',
       placeholder: 'your username',
-      username: ''
-    },
-    {
-      id: 'soc-medium',
-      platform: 'medium',
-      name: 'Medium',
-      prefix: 'medium.com/@',
-      placeholder: 'your username',
-      username: ''
-    },
-    {
-      id: 'soc-revue',
-      platform: 'revue',
-      name: 'Threads / Newsletter',
-      prefix: 'threads.net/@',
-      placeholder: 'your username',
-      username: ''
-    },
-    {
-      id: 'soc-youtube',
-      platform: 'youtube',
-      name: 'YouTube',
-      prefix: 'youtube.com/@',
-      placeholder: 'channel handle or UCZcY...',
-      username: ''
-    },
-    {
-      id: 'soc-buymeacoffee',
-      platform: 'buymeacoffee',
-      name: 'Seed Offering / Support',
-      prefix: 'buymeacoffee.com/',
-      placeholder: 'ministry_handle',
-      username: ''
-    },
-    {
-      id: 'soc-spotify',
-      platform: 'spotify',
-      name: 'Spotify',
-      prefix: 'open.spotify.com/artist/',
-      placeholder: 'artist or playlist ID',
-      username: ''
-    },
-    {
-      id: 'soc-telegram',
-      platform: 'telegram',
-      name: 'Telegram Prayer Line',
-      prefix: 't.me/',
-      placeholder: 'channel or prayer altar',
-      username: ''
-    },
-    {
-      id: 'soc-whatsapp',
-      platform: 'whatsapp',
-      name: 'WhatsApp Intercession',
-      prefix: 'wa.me/',
-      placeholder: 'country code + number',
-      username: ''
+      username: ministryName.toLowerCase().replace(/[^a-z0-9]/g, '')
     },
     {
       id: 'soc-website',
@@ -236,143 +510,144 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
       name: 'Official Ministry Website',
       prefix: 'https://',
       placeholder: 'www.gracechurch.org',
-      username: ''
+      username: `www.${ministryName.toLowerCase().replace(/[^a-z0-9]/g, '')}.org`
     }
   ]);
 
-  // ⛪ 3. MULTIPLE CHURCH LOCATIONS & CAMPUSES STATE (OPTIONAL)
+  // ⛪ CHURCH CAMPUSES / LOCATIONS
   const [enableCampuses, setEnableCampuses] = useState(true);
-  const [churchCampuses, setChurchCampuses] = useState<ChurchCampusItem[]>([]);
+  const [churchCampuses, setChurchCampuses] = useState<ChurchCampusItem[]>([
+    {
+      id: 'camp-main',
+      campusName: `${ministryName} Main Sanctuary`,
+      campusType: 'Main Sanctuary',
+      address: '777 Grace Boulevard, Suite 100',
+      city: 'Atlanta',
+      stateOrRegion: 'GA',
+      country: 'United States',
+      zipCode: '30303',
+      serviceTimes: 'Sundays: 9:00 AM & 11:30 AM EST • Midweek: Weds 7:00 PM',
+      leadPastor: ownerName,
+      phone: phoneNumber,
+      email: contactEmail,
+      googleMapsUrl: `https://maps.google.com/?q=${encodeURIComponent(ministryName + ' Atlanta GA')}`,
+      isMain: true
+    }
+  ]);
 
-  // ⛪ Church Registration State
-  const [churchName, setChurchName] = useState('');
-  const [pastorName, setPastorName] = useState('');
-  const [denomination, setDenomination] = useState('Non-Denominational / Evangelical');
-  const [churchServiceType, setChurchServiceType] = useState('Live Worship');
-  const [sermonTitle, setSermonTitle] = useState('');
-  const [churchStreamUrl, setChurchStreamUrl] = useState('');
-  const [churchScripture, setChurchScripture] = useState('');
-  const [churchDescription, setChurchDescription] = useState('');
-  const [enableLiveChat, setEnableLiveChat] = useState(true);
-  const [enablePrayerBox, setEnablePrayerBox] = useState(true);
-
-  // 🎵 Artiste Registration State
-  const [artistName, setArtistName] = useState('');
-  const [recordLabel, setRecordLabel] = useState('');
-  const [musicGenre, setMusicGenre] = useState('Contemporary Worship');
-  const [trackTitle, setTrackTitle] = useState('');
-  const [musicCategory, setMusicCategory] = useState<'Live Worship' | 'Gospel Music' | 'Choir Special'>('Gospel Music');
-  const [musicMediaUrl, setMusicMediaUrl] = useState('');
-  const [musicThumbnail, setMusicThumbnail] = useState('');
-  const [musicInspiration, setMusicInspiration] = useState('');
-  const [musicLyrics, setMusicLyrics] = useState('');
-
-  // 🎙️ Creator Registration State
-  const [creatorName, setCreatorName] = useState('');
-  const [creatorNiche, setCreatorNiche] = useState('Gospel Podcast');
-  const [creatorBio, setCreatorBio] = useState('');
-  const [episodeTitle, setEpisodeTitle] = useState('');
-  const [episodeNumber, setEpisodeNumber] = useState('');
-  const [creatorMediaUrl, setCreatorMediaUrl] = useState('');
-  const [featuredGuests, setFeaturedGuests] = useState('');
-  const [episodeKeyTakeaways, setEpisodeKeyTakeaways] = useState('');
-  const [studyGuideUrl, setStudyGuideUrl] = useState('');
-
-  // Interactive Post-Registration Prayer Requests State
-  const [prayerRequests, setPrayerRequests] = useState<PrayerRequest[]>([]);
-
+  // Prayer Wall Items
+  const [prayerRequests, setPrayerRequests] = useState<PrayerRequest[]>([
+    {
+      id: 'p-1',
+      name: 'Sister Mary (London)',
+      request: 'Praying for complete healing for my mother during upcoming surgery.',
+      time: '10 mins ago',
+      prayedCount: 14,
+      status: 'Prayed'
+    },
+    {
+      id: 'p-2',
+      name: 'Brother Emmanuel (Nairobi)',
+      request: 'Seeking guidance and favor for gospel mission outreach this weekend.',
+      time: '25 mins ago',
+      prayedCount: 8,
+      status: 'Pending'
+    }
+  ]);
   const [newPrayerInput, setNewPrayerInput] = useState('');
 
-  // Payout Account Actions
-  const addPayoutAccount = () => {
-    setPayoutAccounts(prev => [
-      ...prev,
-      {
-        id: `payout-${Date.now()}`,
-        label: `Giving Account #${prev.length + 1}`,
-        type: 'Direct Bank Wire',
-        currency: 'USD ($)',
-        accountHolder: churchName || 'Ministry Payout Account',
-        bankOrProvider: '',
-        accountNumber: '',
-        routingOrSwift: '',
-        isPrimary: false
-      }
-    ]);
+  // Keep state synchronized with logged in user session
+  useEffect(() => {
+    if (currentUser?.fullName) {
+      setUploadSpeaker(currentUser.fullName);
+      setLiveSpeaker(currentUser.fullName);
+      setScheduleSpeaker(currentUser.fullName);
+    }
+    if (currentUser?.ministryName || currentUser?.churchName) {
+      setUploadMinistry(currentUser.ministryName || currentUser.churchName || 'Grace City Cathedral');
+    }
+  }, [currentUser]);
+
+  // Handle Direct Video Upload Simulation
+  useEffect(() => {
+    let timer: any;
+    if (uploadStep === 'uploading' && !isUploadPaused) {
+      timer = setInterval(() => {
+        setUploadProgressPercent(prev => {
+          if (prev >= 100) {
+            clearInterval(timer);
+            setUploadStep('processing');
+            return 100;
+          }
+          const next = prev + Math.floor(Math.random() * 6) + 4;
+          const capped = Math.min(next, 100);
+          setUploadedBytes(Math.floor((capped / 100) * totalBytes));
+          return capped;
+        });
+      }, 350);
+    }
+    return () => clearInterval(timer);
+  }, [uploadStep, isUploadPaused, totalBytes]);
+
+  // Handle Cloud Transcoding & Metadata Processing Simulation
+  useEffect(() => {
+    let procTimer: any;
+    if (uploadStep === 'processing') {
+      procTimer = setInterval(() => {
+        setProcessingPercent(prev => {
+          if (prev >= 100) {
+            clearInterval(procTimer);
+            setTimeout(() => {
+              setUploadStep('details');
+            }, 600);
+            return 100;
+          }
+          const next = prev + 5;
+          const capped = Math.min(next, 100);
+          if (capped > 20 && capped <= 45) setProcessingStepIndex(1);
+          else if (capped > 45 && capped <= 75) setProcessingStepIndex(2);
+          else if (capped > 75) setProcessingStepIndex(3);
+          return capped;
+        });
+      }, 200);
+    }
+    return () => clearInterval(procTimer);
+  }, [uploadStep]);
+
+  const handleCopyServerUrl = () => {
+    navigator.clipboard?.writeText(rtmpServerUrl);
+    setCopiedServer(true);
+    setTimeout(() => setCopiedServer(false), 2000);
   };
 
-  const removePayoutAccount = (id: string) => {
-    setPayoutAccounts(prev => prev.filter(p => p.id !== id));
+  const handleCopyLiveStreamKey = () => {
+    navigator.clipboard?.writeText(liveStreamKey);
+    setCopiedStreamKey(true);
+    setTimeout(() => setCopiedStreamKey(false), 2000);
   };
 
-  const updatePayoutAccount = (id: string, field: keyof PayoutAccountItem, value: any) => {
-    setPayoutAccounts(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
+  const handleRegenerateStreamKey = () => {
+    const slug = (currentUser?.ministryName || currentUser?.churchName || 'gracecity').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const newKey = `live_${slug}_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString().slice(-4)}`;
+    setLiveStreamKey(newKey);
+    setCopiedStreamKey(false);
   };
 
-  const setPrimaryPayoutAccount = (id: string) => {
-    setPayoutAccounts(prev => prev.map(p => ({ ...p, isPrimary: p.id === id })));
+  // Handler to progress from Setup Form to Gospread Generated Live Credentials
+  const handleStartLiveSetup = (e: FormEvent) => {
+    e.preventDefault();
+    setIsGeneratingCredentials(true);
+    setTimeout(() => {
+      setIsGeneratingCredentials(false);
+      setLiveSetupStep('credentials');
+    }, 600);
   };
 
-  // Social Links Actions
-  const updateSocialUsername = (id: string, username: string) => {
-    setSocialRows(prev => prev.map(s => s.id === id ? { ...s, username } : s));
+  const handleCopyStreamKey = () => {
+    setCopiedKey(true);
+    setTimeout(() => setCopiedKey(false), 2000);
   };
 
-  const addCustomSocialLink = () => {
-    setSocialRows(prev => [
-      ...prev,
-      {
-        id: `soc-custom-${Date.now()}`,
-        platform: 'custom',
-        name: 'Custom Web Link',
-        prefix: 'https://',
-        placeholder: 'your-custom-link.org',
-        username: '',
-        customLabel: 'Custom Channel'
-      }
-    ]);
-  };
-
-  const removeSocialLink = (id: string) => {
-    setSocialRows(prev => prev.filter(s => s.id !== id));
-  };
-
-  // Church Campus Actions
-  const addChurchCampus = () => {
-    setChurchCampuses(prev => [
-      ...prev,
-      {
-        id: `camp-${Date.now()}`,
-        campusName: `New Campus Location #${prev.length + 1}`,
-        campusType: 'Branch Sanctuary',
-        address: '',
-        city: '',
-        stateOrRegion: '',
-        country: 'United States',
-        zipCode: '',
-        serviceTimes: 'Sundays: 10:00 AM',
-        leadPastor: '',
-        phone: '',
-        email: '',
-        googleMapsUrl: '',
-        isMain: false
-      }
-    ]);
-  };
-
-  const removeChurchCampus = (id: string) => {
-    setChurchCampuses(prev => prev.filter(c => c.id !== id));
-  };
-
-  const updateChurchCampus = (id: string, field: keyof ChurchCampusItem, value: any) => {
-    setChurchCampuses(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
-  };
-
-  const setMainCampus = (id: string) => {
-    setChurchCampuses(prev => prev.map(c => ({ ...c, isMain: c.id === id })));
-  };
-
-  // Intercession prayers handler
   const handlePrayForRequest = (id: string) => {
     setPrayerRequests(prev => prev.map(p => {
       if (p.id === id) {
@@ -391,7 +666,7 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
     if (!newPrayerInput.trim()) return;
     const newP: PrayerRequest = {
       id: `p-${Date.now()}`,
-      name: 'Congregation Intercession',
+      name: `${ownerName} (Pastoral Altar)`,
       request: newPrayerInput,
       time: 'Just now',
       prayedCount: 1,
@@ -401,123 +676,323 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
     setNewPrayerInput('');
   };
 
-  // Form Submit Handler
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-
-    let newVideo: VideoStream;
-    const mainCampus = churchCampuses.find(c => c.isMain) || churchCampuses[0];
-
-    // Format Social Links for data model
+  // Convert Socials & Locations for Global Store
+  const prepareGlobalRegistration = () => {
     const convertedSocials: SocialLink[] = socialRows
       .filter(r => r.username.trim().length > 0)
-      .map(r => {
-        let fullUrl = '';
-        if (r.platform === 'substack') {
-          fullUrl = `https://${r.username}.substack.com`;
-        } else if (r.platform === 'tiktok') {
-          fullUrl = r.username.startsWith('http') ? r.username : `https://www.tiktok.com/@${r.username.replace('@', '')}`;
-        } else if (r.platform === 'website') {
-          fullUrl = r.username.startsWith('http') ? r.username : `https://${r.username}`;
-        } else {
-          fullUrl = r.username.startsWith('http') ? r.username : `https://${r.prefix}${r.username}`;
-        }
+      .map(r => ({
+        platform: (r.platform === 'custom' || r.platform === 'revue' ? 'website' : r.platform) as any,
+        label: r.name,
+        url: r.username.startsWith('http') ? r.username : `https://${r.prefix}${r.username}`,
+        handle: r.username.startsWith('@') ? r.username : `@${r.username}`,
+        followers: 'Official Verified Link',
+        isPrimary: true
+      }));
 
-        return {
-          platform: (r.platform === 'custom' || r.platform === 'revue' ? 'website' : r.platform) as any,
-          label: r.name,
-          url: fullUrl,
-          handle: r.username.startsWith('@') ? r.username : `@${r.username}`,
-          followers: 'Official Verified Link',
-          isPrimary: true
-        };
-      });
-
-    // Format Church Locations for data model (Optional & Google Maps Focused)
     const convertedLocations: ChurchLocation[] = (enableCampuses ? churchCampuses : [])
       .filter(c => c.campusName.trim().length > 0 || c.googleMapsUrl.trim().length > 0)
       .map(c => ({
         id: c.id,
-        churchName: churchName,
-        campusName: c.campusName || 'Worship Campus',
+        churchName: ministryName,
+        campusName: c.campusName || 'Main Sanctuary',
         isMainCampus: c.isMain,
-        address: c.address || (c.googleMapsUrl ? 'Google Maps Location' : 'Main Church Sanctuary'),
-        city: c.city || 'Global',
-        stateOrRegion: c.stateOrRegion || '',
-        country: c.country || 'Global',
+        address: c.address || 'Sanctuary Campus',
+        city: c.city || 'Atlanta',
+        stateOrRegion: c.stateOrRegion || 'GA',
+        country: c.country || 'USA',
         zipCode: c.zipCode || '',
-        leadPastor: c.leadPastor || pastorName || 'Senior Pastors & Leadership',
-        phone: c.phone || phoneNumber || '+1 (800) 555-7700',
-        email: c.email || contactEmail || 'contact@church.org',
-        googleMapsUrl: c.googleMapsUrl || `https://maps.google.com/?q=${encodeURIComponent(c.campusName || churchName)}`,
+        leadPastor: c.leadPastor || ownerName,
+        phone: c.phone || phoneNumber,
+        email: c.email || contactEmail,
+        googleMapsUrl: c.googleMapsUrl || `https://maps.google.com/?q=${encodeURIComponent(c.campusName || ministryName)}`,
         serviceTimes: c.serviceTimes ? [c.serviceTimes] : ['Sundays: 9:00 AM & 11:30 AM EST'],
-        features: ['Main Worship Sanctuary', 'Google Maps Live Navigation', 'Prayer Altar'],
-        image: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=800&q=80'
+        features: ['Main Sanctuary', 'Google Maps Navigation', 'Prayer Altar', 'Giving Payouts Active'],
+        image: avatarUrl
       }));
 
-    if (selectedCategory === 'Church') {
-      newVideo = {
-        id: `church-${Date.now()}`,
-        title: sermonTitle || 'Live Sunday Worship & Word',
-        speakerOrArtist: pastorName || 'Senior Pastor David Lawson',
-        churchOrMinistry: churchName || 'Grace Fellowship Cathedral',
-        channelAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-        subscribersCount: '18.4K Members',
-        likesCount: '3.2K',
-        category: churchServiceType === 'Bible Study' ? 'Bible Study' : 'Live Worship',
-        isLive: true,
-        viewersCount: 780,
-        viewsText: '780 online members worshipping now',
-        thumbnail: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
-        description: churchDescription || `Official service stream from ${churchName} (${mainCampus?.city || 'Atlanta'}, ${mainCampus?.country || 'USA'}).`,
-        bibleVerse: churchScripture || 'Ephesians 2:8-10',
-        date: 'Streaming Live Now'
-      };
+    registerChurchProfile(ministryName, convertedLocations, convertedSocials);
+  };
 
-      // Register into global store
-      registerChurchProfile(churchName, convertedLocations, convertedSocials);
+  // File Selector Handler
+  const handleFileChosen = (file: File) => {
+    const sizeInGB = (file.size / (1024 * 1024 * 1024)).toFixed(1);
+    const sizeFormatted = file.size > 1024 * 1024 * 1024 
+      ? `${sizeInGB} GB` 
+      : `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
 
-    } else if (selectedCategory === 'Artiste') {
-      newVideo = {
-        id: `artiste-${Date.now()}`,
-        title: trackTitle || 'Anointed Praise & Worship Single',
-        speakerOrArtist: artistName || 'Gospel Vocalist',
-        churchOrMinistry: recordLabel ? `${artistName} • ${recordLabel}` : artistName || 'Gospel Artiste',
-        channelAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
-        subscribersCount: '32K Listeners',
-        likesCount: '4.8K',
-        category: musicCategory,
-        isLive: false,
-        duration: '05:42',
-        viewsText: 'Verified Single Release',
-        thumbnail: musicThumbnail || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80',
-        description: musicInspiration || `New Kingdom music release from ${artistName}. Genre: ${musicGenre}.`,
-        bibleVerse: 'Psalm 150:6 - Let everything that has breath praise the LORD.',
-        date: 'Newly Registered Release'
-      };
-
-      registerChurchProfile(artistName, undefined, convertedSocials);
-
-    } else {
-      newVideo = {
-        id: `creator-${Date.now()}`,
-        title: `${episodeTitle || 'Kingdom Growth Discussion'} (${episodeNumber})`,
-        speakerOrArtist: creatorName || 'Faith Podcaster',
-        churchOrMinistry: `${creatorName} Official Channel`,
-        channelAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80',
-        subscribersCount: '10.2K Subscribers',
-        likesCount: '1.5K',
-        category: creatorNiche === 'Bible Commentary' ? 'Bible Study' : 'Sermon',
-        isLive: false,
-        duration: '32:10',
-        viewsText: 'Just posted',
-        thumbnail: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&w=800&q=80',
-        description: episodeKeyTakeaways || `${creatorBio || 'Faith-filled content for spiritual growth.'}`,
-        date: 'Just published'
-      };
-
-      registerChurchProfile(creatorName, undefined, convertedSocials);
+    setSelectedFile({
+      name: file.name,
+      sizeFormatted,
+      sizeBytes: file.size,
+      type: file.type || 'video/mp4'
+    });
+    setTotalBytes(file.size || 1.8 * 1024 * 1024 * 1024);
+    setUploadedBytes(0);
+    setUploadProgressPercent(0);
+    setProcessingPercent(0);
+    setProcessingStepIndex(0);
+    
+    // Suggest Title from file name if generic
+    const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+    if (cleanName.length > 3) {
+      setUploadTitle(cleanName.charAt(0).toUpperCase() + cleanName.slice(1));
     }
+
+    setUploadStep('uploading');
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFileChosen(e.target.files[0]);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileChosen(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  // Quick Mock File Selection for testing/demonstration
+  const handleMockFileSelect = (fileName: string, sizeGb: number) => {
+    const bytes = sizeGb * 1024 * 1024 * 1024;
+    setSelectedFile({
+      name: fileName,
+      sizeFormatted: `${sizeGb.toFixed(1)} GB`,
+      sizeBytes: bytes,
+      type: 'video/mp4'
+    });
+    setTotalBytes(bytes);
+    setUploadedBytes(0);
+    setUploadProgressPercent(0);
+    setProcessingPercent(0);
+    setProcessingStepIndex(0);
+    setUploadStep('uploading');
+  };
+
+  // Add Key Takeaway
+  const handleAddTakeaway = (e: FormEvent) => {
+    e.preventDefault();
+    if (!newTakeawayInput.trim()) return;
+    setKeyTakeaways([...keyTakeaways, newTakeawayInput.trim()]);
+    setNewTakeawayInput('');
+  };
+
+  const handleRemoveTakeaway = (idx: number) => {
+    setKeyTakeaways(keyTakeaways.filter((_, i) => i !== idx));
+  };
+
+  // Trigger Custom Thumbnail File Upload
+  const handleThumbnailFileChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setUploadThumbnail(event.target.result as string);
+          setThumbnailMode('upload');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Generate Thumbnail with AI
+  const handleGenerateAiThumbnail = () => {
+    setIsAiGenerating(true);
+    setTimeout(() => {
+      setIsAiGenerating(false);
+      const activePreset = AI_THUMBNAIL_PRESETS.find(p => p.id === selectedAiPresetId) || AI_THUMBNAIL_PRESETS[0];
+      setUploadThumbnail(activePreset.bgImage);
+      setAiAppliedSuccess(true);
+      setTimeout(() => setAiAppliedSuccess(false), 3000);
+    }, 700);
+  };
+
+  // Final Publish Handler for Action 1: Upload Video
+  const handleFinalUploadPublish = (e: FormEvent) => {
+    e.preventDefault();
+    prepareGlobalRegistration();
+
+    // Map Category to VideoStream Category
+    const mappedCategory = (uploadCategory === 'Sermons' ? 'Sermon' :
+      uploadCategory === 'Worship & Praise' ? 'Live Worship' :
+      uploadCategory === 'Gospel Music' ? 'Gospel Music' :
+      uploadCategory === 'Bible Study' ? 'Bible Study' : 'Sermon') as any;
+
+    const formattedTakeaways = keyTakeaways.length > 0 
+      ? `\n\nKey Takeaways:\n${keyTakeaways.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
+      : '';
+
+    const isScheduled = publishActionOption === 'schedule';
+    const isDraft = publishActionOption === 'save_draft';
+    const formattedScheduleText = `${publishScheduledDate} at ${publishScheduledTime} (${publishScheduledTimezone})`;
+    const visibilityBadgeText = videoVisibility === 'public' ? 'Public' : videoVisibility === 'unlisted' ? 'Unlisted' : 'Private';
+
+    const newVideo: VideoStream = {
+      id: `vod-${Date.now()}`,
+      title: isScheduled ? `[UPCOMING] ${uploadTitle || 'Sunday Worship Service'}` : isDraft ? `[DRAFT] ${uploadTitle || 'Sunday Worship Service'}` : uploadTitle || 'Sunday Worship Service',
+      speakerOrArtist: uploadSpeaker || ownerName,
+      churchOrMinistry: uploadMinistry || ministryName,
+      channelAvatar: avatarUrl,
+      subscribersCount: '24.8K Members',
+      likesCount: isScheduled ? '840 Reminders Set' : isDraft ? 'Draft Saved' : '2.1K',
+      category: mappedCategory,
+      isLive: false,
+      duration: isScheduled ? `Premiere at ${publishScheduledTime}` : '48:30',
+      viewsText: isScheduled 
+        ? `🔔 Upcoming: Sunday Worship — ${publishScheduledDate} at ${publishScheduledTime}` 
+        : isDraft 
+        ? `Saved Draft • ${visibilityBadgeText}` 
+        : `Direct Creator Upload • HD 1080p • ${visibilityBadgeText}`,
+      thumbnail: uploadThumbnail || 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
+      description: `${uploadDescription}${formattedTakeaways}${isScheduled ? `\n\n📅 Scheduled Premiere: ${formattedScheduleText}` : ''}`,
+      bibleVerse: uploadScripture || 'Isaiah 40:31',
+      date: isScheduled ? formattedScheduleText : isDraft ? 'Saved in Creator Drafts' : 'Uploaded Just Now'
+    };
+
+    setCreatedStream(newVideo);
+    setIsSubmitted(true);
+  };
+
+  // Submit Handler for Action 2: Go Live
+  const handleGoLiveSubmit = (e?: FormEvent) => {
+    if (e) e.preventDefault();
+    prepareGlobalRegistration();
+
+    const mappedCategory = (
+      liveCategory === 'Sunday Service' ? 'Live Worship' :
+      liveCategory === 'Bible Study' ? 'Bible Study' :
+      liveCategory === 'Prayer' ? 'Prayer & Intercession' :
+      liveCategory === 'Worship' || liveCategory === 'Live Worship' ? 'Live Worship' :
+      liveCategory === 'Conference' ? 'Christian Living' : 'Live Worship'
+    ) as any;
+
+    const newVideo: VideoStream = {
+      id: `live-${Date.now()}`,
+      title: liveTitle || `${broadcastType} — Live Broadcast`,
+      speakerOrArtist: liveSpeaker || ownerName,
+      churchOrMinistry: ministryName,
+      channelAvatar: avatarUrl,
+      subscribersCount: '24.8K Members',
+      likesCount: '4.2K',
+      category: mappedCategory,
+      isLive: true,
+      viewersCount: 940,
+      viewsText: '940 worshippers live now • 1080p60 OBS Feed',
+      thumbnail: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
+      description: `${liveDescription}\n\n📡 Broadcast Source: Gospread RTMPS Live Ingest (${rtmpServerUrl})\nFormat: ${broadcastType}`,
+      bibleVerse: liveScripture || 'Isaiah 40:29-31',
+      date: 'Streaming Live Now'
+    };
+
+    // Transition directly to Live Control Room
+    setStudioAction('live_control_room');
+  };
+
+  // Live Stream ended callback -> Triggers LiveRecordingVODModal
+  const handleEndLiveStream = (data: RecordedStreamData) => {
+    setActiveVODModalData(data);
+    setStudioAction('choose');
+  };
+
+  // Post-VOD publish handler
+  const handlePublishRecordedVOD = (vodStream: VideoStream) => {
+    setCreatedStream(vodStream);
+    setIsSubmitted(true);
+    setActiveVODModalData(null);
+    onPublishSuccess(vodStream);
+  };
+
+  const handleSaveVODDraft = (_draftData: RecordedStreamData) => {
+    setActiveVODModalData(null);
+    setStudioAction('choose');
+  };
+
+  // External Import Handler 1: YouTube
+  const handleYoutubeImportSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    setExternalImportError(null);
+    if (!youtubeImportUrl.trim()) return;
+
+    setIsImportingExternal(true);
+
+    setTimeout(() => {
+      setIsImportingExternal(false);
+      // Auto populate title and metadata from video URL
+      setUploadTitle(`Sunday Worship & Prophetic Word — ${ministryName}`);
+      setUploadSpeaker(ownerName);
+      setUploadThumbnail('https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80');
+      setSelectedFile({
+        name: `YouTube_Import_${Date.now()}.mp4`,
+        sizeFormatted: '1.2 GB',
+        sizeBytes: 1.2 * 1024 * 1024 * 1024,
+        type: 'video/mp4'
+      });
+      setUploadStep('details');
+    }, 1200);
+  };
+
+  // External Import Handler 2: Direct Video URL / Cloud Source
+  const handleDirectUrlImportSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    setExternalImportError(null);
+    if (!videoDirectUrl.trim()) return;
+
+    setIsImportingExternal(true);
+
+    setTimeout(() => {
+      setIsImportingExternal(false);
+      const urlParts = videoDirectUrl.split('/');
+      const fileName = urlParts[urlParts.length - 1] || 'Sermon_Master_1080p.mp4';
+      setUploadTitle(fileName.replace(/[-_.]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+      setUploadThumbnail('https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80');
+      setSelectedFile({
+        name: fileName,
+        sizeFormatted: '2.4 GB',
+        sizeBytes: 2.4 * 1024 * 1024 * 1024,
+        type: 'video/mp4'
+      });
+      setUploadStep('details');
+    }, 1200);
+  };
+
+  // Submit Handler for Action 3: Schedule Broadcast
+  const handleScheduleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    prepareGlobalRegistration();
+
+    const formattedDateStr = `${scheduleDate} at ${scheduleTime} ${scheduleTimezone}`;
+
+    const newVideo: VideoStream = {
+      id: `sched-${Date.now()}`,
+      title: `[UPCOMING] ${scheduleTitle || 'Scheduled Broadcast'}`,
+      speakerOrArtist: scheduleSpeaker || ownerName,
+      churchOrMinistry: ministryName,
+      channelAvatar: avatarUrl,
+      subscribersCount: '24.8K Members',
+      likesCount: '840 Reminders Set',
+      category: 'Live Worship',
+      isLive: false,
+      duration: 'Upcoming Premiere',
+      viewsText: `Premiering on ${scheduleDate}`,
+      thumbnail: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80',
+      description: `${scheduleDescription} • Scheduled for ${formattedDateStr}`,
+      bibleVerse: scheduleScripture || 'Romans 8:28',
+      date: formattedDateStr
+    };
 
     setCreatedStream(newVideo);
     setIsSubmitted(true);
@@ -529,224 +1004,2926 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
     }
   };
 
-  const handleCopyStreamKey = () => {
-    setCopiedKey(true);
-    setTimeout(() => setCopiedKey(false), 2000);
-  };
+  const currentConfig = CREATOR_TYPE_CONFIG[selectedCategory];
+  const CurrentIcon = currentConfig.icon;
 
-  const copyToClipboard = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedLink(id);
-    setTimeout(() => setCopiedLink(null), 2000);
-  };
+  // Helpers for Upload UI formatting
+  const formattedUploadedGB = (uploadedBytes / (1024 * 1024 * 1024)).toFixed(1);
+  const formattedTotalGB = (totalBytes / (1024 * 1024 * 1024)).toFixed(1);
 
-  // Helper to render platform icon matching the uploaded image
-  const renderSocialIcon = (platform: SocialPlatformRow['platform']) => {
-    switch (platform) {
-      case 'tiktok':
-        return (
-          <div className="w-8 h-8 rounded-lg bg-black flex items-center justify-center text-white border border-slate-700 shadow-sm shrink-0">
-            <LinkIcon className="w-4 h-4 text-cyan-400" />
-          </div>
-        );
-      case 'substack':
-        return (
-          <div className="w-8 h-8 rounded-lg bg-[#FF6719] flex items-center justify-center text-white shadow-sm shrink-0">
-            <Layers className="w-4 h-4" />
-          </div>
-        );
-      case 'twitter':
-        return (
-          <div className="w-8 h-8 rounded-lg bg-[#1DA1F2] flex items-center justify-center text-white shadow-sm shrink-0">
-            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-              <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.936 9.936 0 0024 4.59z"/>
-            </svg>
-          </div>
-        );
-      case 'linkedin':
-        return (
-          <div className="w-8 h-8 rounded-lg bg-[#0A66C2] flex items-center justify-center text-white font-bold text-xs shadow-sm shrink-0">
-            <span>in</span>
-          </div>
-        );
-      case 'facebook':
-        return (
-          <div className="w-8 h-8 rounded-lg bg-[#1877F2] flex items-center justify-center text-white font-bold text-sm shadow-sm shrink-0">
-            <span>f</span>
-          </div>
-        );
-      case 'instagram':
-        return (
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] flex items-center justify-center text-white shadow-sm shrink-0">
-            <div className="w-4 h-4 rounded-md border-2 border-white flex items-center justify-center">
-              <div className="w-1.5 h-1.5 rounded-full bg-white" />
-            </div>
-          </div>
-        );
-      case 'medium':
-        return (
-          <div className="w-8 h-8 rounded-lg bg-black flex items-center justify-center text-white font-bold text-xs border border-slate-700 shadow-sm shrink-0">
-            <span className="tracking-tighter">●●</span>
-          </div>
-        );
-      case 'revue':
-        return (
-          <div className="w-8 h-8 rounded-lg bg-[#E64C3C] flex items-center justify-center text-white font-black text-xs shadow-sm shrink-0">
-            <span>R</span>
-          </div>
-        );
-      case 'youtube':
-        return (
-          <div className="w-8 h-8 rounded-lg bg-[#FF0000] flex items-center justify-center text-white shadow-sm shrink-0">
-            <Play className="w-4 h-4 fill-current ml-0.5" />
-          </div>
-        );
-      case 'buymeacoffee':
-        return (
-          <div className="w-8 h-8 rounded-lg bg-[#FFDD00] flex items-center justify-center text-slate-950 font-bold shadow-sm shrink-0">
-            <Coffee className="w-4 h-4" />
-          </div>
-        );
-      case 'spotify':
-        return (
-          <div className="w-8 h-8 rounded-lg bg-[#1DB954] flex items-center justify-center text-slate-950 font-bold shadow-sm shrink-0">
-            <Music2 className="w-4 h-4" />
-          </div>
-        );
-      case 'telegram':
-        return (
-          <div className="w-8 h-8 rounded-lg bg-[#229ED9] flex items-center justify-center text-white shadow-sm shrink-0">
-            <Share2 className="w-4 h-4" />
-          </div>
-        );
-      case 'whatsapp':
-        return (
-          <div className="w-8 h-8 rounded-lg bg-[#25D366] flex items-center justify-center text-white shadow-sm shrink-0">
-            <Phone className="w-4 h-4" />
-          </div>
-        );
-      default:
-        return (
-          <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-amber-400 border border-slate-700 shadow-sm shrink-0">
-            <Globe className="w-4 h-4" />
-          </div>
-        );
-    }
-  };
+  // 🔴 LIVE CONTROL ROOM MODE (FULL-SCREEN PRODUCTION SUITE)
+  if (studioAction === 'live_control_room') {
+    return (
+      <div className="w-full min-h-screen bg-[#0a0a0a]">
+        <LiveControlRoom
+          currentUser={currentUser}
+          broadcastTitle={liveTitle || `Sunday Worship Celebration — ${ministryName}`}
+          broadcastType={broadcastType}
+          category={selectedCategory}
+          speaker={liveSpeaker || ownerName}
+          scripture={liveScripture || 'Isaiah 40:31'}
+          streamKey={liveStreamKey}
+          rtmpUrl={rtmpServerUrl}
+          onEndStream={handleEndLiveStream}
+          onBackToStudio={() => setStudioAction('choose')}
+        />
+        {activeVODModalData && (
+          <LiveRecordingVODModal
+            currentUser={currentUser}
+            recordedData={activeVODModalData}
+            onPublishVOD={handlePublishRecordedVOD}
+            onSaveDraft={handleSaveVODDraft}
+            onClose={() => setActiveVODModalData(null)}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl w-full mx-auto p-4 sm:p-6 my-4">
-      {/* Page Header */}
-      <div className="flex items-center justify-between border-b border-slate-800/80 pb-4 mb-6">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
-              <UserCheck className="w-5 h-5" />
-            </span>
-            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-              {isSubmitted ? `${selectedCategory} Publisher Studio` : 'Register Ministry & Channel Setup'}
-            </h1>
-          </div>
-          <p className="text-xs text-slate-400 mt-1">
-            {isSubmitted 
-              ? `Manage your official ${selectedCategory} channel, broadcasting keys, multi-campus locations, multiple payouts & socials.` 
-              : `Register your official profile as a Church, Artiste, or Creator to stream globally on GraceTube.`
-            }
-          </p>
-        </div>
+    <div className="max-w-4xl w-full mx-auto p-3 sm:p-6 my-2 sm:my-4 space-y-6">
+      
+      {/* 👑 RECOGNIZED MINISTRY IDENTITY BANNER */}
+      <div className="bg-gradient-to-r from-slate-900 via-amber-950/30 to-slate-900 border border-amber-500/30 rounded-3xl p-4 sm:p-6 shadow-2xl relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+          <div className="flex items-center gap-3.5 sm:gap-4">
+            <div className="relative shrink-0">
+              <img 
+                src={avatarUrl} 
+                alt={ministryName} 
+                referrerPolicy="no-referrer"
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover ring-2 ring-amber-500/50 shadow-xl" 
+              />
+              <span className="absolute -bottom-1 -right-1 p-1 bg-emerald-500 text-slate-950 rounded-full shadow-md">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              </span>
+            </div>
 
-        <button
-          onClick={onCancel}
-          className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 transition"
-        >
-          {isSubmitted ? 'Exit Studio' : 'Cancel'}
-        </button>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-lg sm:text-2xl font-black text-white tracking-tight truncate">
+                  {ministryName}
+                </h1>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1 border ${currentConfig.badgeColor}`}>
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {currentConfig.badge}
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-1 flex items-center gap-1.5 flex-wrap">
+                <span className="font-semibold text-white">{ownerName}</span>
+                <span className="text-slate-500">•</span>
+                <span className="text-amber-400 font-mono text-[11px]">@{ministryName.toLowerCase().replace(/[^a-z0-9]/g, '')}</span>
+              </p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Direct creator uploads with adaptive bitrate transcoding & resumable sessions.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={onCancel}
+            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-bold text-slate-400 hover:text-white transition border border-slate-800 shrink-0 self-end sm:self-auto cursor-pointer"
+          >
+            Exit Studio
+          </button>
+        </div>
       </div>
 
-      {isSubmitted && createdStream ? (
-        /* POST-REGISTRATION PUBLISHER DASHBOARD & STUDIO PORTAL */
-        <motion.div 
+      {/* 🏛️ KINGDOM CREATOR STUDIO NAVIGATION (User Design Specification) */}
+      {!isSubmitted && studioAction === 'choose' && (
+        <div className="flex items-center justify-between gap-2 overflow-x-auto scrollbar-none pb-2 border-b border-slate-800">
+          <div className="flex items-center gap-1.5 shrink-0">
+            {[
+              { id: 'overview', label: 'Overview', icon: RadioTower },
+              { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+              { id: 'content', label: 'Content', icon: Film },
+              { id: 'live_hub', label: 'Live', icon: Video },
+              { id: 'schedule_hub', label: 'Schedule', icon: Calendar },
+              { id: 'analytics', label: 'Analytics', icon: Compass },
+              { id: 'community', label: 'Community', icon: MessageSquare },
+              { id: 'giving', label: 'Giving', icon: DollarSign },
+              { id: 'settings', label: 'Ministry Settings', icon: Settings },
+            ].map((item) => {
+              const ItemIcon = item.icon;
+              const isActive = studioNavTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setStudioNavTab(item.id as any)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                    isActive
+                      ? 'bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/70'
+                  }`}
+                >
+                  <ItemIcon className="w-3.5 h-3.5" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setStudioNavTab('overview');
+              setStudioAction('choose');
+            }}
+            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-red-600/20 shrink-0 cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5 stroke-[3]" />
+            <span>Create</span>
+          </button>
+        </div>
+      )}
+
+      {/* RENDER MODULAR STUDIO SECTIONS WHEN NOT IN OVERVIEW */}
+      {!isSubmitted && studioAction === 'choose' && studioNavTab !== 'overview' && (
+        <KingdomStudioSections
+          currentUser={currentUser}
+          ministryName={ministryName}
+          ownerName={ownerName}
+          avatarUrl={avatarUrl}
+          studioNavTab={studioNavTab}
+          contentSubTab={contentSubTab}
+          setContentSubTab={setContentSubTab}
+          liveSubTab={liveSubTab}
+          setLiveSubTab={setLiveSubTab}
+          communitySubTab={communitySubTab}
+          setCommunitySubTab={setCommunitySubTab}
+          payoutAccounts={payoutAccounts}
+          churchCampuses={churchCampuses}
+          socialRows={socialRows}
+          prayerRequests={prayerRequests}
+          onPrayForRequest={handlePrayForRequest}
+          onAddPrayerRequest={(req) => {
+            setPrayerRequests(prev => [
+              { id: `pr-${Date.now()}`, name: ownerName, request: req, time: 'Just now', status: 'Pending', prayedCount: 0 },
+              ...prev
+            ]);
+          }}
+          onTriggerUpload={() => {
+            setStudioAction('upload');
+            setUploadStep('select');
+          }}
+          onTriggerGoLive={() => {
+            setStudioAction('live');
+            setLiveSetupStep('setup');
+          }}
+          onEnterLiveControlRoom={() => {
+            setStudioAction('live_control_room');
+          }}
+          onTriggerSchedule={() => {
+            setStudioAction('schedule');
+          }}
+          onInspectRecordingVOD={(rec) => {
+            setActiveVODModalData(rec);
+          }}
+        />
+      )}
+
+      {/* 🚀 STEP 1: WHAT DO YOU WANT TO DO? (THREE BIG OPTIONS - OVERVIEW) */}
+      {!isSubmitted && studioAction === 'choose' && studioNavTab === 'overview' && (
+        <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
-          {/* Official Channel Verified Banner */}
-          <div className="bg-[#181818] border border-amber-500/30 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-              {selectedCategory === 'Church' && <Building2 className="w-48 h-48 text-amber-400" />}
-              {selectedCategory === 'Artiste' && <Music2 className="w-48 h-48 text-red-400" />}
-              {selectedCategory === 'Creator' && <Mic className="w-48 h-48 text-blue-400" />}
-            </div>
+          <div className="text-center sm:text-left space-y-1">
+            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+              What do you want to do?
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-400">
+              Choose how you would like to broadcast and share God's word with the global congregation today.
+            </p>
+          </div>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <img 
-                    src={createdStream.channelAvatar} 
-                    alt={createdStream.churchOrMinistry} 
-                    className="w-16 h-16 rounded-2xl object-cover border-2 border-amber-500/50 shadow-lg" 
-                  />
-                  <span className="absolute -bottom-1 -right-1 p-1 bg-emerald-500 text-slate-950 rounded-full">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
+          {/* Three Big Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+            
+            {/* OPTION 1: 📤 UPLOAD VIDEO */}
+            <motion.button
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                setStudioAction('upload');
+                setUploadStep('select');
+              }}
+              className="p-6 rounded-3xl bg-gradient-to-b from-[#1c1c1c] to-[#121212] border-2 border-slate-800 hover:border-amber-500/60 transition-all text-left group shadow-xl flex flex-col justify-between h-full relative overflow-hidden cursor-pointer"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-slate-950 transition-colors shadow-lg">
+                    <UploadCloud className="w-6 h-6" />
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                    Direct Upload
                   </span>
                 </div>
 
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-bold text-white">{createdStream.churchOrMinistry}</h2>
-                    <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1">
-                      <ShieldCheck className="w-3 h-3" />
-                      {selectedCategory} Verified
-                    </span>
+                <div className="space-y-1.5">
+                  <h3 className="text-lg font-black text-white group-hover:text-amber-300 transition-colors flex items-center gap-1.5">
+                    <span>📤 Upload Video</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Upload a prerecorded sermon, worship video, testimony, or faith podcast directly from your device.
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
+                  <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Resumable direct upload (unstable connection safe)</span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Contact: {contactEmail || 'Channel Owner'} • {phoneNumber || 'Active'}
-                  </p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Channel Handle: <span className="text-amber-400 font-mono">gracetube.tv/@{createdStream.churchOrMinistry.toLowerCase().replace(/\s+/g, '')}</span>
-                  </p>
+                  <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Scriptures, sermon tags & key takeaways</span>
+                  </div>
                 </div>
               </div>
 
+              <div className="mt-6 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs font-bold text-amber-400 group-hover:text-amber-300">
+                <span>Start Video Upload</span>
+                <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+              </div>
+            </motion.button>
+
+            {/* OPTION 2: 🔴 GO LIVE */}
+            <motion.button
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setStudioAction('live')}
+              className="p-6 rounded-3xl bg-gradient-to-b from-[#1c1c1c] to-[#121212] border-2 border-slate-800 hover:border-red-500/60 transition-all text-left group shadow-xl flex flex-col justify-between h-full relative overflow-hidden cursor-pointer"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-red-500/20 text-red-400 flex items-center justify-center group-hover:bg-red-500 group-hover:text-white transition-colors shadow-lg">
+                    <RadioTower className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+                    Real-Time
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <h3 className="text-lg font-black text-white group-hover:text-red-300 transition-colors flex items-center gap-1.5">
+                    <span>🔴 Go Live</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Broadcast a live Sunday service, healing crusade, prayer altar, or live church event in real time.
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
+                  <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>OBS Studio & RTMP stream key</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Live chat & congregation prayer altar</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs font-bold text-red-400 group-hover:text-red-300">
+                <span>Setup Live Broadcast</span>
+                <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+              </div>
+            </motion.button>
+
+            {/* OPTION 3: 📅 SCHEDULE */}
+            <motion.button
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setStudioAction('schedule')}
+              className="p-6 rounded-3xl bg-gradient-to-b from-[#1c1c1c] to-[#121212] border-2 border-slate-800 hover:border-blue-500/60 transition-all text-left group shadow-xl flex flex-col justify-between h-full relative overflow-hidden cursor-pointer"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors shadow-lg">
+                    <CalendarDays className="w-6 h-6" />
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                    Upcoming Premiere
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <h3 className="text-lg font-black text-white group-hover:text-blue-300 transition-colors flex items-center gap-1.5">
+                    <span>📅 Schedule</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Prepare a future video premiere or schedule an upcoming live broadcast for your congregation.
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
+                  <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Countdown page & follower reminders</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Advance prayer wall & intercession</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs font-bold text-blue-400 group-hover:text-blue-300">
+                <span>Schedule Broadcast</span>
+                <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+              </div>
+            </motion.button>
+
+          </div>
+        </motion.div>
+      )}
+
+      {/* 📤 FLOW 1: REFINED UPLOAD VIDEO MULTI-STEP WORKFLOW */}
+      {!isSubmitted && studioAction === 'upload' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
+          {/* Sub-header Navigation */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-800 pb-3 gap-3">
+            <button
+              onClick={() => {
+                setStudioAction('choose');
+                setUploadStep('select');
+              }}
+              className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1.5 transition cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Creator Options</span>
+            </button>
+
+            {/* Stepper Indicator */}
+            {['select', 'uploading', 'processing'].includes(uploadStep) ? (
+              <div className="flex items-center gap-2">
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase flex items-center gap-1.5 ${
+                  uploadStep === 'select' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                  uploadStep === 'uploading' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                  'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                }`}>
+                  {uploadStep === 'select' && <span>Step 1: Select Video</span>}
+                  {uploadStep === 'uploading' && <span>Step 2: Uploading Video ({uploadProgressPercent}%)</span>}
+                  {uploadStep === 'processing' && <span>Step 3: Transcoding & Optimizing</span>}
+                </span>
+              </div>
+            ) : (
+              /* 4-Step Wizard Stepper */
+              <div className="flex items-center gap-1.5 bg-[#121212] p-1 rounded-2xl border border-slate-800 text-[11px] font-bold overflow-x-auto max-w-full">
+                <button
+                  type="button"
+                  onClick={() => setUploadStep('details')}
+                  className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+                    uploadStep === 'details'
+                      ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>1. Details</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setUploadStep('thumbnail')}
+                  className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+                    uploadStep === 'thumbnail'
+                      ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  <span>2. Thumbnail</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setUploadStep('visibility')}
+                  className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+                    uploadStep === 'visibility'
+                      ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>3. Visibility</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setUploadStep('publish')}
+                  className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+                    uploadStep === 'publish'
+                      ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  <UploadCloud className="w-3.5 h-3.5" />
+                  <span>4. Publish</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════
+              STEP 1: SELECT VIDEO / IMPORT SOURCE
+             ══════════════════════════════════════════════════════════ */}
+          {uploadStep === 'select' && (
+            <div className="space-y-6">
+              
+              {/* Source Tabs Header */}
+              <div className="flex items-center justify-center sm:justify-start gap-2 bg-[#121212] p-1.5 rounded-2xl border border-slate-800 w-full sm:w-fit">
+                <button
+                  type="button"
+                  onClick={() => setUploadMode('device')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                    uploadMode === 'device'
+                      ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  <UploadCloud className="w-4 h-4" />
+                  <span>Upload from device</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setUploadMode('url')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                    uploadMode === 'url'
+                      ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  <Link2 className="w-4 h-4" />
+                  <span>Import video URL</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setUploadMode('youtube')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                    uploadMode === 'youtube'
+                      ? 'bg-red-600 text-white font-black shadow-md'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  <Youtube className="w-4 h-4" />
+                  <span>Import YouTube</span>
+                </button>
+              </div>
+
+              {/* TAB 1: DEVICE UPLOAD */}
+              {uploadMode === 'device' && (
+                <>
+                  {/* Drag and Drop Zone */}
+                  <div
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-3xl p-8 sm:p-14 text-center transition-all cursor-pointer relative overflow-hidden flex flex-col items-center justify-center min-h-[300px] ${
+                      isDragging
+                        ? 'border-amber-400 bg-amber-500/10 scale-[1.01]'
+                        : 'border-slate-700 bg-gradient-to-b from-[#181818] to-[#111111] hover:border-amber-500/60 hover:bg-[#1c1c1c]'
+                    }`}
+                  >
+                    {/* Hidden File Input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="video/mp4,video/mov,video/quicktime,video/webm,video/mkv,video/avi"
+                      onChange={handleFileInputChange}
+                      className="hidden"
+                    />
+
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-amber-500/20 text-amber-400 flex items-center justify-center mb-4 shadow-xl ring-8 ring-amber-500/5 group-hover:scale-105 transition-transform">
+                      <UploadCloud className="w-8 h-8 sm:w-10 sm:h-10 animate-bounce" />
+                    </div>
+
+                    <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">
+                      Upload your video
+                    </h3>
+                    
+                    <p className="text-xs sm:text-sm text-slate-400 mt-1.5 max-w-md">
+                      Drag & drop your video file here, or click to browse from your computer or phone
+                    </p>
+
+                    <div className="mt-6">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fileInputRef.current?.click();
+                        }}
+                        className="px-6 py-3 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-amber-500/20 transition cursor-pointer"
+                      >
+                        <Film className="w-4 h-4" />
+                        <span>Select Video File</span>
+                      </button>
+                    </div>
+
+                    <p className="text-[11px] font-medium text-slate-500 mt-5 flex items-center gap-2">
+                      <span>MP4</span> • <span>MOV</span> • <span>WebM</span> • <span>MKV</span> • <span>Up to 10 GB per video</span>
+                    </p>
+
+                    {/* Direct Upload Secure Architecture Notice */}
+                    <div className="mt-4 px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 text-[10px] text-slate-400 flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Resumable Direct Upload — Secure session created via direct storage provider</span>
+                    </div>
+                  </div>
+
+                  {/* Sample Files Quick Test Pill (For quick evaluation) */}
+                  <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                      <Info className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>Testing without a large video file on hand?</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handleMockFileSelect('Gospel Service — Walking by Faith.mp4', 1.8)}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span>Load 1.8 GB Demo Sermon</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMockFileSelect('Youth Praise Night 2026.mp4', 2.4)}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer"
+                      >
+                        <span>Load 2.4 GB Worship Video</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* TAB 2: DIRECT VIDEO URL / CLOUD STORAGE IMPORT */}
+              {uploadMode === 'url' && (
+                <div className="bg-[#181818] border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                      <Link2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base sm:text-lg font-black text-white">
+                        Import from Direct Video URL
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        Paste a direct URL to an MP4, HLS/m3u8, Dropbox, Google Drive, or Cloudflare Stream video asset.
+                      </p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleDirectUrlImportSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                        Direct Video Source URL <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="url"
+                        required
+                        value={videoDirectUrl}
+                        onChange={(e) => setVideoDirectUrl(e.target.value)}
+                        placeholder="https://storage.googleapis.com/ministry-media/sundayservice_1080p.mp4"
+                        className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none font-mono"
+                      />
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 text-xs text-slate-400 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>Gospread will stream and transcode the remote video asset directly to CDN edge nodes.</span>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setUploadMode('device')}
+                        className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+                      >
+                        Back to Device Upload
+                      </button>
+
+                      <button
+                        type="submit"
+                        disabled={isImportingExternal}
+                        className="px-6 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-amber-500/20 transition cursor-pointer"
+                      >
+                        {isImportingExternal ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Fetching Video Stream...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Import & Continue</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* TAB 3: YOUTUBE VIDEO IMPORT */}
+              {uploadMode === 'youtube' && (
+                <div className="bg-[#181818] border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-red-600/20 text-red-500 flex items-center justify-center">
+                      <Youtube className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base sm:text-lg font-black text-white">
+                        Import YouTube Video
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        Paste a YouTube video link to import your church sermon, praise session, or podcast into Gospread.
+                      </p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleYoutubeImportSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                        YouTube Video URL <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="url"
+                        required
+                        value={youtubeImportUrl}
+                        onChange={(e) => setYoutubeImportUrl(e.target.value)}
+                        placeholder="https://www.youtube.com/watch?v=sermon_id or https://youtu.be/..."
+                        className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-red-500 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none font-mono"
+                      />
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-red-950/30 border border-red-500/20 text-xs text-slate-300 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>Automatic Metadata Extraction: Gospread will pull your high-res thumbnail, title, and timestamps.</span>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setUploadMode('device')}
+                        className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+                      >
+                        Back to Device Upload
+                      </button>
+
+                      <button
+                        type="submit"
+                        disabled={isImportingExternal}
+                        className="px-6 py-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white font-black text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-red-600/20 transition cursor-pointer"
+                      >
+                        {isImportingExternal ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Extracting YouTube Metadata...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Youtube className="w-4 h-4" />
+                            <span>Import from YouTube</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════
+              STEP 2: UPLOAD PROGRESS (RESUMABLE DIRECT UPLOAD)
+             ══════════════════════════════════════════════════════════ */}
+          {uploadStep === 'uploading' && selectedFile && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-[#181818] border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                    <Film className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-black text-white truncate max-w-sm sm:max-w-md">
+                      Uploading {selectedFile.name}
+                    </h3>
+                    <p className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+                      <span className="text-amber-300 font-mono font-bold">{uploadProgressPercent}%</span>
+                      <span>•</span>
+                      <span>{formattedUploadedGB} GB / {formattedTotalGB} GB</span>
+                      <span>•</span>
+                      <span className="text-slate-500">{uploadSpeed}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold uppercase flex items-center gap-1">
+                  <Wifi className="w-3 h-3 animate-pulse" />
+                  Resumable
+                </span>
+              </div>
+
+              {/* Graphical Progress Bar */}
+              <div className="space-y-2">
+                <div className="w-full bg-slate-900 h-4 rounded-full overflow-hidden p-0.5 border border-slate-800">
+                  <motion.div 
+                    className="bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-400 h-full rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgressPercent}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
+                  <span>Uploading securely via direct session...</span>
+                  <span className="font-bold text-white">{uploadProgressPercent}%</span>
+                </div>
+              </div>
+
+              {/* Connection & Resumable Safeguards info */}
+              <div className="p-4 rounded-2xl bg-slate-900/70 border border-slate-800 text-xs text-slate-300 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-amber-300">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Resilient Video Pipeline</span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Your video chunks are written directly to high-throughput cloud streaming storage. If your mobile or Wi-Fi network drops, uploading will automatically resume right where it left off without starting over.
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUploadStep('select');
+                    setSelectedFile(null);
+                    setUploadProgressPercent(0);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
+                >
+                  Cancel Upload
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsUploadPaused(!isUploadPaused)}
+                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold transition"
+                  >
+                    {isUploadPaused ? 'Resume Upload' : 'Pause Upload'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUploadProgressPercent(100);
+                      setUploadedBytes(totalBytes);
+                      setUploadStep('processing');
+                    }}
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition"
+                  >
+                    Skip to Processing
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════
+              STEP 3: POST-UPLOAD TRANSCODING & METADATA PROCESSING
+             ══════════════════════════════════════════════════════════ */}
+          {uploadStep === 'processing' && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-[#181818] border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                    <CheckCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-white">✓ Upload Complete</h3>
+                    <p className="text-xs text-slate-400">Processing and optimizing video for global playback...</p>
+                  </div>
+                </div>
+                <span className="text-lg font-black font-mono text-purple-400">{processingPercent}%</span>
+              </div>
+
+              {/* Transcoding Checklist */}
+              <div className="bg-[#111111] border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3">
+                
+                {/* Step A */}
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2.5">
+                    {processingPercent >= 25 ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    ) : (
+                      <Loader2 className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
+                    )}
+                    <span className={processingPercent >= 25 ? 'text-slate-200 font-semibold' : 'text-slate-400'}>
+                      Generating high-resolution video thumbnails
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-500">
+                    {processingPercent >= 25 ? 'Complete' : 'Processing'}
+                  </span>
+                </div>
+
+                {/* Step B */}
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2.5">
+                    {processingPercent >= 50 ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    ) : processingPercent >= 25 ? (
+                      <Loader2 className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
+                    ) : (
+                      <div className="w-4 h-4 rounded-full border border-slate-700 shrink-0" />
+                    )}
+                    <span className={processingPercent >= 50 ? 'text-slate-200 font-semibold' : 'text-slate-400'}>
+                      Encoding video for smooth low-bandwidth mobile streaming
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-500">
+                    {processingPercent >= 50 ? 'Complete' : processingPercent >= 25 ? 'Encoding' : 'Queued'}
+                  </span>
+                </div>
+
+                {/* Step C */}
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2.5">
+                    {processingPercent >= 80 ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    ) : processingPercent >= 50 ? (
+                      <Loader2 className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
+                    ) : (
+                      <div className="w-4 h-4 rounded-full border border-slate-700 shrink-0" />
+                    )}
+                    <span className={processingPercent >= 80 ? 'text-slate-200 font-semibold' : 'text-slate-400'}>
+                      Preparing adaptive bitrate multi-qualities (1080p, 720p, 480p, 360p, 240p)
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-500">
+                    {processingPercent >= 80 ? 'Complete' : processingPercent >= 50 ? 'Transcoding' : 'Queued'}
+                  </span>
+                </div>
+
+                {/* Step D */}
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2.5">
+                    {processingPercent >= 100 ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    ) : processingPercent >= 80 ? (
+                      <Loader2 className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
+                    ) : (
+                      <div className="w-4 h-4 rounded-full border border-slate-700 shrink-0" />
+                    )}
+                    <span className={processingPercent >= 100 ? 'text-slate-200 font-semibold' : 'text-slate-400'}>
+                      Generating audio waveform & gospel metadata headers
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-500">
+                    {processingPercent >= 100 ? 'Ready' : processingPercent >= 80 ? 'Finalizing' : 'Queued'}
+                  </span>
+                </div>
+
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
+                <motion.div 
+                  className="bg-gradient-to-r from-purple-500 to-amber-400 h-full rounded-full transition-all duration-200"
+                  style={{ width: `${processingPercent}%` }}
+                />
+              </div>
+
+              <p className="text-center text-xs text-slate-400">
+                Transcoding happens automatically in the cloud so your members across Africa and worldwide experience zero buffering.
+              </p>
+            </motion.div>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════
+              STEP 4: VIDEO DETAILS & GOSPEL-SPECIFIC METADATA
+             ══════════════════════════════════════════════════════════ */}
+          {uploadStep === 'details' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              <div className="space-y-6">
+                
+                {/* Section 1: Tell us about your video */}
+                <div className="bg-[#181818] border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-amber-400" />
+                      Tell us about your video
+                    </h3>
+                    <span className="text-[11px] text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                      Step 1 of 4
+                    </span>
+                  </div>
+
+                  {/* Title */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Title <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={uploadTitle}
+                      onChange={(e) => {
+                        setUploadTitle(e.target.value);
+                        setAiOverlayTitle(e.target.value.toUpperCase());
+                      }}
+                      placeholder="Sunday Worship Service — Walking by Faith"
+                      className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Description <span className="text-red-400">*</span>
+                    </label>
+                    <textarea
+                      rows={3}
+                      required
+                      value={uploadDescription}
+                      onChange={(e) => setUploadDescription(e.target.value)}
+                      placeholder="Join us for today's worship service..."
+                      className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none resize-none"
+                    />
+                  </div>
+
+                  {/* Speaker & Ministry Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1">Speaker / Preacher</label>
+                      <input
+                        type="text"
+                        required
+                        value={uploadSpeaker}
+                        onChange={(e) => {
+                          setUploadSpeaker(e.target.value);
+                          setAiOverlaySpeaker(e.target.value);
+                        }}
+                        placeholder="Pastor John"
+                        className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1">Ministry</label>
+                      <input
+                        type="text"
+                        required
+                        value={uploadMinistry}
+                        onChange={(e) => {
+                          setUploadMinistry(e.target.value);
+                          setAiOverlayMinistry(e.target.value);
+                        }}
+                        placeholder="Grace City Cathedral"
+                        className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Category & Tags Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1">Category</label>
+                      <select
+                        value={uploadCategory}
+                        onChange={(e) => setUploadCategory(e.target.value as any)}
+                        className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                      >
+                        <option value="Sermons">Sermons</option>
+                        <option value="Worship & Praise">Worship & Praise</option>
+                        <option value="Bible Study">Bible Study</option>
+                        <option value="Gospel Music">Gospel Music</option>
+                        <option value="Youth & Family">Youth & Family</option>
+                        <option value="Healing & Miracles">Healing & Miracles</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1">Tags (comma separated)</label>
+                      <input
+                        type="text"
+                        value={tagsInput}
+                        onChange={(e) => setTagsInput(e.target.value)}
+                        placeholder="faith, prayer, worship, sunday-service"
+                        className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Render Tags as Badges */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                    {tagsInput.split(',').map((tag, idx) => {
+                      const trimmed = tag.trim();
+                      if (!trimmed) return null;
+                      return (
+                        <span key={idx} className="px-2.5 py-0.5 rounded-full bg-slate-800 text-amber-300 text-[10px] font-mono font-bold flex items-center gap-1">
+                          <Tag className="w-2.5 h-2.5 text-slate-400" />
+                          #{trimmed}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Section 2: Gospel Advantage — Scripture & Key Takeaways */}
+                <div className="bg-[#181818] border border-amber-500/30 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xl">
+                  <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-amber-400" />
+                      Scripture Anchor & Biblical Revelation
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Help your global audience connect sermon takeaways directly to the Word of God.
+                    </p>
+                  </div>
+
+                  {/* Scripture Input */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Scripture Anchor <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={uploadScripture}
+                      onChange={(e) => {
+                        setUploadScripture(e.target.value);
+                        setAiOverlayVerse(e.target.value.toUpperCase());
+                      }}
+                      placeholder="Isaiah 40:31"
+                      className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-amber-300 font-bold placeholder-slate-500 focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Key Takeaways */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-300">
+                      Key Takeaways for Believers
+                    </label>
+
+                    {/* Existing Key Takeaways list */}
+                    <div className="space-y-2">
+                      {keyTakeaways.map((takeaway, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-[#0f0f0f] border border-slate-800 text-xs text-slate-200">
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 font-mono font-bold text-[10px] flex items-center justify-center shrink-0">
+                              {idx + 1}
+                            </span>
+                            <span>{takeaway}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTakeaway(idx)}
+                            className="text-slate-500 hover:text-red-400 p-1 transition cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Add Takeaway Input */}
+                    <div className="flex gap-2 pt-1">
+                      <input
+                        type="text"
+                        value={newTakeawayInput}
+                        onChange={(e) => setNewTakeawayInput(e.target.value)}
+                        placeholder="Add another key takeaway point..."
+                        className="flex-1 bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (newTakeawayInput.trim()) {
+                              setKeyTakeaways([...keyTakeaways, newTakeawayInput.trim()]);
+                              setNewTakeawayInput('');
+                            }
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => handleAddTakeaway(e)}
+                        className="px-4 py-2 rounded-2xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs flex items-center gap-1 transition shrink-0 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Navigation Bar */}
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUploadStep('select');
+                      setSelectedFile(null);
+                    }}
+                    className="px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+                  >
+                    Start Over
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setUploadStep('thumbnail')}
+                    className="px-8 py-3 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-amber-500/20 transition cursor-pointer"
+                  >
+                    <span>Next: Video Thumbnail</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+              </div>
+            </motion.div>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════
+              STEP 5: DEDICATED VIDEO THUMBNAIL STEP
+             ══════════════════════════════════════════════════════════ */}
+          {uploadStep === 'thumbnail' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              <div className="bg-[#181818] border border-slate-800 rounded-3xl p-5 sm:p-7 space-y-6">
+                
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-4">
+                  <div>
+                    <h3 className="text-base font-black text-white flex items-center gap-2">
+                      <ImageIcon className="w-5 h-5 text-amber-400" />
+                      Video Thumbnail
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Select or generate an engaging high-contrast thumbnail for your gospel video.
+                    </p>
+                  </div>
+                  <span className="text-[11px] text-amber-400 font-bold bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 self-start sm:self-auto">
+                    Step 2 of 4
+                  </span>
+                </div>
+
+                {/* 1. Live Video Preview Box */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-300">
+                    Video Preview & Active Thumbnail Card
+                  </label>
+                  <div className="relative aspect-video max-w-xl mx-auto rounded-3xl overflow-hidden border-2 border-amber-500/40 shadow-2xl bg-black group">
+                    <img
+                      src={uploadThumbnail}
+                      alt="Thumbnail Preview"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    {/* Live Play Button Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-between p-4 sm:p-5">
+                      <div className="flex items-center justify-between">
+                        <span className="px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md text-amber-300 text-[10px] font-mono font-bold border border-amber-500/30 flex items-center gap-1.5">
+                          <Sparkles className="w-3 h-3 text-amber-400" />
+                          <span>{aiOverlayVerse || uploadScripture}</span>
+                        </span>
+                        <span className="px-2.5 py-1 rounded-full bg-black/80 text-white text-[10px] font-mono font-bold">
+                          48:30 HD
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-center">
+                        <div className="w-14 h-14 rounded-full bg-amber-500/90 text-slate-950 flex items-center justify-center shadow-2xl ring-4 ring-white/20 group-hover:scale-110 transition-transform">
+                          <Play className="w-6 h-6 fill-current ml-1" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="text-white font-black text-sm sm:text-base leading-tight drop-shadow-md">
+                          {uploadTitle || 'Sunday Worship Service'}
+                        </h4>
+                        <p className="text-xs text-slate-300 drop-shadow">
+                          {uploadSpeaker || ownerName} • {uploadMinistry || ministryName}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Thumbnail Selector Tabs */}
+                <div className="space-y-4 pt-2">
+                  <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-[#0f0f0f] border border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setThumbnailMode('ai')}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                        thumbnailMode === 'ai'
+                          ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black shadow-lg shadow-amber-500/20'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                      }`}
+                    >
+                      <Wand2 className="w-4 h-4" />
+                      <span>✨ Generate with AI</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setThumbnailMode('frames')}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                        thumbnailMode === 'frames'
+                          ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black shadow-lg shadow-amber-500/20'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                      }`}
+                    >
+                      <Film className="w-4 h-4" />
+                      <span>🎞️ Extract from Video</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setThumbnailMode('upload')}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                        thumbnailMode === 'upload'
+                          ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black shadow-lg shadow-amber-500/20'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                      }`}
+                    >
+                      <UploadCloud className="w-4 h-4" />
+                      <span>📁 Upload Custom</span>
+                    </button>
+                  </div>
+
+                  {/* TAB 1: ✨ AI GOSPEL THUMBNAIL GENERATOR */}
+                  {thumbnailMode === 'ai' && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="p-5 rounded-2xl bg-[#0f0f0f] border border-amber-500/30 space-y-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-amber-400" />
+                          <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                            Gospel AI Graphic Design Engine
+                          </h4>
+                        </div>
+                        <span className="text-[10px] text-amber-300 font-mono">
+                          Auto-formatted 1280x720 16:9
+                        </span>
+                      </div>
+
+                      {/* AI Style Presets */}
+                      <div className="space-y-2">
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                          Choose Sermon Aesthetic Theme
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                          {AI_THUMBNAIL_PRESETS.map((preset) => {
+                            const isSelected = selectedAiPresetId === preset.id;
+                            return (
+                              <button
+                                key={preset.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedAiPresetId(preset.id);
+                                  setUploadThumbnail(preset.bgImage);
+                                }}
+                                className={`p-3 rounded-2xl border text-left transition relative overflow-hidden group cursor-pointer ${
+                                  isSelected
+                                    ? 'border-amber-400 bg-amber-500/10 ring-2 ring-amber-400/30'
+                                    : 'border-slate-800 bg-[#161616] hover:border-slate-700'
+                                }`}
+                              >
+                                <div className="aspect-video w-full rounded-xl overflow-hidden mb-2 relative">
+                                  <img
+                                    src={preset.bgImage}
+                                    alt={preset.name}
+                                    referrerPolicy="no-referrer"
+                                    className="w-full h-full object-cover"
+                                  />
+                                  <div className={`absolute inset-0 bg-gradient-to-t ${preset.overlayGradient} flex items-center justify-center p-2`}>
+                                    <span className="text-[10px] font-black text-white text-center leading-tight">
+                                      {aiOverlayTitle || 'WALKING BY FAITH'}
+                                    </span>
+                                  </div>
+                                </div>
+                                <h5 className="text-xs font-bold text-white">{preset.name}</h5>
+                                <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">{preset.description}</p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Interactive Typography Overlay Customization */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Headline Text</label>
+                          <input
+                            type="text"
+                            value={aiOverlayTitle}
+                            onChange={(e) => setAiOverlayTitle(e.target.value)}
+                            placeholder="WALKING BY FAITH"
+                            className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white uppercase font-bold focus:outline-none focus:border-amber-400"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Speaker Subtitle</label>
+                          <input
+                            type="text"
+                            value={aiOverlaySpeaker}
+                            onChange={(e) => setAiOverlaySpeaker(e.target.value)}
+                            placeholder="Pastor John"
+                            className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Ministry Label</label>
+                          <input
+                            type="text"
+                            value={aiOverlayMinistry}
+                            onChange={(e) => setAiOverlayMinistry(e.target.value)}
+                            placeholder="Grace City Cathedral"
+                            className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Scripture Badge</label>
+                          <input
+                            type="text"
+                            value={aiOverlayVerse}
+                            onChange={(e) => setAiOverlayVerse(e.target.value)}
+                            placeholder="ISAIAH 40:31"
+                            className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-300 font-bold focus:outline-none focus:border-amber-400"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Generate Action Button */}
+                      <div className="flex items-center justify-between pt-2">
+                        <span className="text-xs text-slate-400">
+                          {aiAppliedSuccess ? (
+                            <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                              <CheckCircle2 className="w-4 h-4" />
+                              AI Gospel Thumbnail applied to video preview!
+                            </span>
+                          ) : (
+                            'Custom typographic card rendered with gospel high contrast'
+                          )}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={handleGenerateAiThumbnail}
+                          disabled={isAiGenerating}
+                          className="px-5 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 transition cursor-pointer"
+                        >
+                          {isAiGenerating ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Rendering Graphics...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Wand2 className="w-4 h-4" />
+                              <span>✨ Re-Generate Gospel Thumbnail</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                    </motion.div>
+                  )}
+
+                  {/* TAB 2: 🎞️ GENERATE THUMBNAIL FROM VIDEO (EXTRACTED FRAMES) */}
+                  {thumbnailMode === 'frames' && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="p-5 rounded-2xl bg-[#0f0f0f] border border-slate-800 space-y-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold text-white flex items-center gap-2">
+                          <Film className="w-4 h-4 text-amber-400" />
+                          Extracted Video Keyframes
+                        </h4>
+                        <span className="text-[10px] text-slate-400">
+                          Click any high-resolution frame to set as thumbnail
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {VIDEO_EXTRACTED_FRAMES.map((frame, idx) => {
+                          const isSelected = selectedFrameIndex === idx && uploadThumbnail === frame.url;
+                          return (
+                            <button
+                              key={frame.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedFrameIndex(idx);
+                                setUploadThumbnail(frame.url);
+                              }}
+                              className={`group text-left rounded-2xl overflow-hidden border-2 transition relative cursor-pointer ${
+                                isSelected
+                                  ? 'border-amber-400 ring-4 ring-amber-400/20'
+                                  : 'border-slate-800 hover:border-slate-700'
+                              }`}
+                            >
+                              <div className="aspect-video w-full bg-slate-900 relative">
+                                <img
+                                  src={frame.url}
+                                  alt={frame.label}
+                                  referrerPolicy="no-referrer"
+                                  className="w-full h-full object-cover"
+                                />
+                                <span className="absolute bottom-1.5 right-1.5 px-2 py-0.5 rounded-md bg-black/80 text-[9px] font-mono font-bold text-white">
+                                  {frame.time}
+                                </span>
+                                {isSelected && (
+                                  <div className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center font-bold">
+                                    <Check className="w-3 h-3 stroke-[3]" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="p-2.5 bg-[#161616]">
+                                <p className="text-[11px] font-bold text-white line-clamp-1">{frame.label}</p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* TAB 3: 📁 UPLOAD CUSTOM THUMBNAIL */}
+                  {thumbnailMode === 'upload' && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="p-5 rounded-2xl bg-[#0f0f0f] border border-slate-800 space-y-4"
+                    >
+                      <input
+                        ref={thumbnailFileInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/jpg"
+                        onChange={handleThumbnailFileChosen}
+                        className="hidden"
+                      />
+
+                      <div
+                        onClick={() => thumbnailFileInputRef.current?.click()}
+                        className="border-2 border-dashed border-slate-700 hover:border-amber-400/60 rounded-2xl p-6 text-center cursor-pointer bg-[#141414] hover:bg-[#181818] transition flex flex-col items-center justify-center"
+                      >
+                        <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mb-3">
+                          <UploadCloud className="w-6 h-6" />
+                        </div>
+                        <h5 className="text-xs font-bold text-white">Select image from computer or phone</h5>
+                        <p className="text-[11px] text-slate-400 mt-1">Recommended: 1280x720 (16:9), PNG, JPG, or WebP</p>
+                      </div>
+
+                      {/* Direct URL Option */}
+                      <div className="pt-2">
+                        <label className="block text-[11px] font-bold text-slate-300 mb-1">Or paste custom image URL</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="url"
+                            value={customThumbnailInput}
+                            onChange={(e) => setCustomThumbnailInput(e.target.value)}
+                            placeholder="https://images.unsplash.com/photo-..."
+                            className="flex-1 bg-[#161616] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (customThumbnailInput.trim()) {
+                                setUploadThumbnail(customThumbnailInput.trim());
+                                setCustomThumbnailInput('');
+                              }
+                            }}
+                            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs rounded-xl transition cursor-pointer"
+                          >
+                            Apply URL
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                </div>
+
+                {/* Step 5 Navigation Bar */}
+                <div className="flex items-center justify-between pt-4 border-t border-slate-800/80">
+                  <button
+                    type="button"
+                    onClick={() => setUploadStep('details')}
+                    className="px-5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Back to Details</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setUploadStep('visibility')}
+                    className="px-8 py-3 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-amber-500/20 transition cursor-pointer"
+                  >
+                    <span>Next: Audience & Visibility</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+              </div>
+            </motion.div>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════
+              STEP 6: AUDIENCE & VISIBILITY SETTINGS
+             ══════════════════════════════════════════════════════════ */}
+          {uploadStep === 'visibility' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              <div className="bg-[#181818] border border-slate-800 rounded-3xl p-5 sm:p-7 space-y-6">
+                
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-4">
+                  <div>
+                    <h3 className="text-base font-black text-white flex items-center gap-2">
+                      <Users className="w-5 h-5 text-amber-400" />
+                      Audience & Visibility
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Configure who can view your video and verify faith broadcasting compliance.
+                    </p>
+                  </div>
+                  <span className="text-[11px] text-amber-400 font-bold bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 self-start sm:self-auto">
+                    Step 3 of 4
+                  </span>
+                </div>
+
+                {/* 1. Visibility Selection */}
+                <div className="space-y-3">
+                  <label className="block text-xs font-bold text-slate-300">
+                    Visibility
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    
+                    {/* Public */}
+                    <button
+                      type="button"
+                      onClick={() => setVideoVisibility('public')}
+                      className={`p-4 rounded-2xl border text-left transition relative cursor-pointer ${
+                        videoVisibility === 'public'
+                          ? 'border-emerald-400 bg-emerald-500/10 ring-2 ring-emerald-400/20'
+                          : 'border-slate-800 bg-[#121212] hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                          <Globe2 className="w-4 h-4" />
+                        </div>
+                        {videoVisibility === 'public' && (
+                          <span className="w-5 h-5 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-bold">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>🌍 Public</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                        Anyone on Gospread worldwide can search for and watch this video.
+                      </p>
+                    </button>
+
+                    {/* Private */}
+                    <button
+                      type="button"
+                      onClick={() => setVideoVisibility('private')}
+                      className={`p-4 rounded-2xl border text-left transition relative cursor-pointer ${
+                        videoVisibility === 'private'
+                          ? 'border-amber-400 bg-amber-500/10 ring-2 ring-amber-400/20'
+                          : 'border-slate-800 bg-[#121212] hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                          <Lock className="w-4 h-4" />
+                        </div>
+                        {videoVisibility === 'private' && (
+                          <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center font-bold">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>🔒 Private</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                        Only you and authorized pastoral staff can view this video.
+                      </p>
+                    </button>
+
+                    {/* Unlisted */}
+                    <button
+                      type="button"
+                      onClick={() => setVideoVisibility('unlisted')}
+                      className={`p-4 rounded-2xl border text-left transition relative cursor-pointer ${
+                        videoVisibility === 'unlisted'
+                          ? 'border-blue-400 bg-blue-500/10 ring-2 ring-blue-400/20'
+                          : 'border-slate-800 bg-[#121212] hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                          <Link2 className="w-4 h-4" />
+                        </div>
+                        {videoVisibility === 'unlisted' && (
+                          <span className="w-5 h-5 rounded-full bg-blue-500 text-slate-950 flex items-center justify-center font-bold">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>🔗 Unlisted</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                        Anyone with the direct link can watch; omitted from search & explore feeds.
+                      </p>
+                    </button>
+
+                  </div>
+                </div>
+
+                {/* 2. Audience & Kids Content */}
+                <div className="space-y-3 pt-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300">
+                      Audience
+                    </label>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Is this content intended for children?
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setAudienceKidsOption('all_ages')}
+                      className={`p-4 rounded-2xl border text-left transition relative cursor-pointer ${
+                        audienceKidsOption === 'all_ages'
+                          ? 'border-amber-400 bg-amber-500/10 ring-2 ring-amber-400/20'
+                          : 'border-slate-800 bg-[#121212] hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                          <Users className="w-4 h-4" />
+                        </div>
+                        {audienceKidsOption === 'all_ages' && (
+                          <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center font-bold">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="text-xs font-bold text-white">
+                        No, it is for the General Congregation & All Ages
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Adult sermons, praise & worship concerts, youth service, family gatherings.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setAudienceKidsOption('made_for_kids')}
+                      className={`p-4 rounded-2xl border text-left transition relative cursor-pointer ${
+                        audienceKidsOption === 'made_for_kids'
+                          ? 'border-purple-400 bg-purple-500/10 ring-2 ring-purple-400/20'
+                          : 'border-slate-800 bg-[#121212] hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                          <Baby className="w-4 h-4" />
+                        </div>
+                        {audienceKidsOption === 'made_for_kids' && (
+                          <span className="w-5 h-5 rounded-full bg-purple-500 text-slate-950 flex items-center justify-center font-bold">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="text-xs font-bold text-white">
+                        Yes, it is Made for Children (Kids Ministry)
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Sunday school lessons, bible animation stories, kids worship songs.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. Faith Standards & Copyright Compliance */}
+                <div className="p-4 rounded-2xl bg-[#0f0f0f] border border-slate-800 space-y-3">
+                  <h4 className="text-xs font-bold text-white flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    Content Moderation & Copyright Policy
+                  </h4>
+
+                  <label className="flex items-start gap-3 text-xs text-slate-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isFaithPolicyConfirmed}
+                      onChange={(e) => setIsFaithPolicyConfirmed(e.target.checked)}
+                      className="mt-0.5 rounded border-slate-700 text-amber-500 focus:ring-amber-400"
+                    />
+                    <span>
+                      I confirm this gospel media complies with Gospread faith community guidelines and Christian worship principles.
+                    </span>
+                  </label>
+
+                  <label className="flex items-start gap-3 text-xs text-slate-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isCopyrightConfirmed}
+                      onChange={(e) => setIsCopyrightConfirmed(e.target.checked)}
+                      className="mt-0.5 rounded border-slate-700 text-amber-500 focus:ring-amber-400"
+                    />
+                    <span>
+                      I certify that our ministry owns or holds the necessary broadcasting licenses for this sermon, worship recording, or music.
+                    </span>
+                  </label>
+                </div>
+
+                {/* Step 6 Navigation Bar */}
+                <div className="flex items-center justify-between pt-4 border-t border-slate-800/80">
+                  <button
+                    type="button"
+                    onClick={() => setUploadStep('thumbnail')}
+                    className="px-5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Back to Thumbnail</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setUploadStep('publish')}
+                    className="px-8 py-3 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-amber-500/20 transition cursor-pointer"
+                  >
+                    <span>Next: Publish Options</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+              </div>
+            </motion.div>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════
+              STEP 7: PUBLISH OPTIONS ([Publish Now] [Schedule] [Save Draft])
+             ══════════════════════════════════════════════════════════ */}
+          {uploadStep === 'publish' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              <form onSubmit={handleFinalUploadPublish} className="bg-[#181818] border border-slate-800 rounded-3xl p-5 sm:p-7 space-y-6">
+                
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-4">
+                  <div>
+                    <h3 className="text-base font-black text-white flex items-center gap-2">
+                      <UploadCloud className="w-5 h-5 text-amber-400" />
+                      Publish Options
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Choose whether to broadcast immediately, schedule a future premiere, or save a draft.
+                    </p>
+                  </div>
+                  <span className="text-[11px] text-amber-400 font-bold bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 self-start sm:self-auto">
+                    Step 4 of 4
+                  </span>
+                </div>
+
+                {/* 3 Main Action Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  
+                  {/* Option 1: 🚀 Publish Now */}
+                  <button
+                    type="button"
+                    onClick={() => setPublishActionOption('publish_now')}
+                    className={`p-5 rounded-2xl border text-left transition relative flex flex-col justify-between cursor-pointer ${
+                      publishActionOption === 'publish_now'
+                        ? 'border-amber-400 bg-amber-500/10 ring-2 ring-amber-400/30'
+                        : 'border-slate-800 bg-[#121212] hover:border-slate-700'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center shadow-md">
+                          <UploadCloud className="w-5 h-5" />
+                        </div>
+                        {publishActionOption === 'publish_now' && (
+                          <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center font-bold">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="text-sm font-black text-white">
+                        🚀 Publish Now
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        Broadcast immediately across Gospread worldwide and notify your congregation.
+                      </p>
+                    </div>
+
+                    <div className="mt-4 pt-2 border-t border-slate-800/80 text-[11px] text-amber-300 font-bold">
+                      Immediate Global Premiere
+                    </div>
+                  </button>
+
+                  {/* Option 2: 📅 Schedule */}
+                  <button
+                    type="button"
+                    onClick={() => setPublishActionOption('schedule')}
+                    className={`p-5 rounded-2xl border text-left transition relative flex flex-col justify-between cursor-pointer ${
+                      publishActionOption === 'schedule'
+                        ? 'border-blue-400 bg-blue-500/10 ring-2 ring-blue-400/30'
+                        : 'border-slate-800 bg-[#121212] hover:border-slate-700'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="w-10 h-10 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center shadow-md">
+                          <Calendar className="w-5 h-5" />
+                        </div>
+                        {publishActionOption === 'schedule' && (
+                          <span className="w-5 h-5 rounded-full bg-blue-500 text-slate-950 flex items-center justify-center font-bold">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="text-sm font-black text-white">
+                        📅 Schedule
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        Pick a date and time to premiere your sermon with automated member reminders.
+                      </p>
+                    </div>
+
+                    <div className="mt-4 pt-2 border-t border-slate-800/80 text-[11px] text-blue-300 font-bold">
+                      Set Date & Timezone
+                    </div>
+                  </button>
+
+                  {/* Option 3: 💾 Save Draft */}
+                  <button
+                    type="button"
+                    onClick={() => setPublishActionOption('save_draft')}
+                    className={`p-5 rounded-2xl border text-left transition relative flex flex-col justify-between cursor-pointer ${
+                      publishActionOption === 'save_draft'
+                        ? 'border-slate-400 bg-slate-500/10 ring-2 ring-slate-400/30'
+                        : 'border-slate-800 bg-[#121212] hover:border-slate-700'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="w-10 h-10 rounded-2xl bg-slate-700 text-slate-300 flex items-center justify-center shadow-md">
+                          <Save className="w-5 h-5" />
+                        </div>
+                        {publishActionOption === 'save_draft' && (
+                          <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-950 flex items-center justify-center font-bold">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="text-sm font-black text-white">
+                        💾 Save Draft
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        Store video assets, scripture tags, and notes securely in your Creator Studio.
+                      </p>
+                    </div>
+
+                    <div className="mt-4 pt-2 border-t border-slate-800/80 text-[11px] text-slate-300 font-bold">
+                      Unpublished Studio Draft
+                    </div>
+                  </button>
+
+                </div>
+
+                {/* Conditional Schedule Fields when Schedule is selected */}
+                {publishActionOption === 'schedule' && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="p-5 rounded-2xl bg-[#0f0f0f] border border-blue-500/30 space-y-4"
+                  >
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4 text-blue-400" />
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                        Set Premiere Schedule
+                      </h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1">
+                          Publish Date <span className="text-red-400">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={publishScheduledDate}
+                          onChange={(e) => setPublishScheduledDate(e.target.value)}
+                          className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-400"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1">
+                          Publish Time <span className="text-red-400">*</span>
+                        </label>
+                        <input
+                          type="time"
+                          required
+                          value={publishScheduledTime}
+                          onChange={(e) => setPublishScheduledTime(e.target.value)}
+                          className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-400"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1">
+                          Timezone
+                        </label>
+                        <select
+                          value={publishScheduledTimezone}
+                          onChange={(e) => setPublishScheduledTimezone(e.target.value)}
+                          className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-400"
+                        >
+                          <option value="Africa/Kampala (EAT - UTC+3)">Africa/Kampala (EAT - UTC+3)</option>
+                          <option value="Africa/Lagos (WAT - UTC+1)">Africa/Lagos (WAT - UTC+1)</option>
+                          <option value="Africa/Nairobi (EAT - UTC+3)">Africa/Nairobi (EAT - UTC+3)</option>
+                          <option value="Africa/Johannesburg (SAST - UTC+2)">Africa/Johannesburg (SAST - UTC+2)</option>
+                          <option value="Africa/Accra (GMT - UTC+0)">Africa/Accra (GMT - UTC+0)</option>
+                          <option value="America/New_York (EST - UTC-5)">America/New_York (EST - UTC-5)</option>
+                          <option value="Europe/London (BST - UTC+1)">Europe/London (BST - UTC+1)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Dynamic Scheduled Banner */}
+                    <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center gap-2.5 text-xs text-blue-200">
+                      <Bell className="w-4 h-4 text-blue-400 shrink-0" />
+                      <span>
+                        <strong>Upcoming:</strong> Sunday Worship — {publishScheduledDate} at {publishScheduledTime} ({publishScheduledTimezone})
+                      </span>
+                    </div>
+
+                    <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer pt-1">
+                      <input
+                        type="checkbox"
+                        checked={publishNotifyFollowers}
+                        onChange={(e) => setPublishNotifyFollowers(e.target.checked)}
+                        className="rounded border-slate-700 text-blue-500 focus:ring-blue-400"
+                      />
+                      <span>Alert and notify {ministryName}'s followers 1 hour before premiere countdown starts</span>
+                    </label>
+                  </motion.div>
+                )}
+
+                {/* Final Summary Card */}
+                <div className="p-4 rounded-2xl bg-[#0f0f0f] border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={uploadThumbnail}
+                      alt="Selected Thumbnail"
+                      referrerPolicy="no-referrer"
+                      className="w-16 h-11 rounded-lg object-cover ring-1 ring-slate-700 shrink-0"
+                    />
+                    <div>
+                      <h4 className="text-xs font-bold text-white line-clamp-1">{uploadTitle}</h4>
+                      <p className="text-[11px] text-slate-400">{uploadSpeaker} • {uploadMinistry}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] font-mono text-amber-300">{uploadScripture}</span>
+                        <span className="text-[10px] text-slate-400">• {videoVisibility.toUpperCase()}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-300">
+                    {publishActionOption === 'publish_now' ? 'Instant Global Live' : publishActionOption === 'schedule' ? 'Scheduled Premiere' : 'Studio Draft'}
+                  </span>
+                </div>
+
+                {/* Final Navigation & Action Bar */}
+                <div className="flex items-center justify-between pt-4 border-t border-slate-800/80">
+                  <button
+                    type="button"
+                    onClick={() => setUploadStep('visibility')}
+                    className="px-5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Back to Visibility</span>
+                  </button>
+
+                  <button
+                    type="submit"
+                    className={`px-8 py-3 rounded-full font-black text-xs sm:text-sm flex items-center gap-2 shadow-xl transition cursor-pointer ${
+                      publishActionOption === 'publish_now'
+                        ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-amber-500/20'
+                        : publishActionOption === 'schedule'
+                        ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white shadow-blue-600/20'
+                        : 'bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-white shadow-slate-700/20'
+                    }`}
+                  >
+                    {publishActionOption === 'publish_now' && (
+                      <>
+                        <UploadCloud className="w-4 h-4" />
+                        <span>Publish Video to {ministryName}</span>
+                      </>
+                    )}
+                    {publishActionOption === 'schedule' && (
+                      <>
+                        <Calendar className="w-4 h-4" />
+                        <span>Schedule Premiere for {ministryName}</span>
+                      </>
+                    )}
+                    {publishActionOption === 'save_draft' && (
+                      <>
+                        <Save className="w-4 h-4" />
+                        <span>Save Draft to Creator Studio</span>
+                      </>
+                    )}
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+              </form>
+            </motion.div>
+          )}
+
+        </motion.div>
+      )}
+
+      {/* 🔴 FLOW 2: GO LIVE BROADCAST FORM (PROFESSIONAL RTMP/RTMPS ARCHITECTURE) */}
+      {!isSubmitted && studioAction === 'live' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
+          {/* Sub-header Navigation */}
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <button
+              onClick={() => {
+                if (liveSetupStep === 'credentials') {
+                  setLiveSetupStep('setup');
+                } else {
+                  setStudioAction('choose');
+                }
+              }}
+              className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1.5 transition cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>{liveSetupStep === 'credentials' ? 'Back to Broadcast Details' : 'Back to Creator Options'}</span>
+            </button>
+            <span className="px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold uppercase flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+              {liveSetupStep === 'setup' ? 'Live Broadcast Setup' : 'Live Stream Ingest Active'}
+            </span>
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════════════
+              VIEW A: START A LIVE BROADCAST (METADATA & BROADCAST TYPE)
+             ═══════════════════════════════════════════════════════════════ */}
+          {liveSetupStep === 'setup' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              <form onSubmit={handleStartLiveSetup} className="bg-[#181818] border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-7">
+                
+                {/* Header Title */}
+                <div className="border-b border-slate-800/80 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2.5">
+                      <span className="w-3.5 h-3.5 rounded-full bg-red-500 animate-pulse inline-block" />
+                      START A LIVE BROADCAST
+                    </h2>
+                    <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                      Configure your gospel service broadcast. Gospread will generate dedicated RTMP/RTMPS stream credentials for OBS Studio, vMix, and hardware encoders.
+                    </p>
+                  </div>
+                  <div className="px-3 py-1.5 rounded-2xl bg-slate-900 border border-slate-800 text-[11px] text-amber-300 font-bold self-start sm:self-auto flex items-center gap-1.5">
+                    <RadioTower className="w-3.5 h-3.5 text-red-400" />
+                    <span>{ministryName}</span>
+                  </div>
+                </div>
+
+                {/* 1. What are you broadcasting? (Radio Options) */}
+                <div className="space-y-3">
+                  <label className="block text-xs sm:text-sm font-black text-white uppercase tracking-wider">
+                    What are you broadcasting? <span className="text-red-400">*</span>
+                  </label>
+                  
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                    {(['Sunday Service', 'Bible Study', 'Prayer', 'Worship', 'Conference', 'Other'] as LiveBroadcastType[]).map((type) => {
+                      const isSelected = broadcastType === type;
+                      return (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => {
+                            setBroadcastType(type);
+                            // Auto-suggest category & title template
+                            if (type === 'Sunday Service') {
+                              setLiveCategory('Live Worship');
+                              setLiveTitle('Sunday Morning Celebration & Prophetic Worship');
+                            } else if (type === 'Bible Study') {
+                              setLiveCategory('Bible Study');
+                              setLiveTitle('Midweek Word & Discipleship Encounter');
+                            } else if (type === 'Prayer') {
+                              setLiveCategory('Prayer & Intercession');
+                              setLiveTitle('Global Prayer Altar & Midnight Intercession');
+                            } else if (type === 'Worship') {
+                              setLiveCategory('Live Worship');
+                              setLiveTitle('Evening Atmosphere of Anointed Worship');
+                            } else if (type === 'Conference') {
+                              setLiveCategory('Christian Living');
+                              setLiveTitle('Kingdom Awakening Annual Conference');
+                            }
+                          }}
+                          className={`p-3.5 rounded-2xl border text-left transition relative flex flex-col items-start justify-between cursor-pointer ${
+                            isSelected
+                              ? 'border-red-500 bg-red-500/10 text-white ring-2 ring-red-500/30'
+                              : 'border-slate-800 bg-[#121212] text-slate-300 hover:border-slate-700 hover:bg-[#161616]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full mb-2">
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                              isSelected ? 'border-red-500 bg-red-500' : 'border-slate-600'
+                            }`}>
+                              {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              {type === 'Sunday Service' ? '⛪' :
+                               type === 'Bible Study' ? '📖' :
+                               type === 'Prayer' ? '🔥' :
+                               type === 'Worship' ? '🕊️' :
+                               type === 'Conference' ? '🌍' : '🎙️'}
+                            </span>
+                          </div>
+                          <span className="text-xs font-bold leading-tight">
+                            {type}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Title Field */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs sm:text-sm font-bold text-slate-200">
+                      Title <span className="text-red-400">*</span>
+                    </label>
+                    <span className="text-[10px] text-slate-400">{liveTitle.length}/100</span>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={liveTitle}
+                    onChange={(e) => setLiveTitle(e.target.value)}
+                    placeholder="e.g. Sunday Morning Celebration Service & Prophetic Worship"
+                    maxLength={100}
+                    className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none transition shadow-inner"
+                  />
+                </div>
+
+                {/* 3. Description Field */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs sm:text-sm font-bold text-slate-200">
+                    Description
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={liveDescription}
+                    onChange={(e) => setLiveDescription(e.target.value)}
+                    placeholder="Tell your church members and worldwide audience what to expect from today's live service..."
+                    className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none transition resize-none shadow-inner"
+                  />
+                </div>
+
+                {/* 4. Category Dropdown & Preacher/Host */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-bold text-slate-200 mb-1.5">
+                      Category <span className="text-red-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={liveCategory}
+                        onChange={(e) => setLiveCategory(e.target.value)}
+                        className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-red-500 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white focus:outline-none appearance-none cursor-pointer pr-10"
+                      >
+                        <option value="Live Worship">Live Worship</option>
+                        <option value="Sunday Service">Sunday Service</option>
+                        <option value="Bible Study">Bible Study</option>
+                        <option value="Prayer & Intercession">Prayer & Intercession</option>
+                        <option value="Christian Living">Christian Living & Conference</option>
+                        <option value="Gospel Music">Gospel Music Concert</option>
+                        <option value="Youth & Ministry">Youth & Young Adults</option>
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs sm:text-sm font-bold text-slate-200 mb-1.5">
+                      Preacher / Service Host
+                    </label>
+                    <input
+                      type="text"
+                      value={liveSpeaker}
+                      onChange={(e) => setLiveSpeaker(e.target.value)}
+                      placeholder="Senior Pastor John"
+                      className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-red-500 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white focus:outline-none shadow-inner"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs sm:text-sm font-bold text-slate-200 mb-1.5">
+                      Scripture Anchor
+                    </label>
+                    <input
+                      type="text"
+                      value={liveScripture}
+                      onChange={(e) => setLiveScripture(e.target.value)}
+                      placeholder="Isaiah 40:29-31"
+                      className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-red-500 rounded-2xl px-4 py-3 text-xs sm:text-sm text-amber-300 font-bold focus:outline-none shadow-inner"
+                    />
+                  </div>
+                </div>
+
+                {/* Interactive Live Add-ons */}
+                <div className="p-4 rounded-2xl bg-[#121212] border border-slate-800/80 space-y-2">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                    Interactive Live Broadcast Features
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={enableLiveChat}
+                        onChange={(e) => setEnableLiveChat(e.target.checked)}
+                        className="rounded text-red-600 focus:ring-red-500"
+                      />
+                      <span>💬 Live Chat & Amen Reactions</span>
+                    </label>
+
+                    <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={enablePrayerAltar}
+                        onChange={(e) => setEnablePrayerAltar(e.target.checked)}
+                        className="rounded text-red-600 focus:ring-red-500"
+                      />
+                      <span>🔥 Live Prayer Altar Wall</span>
+                    </label>
+
+                    <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={enableGivingOverlay}
+                        onChange={(e) => setEnableGivingOverlay(e.target.checked)}
+                        className="rounded text-red-600 focus:ring-red-500"
+                      />
+                      <span>💳 Tithes & Giving Banner</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Primary Action Button: [ Start Live Setup ] */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+                  <button
+                    type="button"
+                    onClick={() => setStudioAction('choose')}
+                    className="px-5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={isGeneratingCredentials}
+                    className="px-8 py-3.5 rounded-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black text-xs sm:text-sm flex items-center gap-2.5 shadow-xl shadow-red-600/30 transition cursor-pointer"
+                  >
+                    {isGeneratingCredentials ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Generating Live Stream Ingest...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 text-amber-300" />
+                        <span>Start Live Setup</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
+
+              </form>
+            </motion.div>
+          )}
+
+          {/* ═══════════════════════════════════════════════════════════════
+              VIEW B: YOUR LIVE STREAM (GOSPREAD GENERATES RTMP CREDENTIALS)
+             ═══════════════════════════════════════════════════════════════ */}
+          {liveSetupStep === 'credentials' && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="space-y-6"
+            >
+              <div className="bg-[#181818] border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-7">
+                
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-5">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-3 h-3 rounded-full bg-red-500 animate-ping" />
+                      <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase">
+                        YOUR LIVE STREAM
+                      </h2>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-400">
+                      Gospread has provisioned your dedicated live stream ingest. Copy these credentials into your broadcasting software (OBS, Streamlabs, vMix, Wirecast).
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-mono font-bold flex items-center gap-1.5">
+                      <Wifi className="w-3.5 h-3.5 animate-pulse text-emerald-400" />
+                      <span>Ingest Ready</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setLiveSetupStep('setup')}
+                      className="px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 transition cursor-pointer"
+                    >
+                      Edit Info
+                    </button>
+                  </div>
+                </div>
+
+                {/* Summary Info Banner */}
+                <div className="p-4 rounded-2xl bg-[#121212] border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-amber-400">[{broadcastType}]</span>
+                      <h3 className="text-sm font-black text-white">{liveTitle}</h3>
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      {liveSpeaker || ownerName} • {ministryName} • {liveCategory}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="px-2.5 py-1 rounded-lg bg-black/60 text-slate-400 text-[11px] font-mono border border-slate-800">
+                      1080p60 • RTMPS
+                    </span>
+                  </div>
+                </div>
+
+                {/* 🔑 THE CORE ARCHITECTURE: GOSPREAD PROVISIONED RTMP CREDENTIALS */}
+                <div className="space-y-5 p-5 sm:p-6 rounded-3xl bg-[#0f0f0f] border-2 border-red-500/30 shadow-2xl">
+                  
+                  {/* 1. Server URL */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                        <Radio className="w-4 h-4 text-red-400" />
+                        Server (RTMPS URL)
+                      </label>
+                      <span className="text-[11px] text-slate-500">Cloudflare Stream / Gospread Edge</span>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                      <div className="flex-1 bg-[#161616] border border-slate-700 rounded-2xl px-4 py-3 text-xs sm:text-sm font-mono text-amber-300 select-all overflow-x-auto shadow-inner">
+                        {rtmpServerUrl}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleCopyServerUrl}
+                        className={`px-5 py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shrink-0 ${
+                          copiedServer
+                            ? 'bg-emerald-500 text-slate-950 font-black shadow-lg shadow-emerald-500/20'
+                            : 'bg-slate-800 hover:bg-slate-700 text-white'
+                        }`}
+                      >
+                        {copiedServer ? (
+                          <>
+                            <Check className="w-4 h-4 stroke-[3]" />
+                            <span>Server Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4" />
+                            <span>Copy Server</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2. Stream Key */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                        <Key className="w-4 h-4 text-amber-400" />
+                        Stream Key
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowStreamKey(!showStreamKey)}
+                          className="text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1.5 transition cursor-pointer"
+                        >
+                          {showStreamKey ? (
+                            <>
+                              <EyeOff className="w-3.5 h-3.5" />
+                              <span>Hide Key</span>
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>👁 Show Key</span>
+                            </>
+                          )}
+                        </button>
+                        <span className="text-slate-600">|</span>
+                        <button
+                          type="button"
+                          onClick={handleRegenerateStreamKey}
+                          className="text-xs text-slate-400 hover:text-slate-200 transition cursor-pointer"
+                          title="Generate a new private stream key"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                      <div className="flex-1 bg-[#161616] border border-slate-700 rounded-2xl px-4 py-3 text-xs sm:text-sm font-mono text-slate-200 select-all overflow-x-auto shadow-inner tracking-wider">
+                        {showStreamKey ? liveStreamKey : '••••••••••••••••••••••••••••••••••••••••'}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleCopyLiveStreamKey}
+                          className={`flex-1 sm:flex-none px-5 py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shrink-0 ${
+                            copiedStreamKey
+                              ? 'bg-amber-400 text-slate-950 font-black shadow-lg shadow-amber-400/20'
+                              : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold'
+                          }`}
+                        >
+                          {copiedStreamKey ? (
+                            <>
+                              <Check className="w-4 h-4 stroke-[3]" />
+                              <span>Key Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-4 h-4" />
+                              <span>Copy Stream Key</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* 📡 BROADCAST SOFTWARE INTEGRATION GUIDE (OBS, STREAMLABS, VMIX, WIRECAST) */}
+                <div className="p-5 rounded-3xl bg-[#121212] border border-slate-800 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                        <Cpu className="w-4 h-4 text-amber-400" />
+                        Connect Your Streaming Software
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Put the Gospread server and stream key into your favorite broadcast software:
+                      </p>
+                    </div>
+
+                    {/* Software Selector Tabs */}
+                    <div className="flex items-center gap-1 p-1 bg-black/50 rounded-xl border border-slate-800 self-start sm:self-auto overflow-x-auto">
+                      {(['obs', 'streamlabs', 'vmix', 'wirecast', 'hardware'] as const).map((tab) => (
+                        <button
+                          key={tab}
+                          type="button"
+                          onClick={() => setActiveEncoderTab(tab)}
+                          className={`px-3 py-1 rounded-lg text-[11px] font-bold uppercase transition cursor-pointer ${
+                            activeEncoderTab === tab
+                              ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {tab === 'obs' ? 'OBS Studio' :
+                           tab === 'streamlabs' ? 'Streamlabs' :
+                           tab === 'vmix' ? 'vMix' :
+                           tab === 'wirecast' ? 'Wirecast' : 'Hardware (ATEM)'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tab Explanations */}
+                  <div className="text-xs text-slate-300 bg-[#161616] border border-slate-800 rounded-2xl p-4 space-y-2">
+                    {activeEncoderTab === 'obs' && (
+                      <div>
+                        <p className="font-bold text-amber-300">How to configure OBS Studio:</p>
+                        <ol className="list-decimal list-inside space-y-1 text-slate-400 mt-1">
+                          <li>Open OBS Studio and click <strong className="text-white">Settings</strong> &gt; <strong className="text-white">Stream</strong>.</li>
+                          <li>Set Service to <strong className="text-white">Custom...</strong></li>
+                          <li>Paste the Server: <code className="text-amber-300 font-mono text-[11px] bg-black/50 px-1 py-0.5 rounded">{rtmpServerUrl}</code></li>
+                          <li>Paste the Stream Key: <code className="text-amber-300 font-mono text-[11px] bg-black/50 px-1 py-0.5 rounded">••••••••••••••</code></li>
+                          <li>Click <strong className="text-white">Apply</strong> and hit <strong className="text-red-400 font-bold">Start Streaming</strong>!</li>
+                        </ol>
+                      </div>
+                    )}
+
+                    {activeEncoderTab === 'streamlabs' && (
+                      <div>
+                        <p className="font-bold text-amber-300">How to configure Streamlabs Desktop:</p>
+                        <ol className="list-decimal list-inside space-y-1 text-slate-400 mt-1">
+                          <li>Open Streamlabs &gt; Settings gear &gt; <strong className="text-white">Stream</strong>.</li>
+                          <li>Choose <strong className="text-white">Custom Streaming Server</strong>.</li>
+                          <li>Paste URL and Stream Key, then start broadcasting.</li>
+                        </ol>
+                      </div>
+                    )}
+
+                    {activeEncoderTab === 'vmix' && (
+                      <div>
+                        <p className="font-bold text-amber-300">How to configure vMix Live Production:</p>
+                        <ol className="list-decimal list-inside space-y-1 text-slate-400 mt-1">
+                          <li>Click the gear icon next to <strong className="text-white">Stream</strong> at the bottom of vMix.</li>
+                          <li>Select <strong className="text-white">Custom RTMP Server</strong> as the destination.</li>
+                          <li>Paste the Gospread RTMPS URL into URL and your Key into Stream Key.</li>
+                        </ol>
+                      </div>
+                    )}
+
+                    {activeEncoderTab === 'wirecast' && (
+                      <div>
+                        <p className="font-bold text-amber-300">How to configure Telestream Wirecast:</p>
+                        <ol className="list-decimal list-inside space-y-1 text-slate-400 mt-1">
+                          <li>Go to <strong className="text-white">Output</strong> &gt; <strong className="text-white">Output Settings</strong>.</li>
+                          <li>Select <strong className="text-white">RTMP Server</strong> and enter Gospread address & stream key.</li>
+                        </ol>
+                      </div>
+                    )}
+
+                    {activeEncoderTab === 'hardware' && (
+                      <div>
+                        <p className="font-bold text-amber-300">How to configure Hardware Encoders (Blackmagic ATEM Mini Pro, LiveU, Teradek, Kiloview):</p>
+                        <ol className="list-decimal list-inside space-y-1 text-slate-400 mt-1">
+                          <li>In your encoder web dashboard or ATEM software control, add a custom RTMP streaming profile.</li>
+                          <li>Provide the Gospread RTMPS endpoint and stream key with 1080p (4500-6000 kbps) profile.</li>
+                        </ol>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Final Launch Broadcast Bar */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 border-t border-slate-800/80">
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    <span>Once your software encoder is streaming, Gospread will instantly distribute the live feed worldwide.</span>
+                  </div>
+
+                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => setLiveSetupStep('setup')}
+                      className="flex-1 sm:flex-none px-5 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+                    >
+                      Back
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleGoLiveSubmit()}
+                      className="flex-1 sm:flex-none px-8 py-3.5 rounded-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-red-600/30 transition cursor-pointer"
+                    >
+                      <RadioTower className="w-4 h-4" />
+                      <span>Start Broadcasting to Gospread</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            </motion.div>
+          )}
+
+        </motion.div>
+      )}
+
+      {/* 📅 FLOW 3: SCHEDULE BROADCAST / PREMIERE FORM */}
+      {!isSubmitted && studioAction === 'schedule' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
+          {/* Sub-header Navigation */}
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <button
+              onClick={() => setStudioAction('choose')}
+              className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1.5 transition cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Creator Options</span>
+            </button>
+            <span className="px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] font-bold uppercase flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5" />
+              Schedule Upcoming Broadcast
+            </span>
+          </div>
+
+          <form onSubmit={handleScheduleSubmit} className="space-y-6">
+            <div className="bg-[#181818] border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <CalendarDays className="w-4 h-4 text-blue-400" />
+                Scheduled Premiere Details
+              </h3>
+
+              {/* Title */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  Upcoming Broadcast Title <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={scheduleTitle}
+                  onChange={(e) => setScheduleTitle(e.target.value)}
+                  placeholder="e.g. Midweek Word & Power Encounter"
+                  className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-blue-400 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Speaker & Premiere Type */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Preacher / Artiste</label>
+                  <input
+                    type="text"
+                    required
+                    value={scheduleSpeaker}
+                    onChange={(e) => setScheduleSpeaker(e.target.value)}
+                    className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-blue-400 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Broadcast Type</label>
+                  <select
+                    value={scheduleType}
+                    onChange={(e) => setScheduleType(e.target.value as any)}
+                    className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-blue-400 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                  >
+                    <option value="Live Broadcast Premiere">Live Broadcast Premiere</option>
+                    <option value="Prerecorded Video Premiere">Prerecorded Video Premiere</option>
+                    <option value="Prayer Summit">Global Online Prayer Summit</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Date & Time Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Broadcast Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={scheduleDate}
+                    onChange={(e) => setScheduleDate(e.target.value)}
+                    className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-blue-400 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Service Time</label>
+                  <input
+                    type="time"
+                    required
+                    value={scheduleTime}
+                    onChange={(e) => setScheduleTime(e.target.value)}
+                    className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-blue-400 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Timezone</label>
+                  <select
+                    value={scheduleTimezone}
+                    onChange={(e) => setScheduleTimezone(e.target.value)}
+                    className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-blue-400 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                  >
+                    <option value="EST (UTC-5)">EST (UTC-5)</option>
+                    <option value="EAT (UTC+3)">EAT - Nairobi / Kampala (UTC+3)</option>
+                    <option value="WAT (UTC+1)">WAT - Lagos / Abuja (UTC+1)</option>
+                    <option value="GMT (UTC+0)">GMT - London / Accra (UTC+0)</option>
+                    <option value="PST (UTC-8)">PST (UTC-8)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Scripture & Outline */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Foundational Scripture</label>
+                <input
+                  type="text"
+                  value={scheduleScripture}
+                  onChange={(e) => setScheduleScripture(e.target.value)}
+                  placeholder="e.g. Romans 8:28"
+                  className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-blue-400 rounded-2xl px-4 py-2.5 text-xs text-amber-300 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Service Outline / Description</label>
+                <textarea
+                  rows={2}
+                  value={scheduleDescription}
+                  onChange={(e) => setScheduleDescription(e.target.value)}
+                  className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-blue-400 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none resize-none"
+                />
+              </div>
+
+              {/* Subscriber Notification Checkbox */}
+              <label className="flex items-center gap-2 pt-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={notifySubscribers}
+                  onChange={(e) => setNotifySubscribers(e.target.checked)}
+                  className="rounded text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                  <Bell className="w-3.5 h-3.5 text-amber-400" />
+                  Automatically alert and notify {ministryName}'s followers 1 hour before start
+                </span>
+              </label>
+            </div>
+
+            {/* Submit Bar */}
+            <div className="flex items-center justify-between pt-2">
               <button
-                onClick={handleFinishAndWatch}
-                className="px-5 py-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-red-600/20 transition shrink-0"
+                type="button"
+                onClick={() => setStudioAction('choose')}
+                className="px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
               >
-                <Play className="w-4 h-4 fill-current" />
-                <span>Launch Public Live Stream</span>
+                Cancel
               </button>
+
+              <button
+                type="submit"
+                className="px-6 py-3 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-black text-xs flex items-center gap-2 shadow-xl shadow-blue-600/30 transition cursor-pointer"
+              >
+                <Calendar className="w-4 h-4" />
+                <span>Schedule Premiere for {ministryName}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      )}
+
+      {/* 🎉 POST-PUBLISH PORTAL DASHBOARD (AFTER SUCCESSFUL PUBLICATION) */}
+      {isSubmitted && createdStream && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="space-y-6"
+        >
+          {/* Success Banner */}
+          <div className="p-6 rounded-3xl bg-gradient-to-r from-emerald-950/60 via-slate-900 to-emerald-950/60 border border-emerald-500/40 text-center space-y-3">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center ring-4 ring-emerald-500/10">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
+                Broadcast Published Successfully to {ministryName}!
+              </h2>
+              <p className="text-xs text-slate-300 mt-1">
+                Your video is now live on the global feed with adaptive bitrate streaming, giving payouts, and prayer altar.
+              </p>
             </div>
           </div>
 
-          {/* Studio Navigation Tabs */}
-          <div className="flex border-b border-slate-800 gap-1.5 overflow-x-auto pb-0.5">
+          {/* Published Video Preview Card */}
+          <div className="p-5 rounded-3xl bg-[#181818] border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <img 
+                src={createdStream.thumbnail} 
+                alt={createdStream.title}
+                referrerPolicy="no-referrer"
+                className="w-20 h-14 rounded-xl object-cover ring-1 ring-slate-700 shrink-0" 
+              />
+              <div>
+                <h4 className="text-sm font-bold text-white line-clamp-1">{createdStream.title}</h4>
+                <p className="text-xs text-slate-400 mt-0.5">{createdStream.speakerOrArtist} • {createdStream.churchOrMinistry}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] font-mono text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                    {createdStream.bibleVerse || 'Ephesians 2:8'}
+                  </span>
+                  <span className="text-[10px] text-emerald-400 font-bold">
+                    {createdStream.viewsText}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleFinishAndWatch}
+              className="px-5 py-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-red-600/20 transition shrink-0 cursor-pointer"
+            >
+              <Play className="w-4 h-4 fill-current" />
+              <span>Watch on Feed</span>
+            </button>
+          </div>
+
+          {/* Ministry Portal Navigation Tabs */}
+          <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto scrollbar-none">
             {[
-              { id: 'overview', label: 'Studio Overview', icon: UserCheck },
-              { id: 'socials', label: 'Social Links', icon: Share2, count: socialRows.filter(s => s.username).length },
-              { id: 'payouts', label: 'Payout Accounts', icon: Landmark, count: payoutAccounts.length },
-              ...(selectedCategory === 'Church' ? [{ id: 'campuses', label: 'Church Campuses', icon: Building2, count: churchCampuses.length }] : []),
-              { id: 'broadcast', label: 'Live RTMP Keys', icon: Video },
-              { id: 'prayers', label: 'Prayer Wall', icon: Heart, count: prayerRequests.length },
+              { id: 'overview', label: 'Studio Overview', icon: BarChart3 },
+              { id: 'socials', label: 'Social Channels', icon: Globe },
+              { id: 'payouts', label: 'Giving Accounts', icon: DollarSign },
+              { id: 'campuses', label: 'Campus Locations', icon: Building2 },
+              { id: 'broadcast', label: 'RTMP Stream Keys', icon: Video },
+              { id: 'prayers', label: 'Prayer Wall', icon: Heart }
             ].map(tab => {
-              const Icon = tab.icon;
-              const isActive = activePortalTab === tab.id;
+              const TabIcon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActivePortalTab(tab.id as any)}
-                  className={`px-3.5 py-2.5 text-xs font-bold rounded-t-xl transition flex items-center gap-1.5 border-b-2 whitespace-nowrap ${
-                    isActive 
-                      ? 'border-amber-400 text-amber-400 bg-slate-900' 
-                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition whitespace-nowrap ${
+                    activePortalTab === tab.id 
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' 
+                      : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-transparent'
                   }`}
                 >
-                  <Icon className="w-3.5 h-3.5" />
+                  <TabIcon className="w-3.5 h-3.5" />
                   <span>{tab.label}</span>
-                  {tab.count !== undefined && (
-                    <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 text-[9px] font-mono">
-                      {tab.count}
-                    </span>
-                  )}
                 </button>
               );
             })}
@@ -754,618 +3931,100 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
 
           {/* TAB 1: STUDIO OVERVIEW */}
           {activePortalTab === 'overview' && (
-            <div className="space-y-6">
-              {/* Quick Stats Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-4 rounded-2xl bg-[#181818] border border-slate-800 space-y-1">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Live Viewers</span>
-                  <div className="text-xl font-bold text-white flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-                    <span>780</span>
-                  </div>
-                  <span className="text-[10px] text-emerald-400 font-semibold">+24% this service</span>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-[#181818] border border-slate-800 space-y-1">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Channel Members</span>
-                  <div className="text-xl font-bold text-white">
-                    {createdStream.subscribersCount}
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-semibold">Active Followers</span>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-[#181818] border border-slate-800 space-y-1">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Payout Accounts</span>
-                  <div className="text-xl font-bold text-amber-400">
-                    {payoutAccounts.length} Configured
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-semibold">Multiple Destinations</span>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-[#181818] border border-slate-800 space-y-1">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                    {selectedCategory === 'Church' ? 'Campuses' : 'Social Links'}
-                  </span>
-                  <div className="text-xl font-bold text-blue-400">
-                    {selectedCategory === 'Church' ? `${churchCampuses.length} Campuses` : `${socialRows.filter(s => s.username).length} Links`}
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-semibold">Multi-Location Setup</span>
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 rounded-2xl bg-[#181818] border border-slate-800 space-y-1">
+                <span className="text-[11px] font-bold text-slate-400">Total Viewers Reached</span>
+                <p className="text-xl font-black text-white">24,850</p>
+                <span className="text-[10px] text-emerald-400">+18% this month</span>
               </div>
-
-              {/* Quick Summary Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Social Channels Preview in Studio */}
-                <div className="p-5 rounded-3xl bg-[#181818] border border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                      <Share2 className="w-4 h-4 text-amber-400" />
-                      Connected Social Media Links
-                    </h4>
-                    <button 
-                      onClick={() => setActivePortalTab('socials')}
-                      className="text-[11px] font-bold text-amber-400 hover:underline"
-                    >
-                      Manage
-                    </button>
-                  </div>
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                    {socialRows.filter(s => s.username.trim()).map(s => (
-                      <div key={s.id} className="p-2 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          {renderSocialIcon(s.platform)}
-                          <div>
-                            <span className="font-bold text-white block">{s.name}</span>
-                            <span className="text-[10px] text-slate-400 font-mono">
-                              {s.prefix}{s.username}{s.suffix || ''}
-                            </span>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => copyToClipboard(`${s.prefix}${s.username}${s.suffix || ''}`, s.id)}
-                          className="p-1 text-slate-400 hover:text-white transition"
-                          title="Copy Link"
-                        >
-                          {copiedLink === s.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Multiple Payout Accounts Preview */}
-                <div className="p-5 rounded-3xl bg-[#181818] border border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                      <Landmark className="w-4 h-4 text-amber-400" />
-                      Multiple Payout Accounts
-                    </h4>
-                    <button 
-                      onClick={() => setActivePortalTab('payouts')}
-                      className="text-[11px] font-bold text-amber-400 hover:underline"
-                    >
-                      Manage
-                    </button>
-                  </div>
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                    {payoutAccounts.length === 0 ? (
-                      <p className="text-xs text-slate-500 italic py-3 text-center">No payout accounts configured yet.</p>
-                    ) : (
-                      payoutAccounts.map(acc => (
-                        <div key={acc.id} className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between text-xs">
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-white">{acc.label}</span>
-                              {acc.isPrimary && (
-                                <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[9px] font-bold">
-                                  PRIMARY
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-[10px] text-slate-400 block font-mono">
-                              {acc.type} • {acc.accountNumber || acc.routingOrSwift}
-                            </span>
-                          </div>
-                          <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">
-                            {acc.currency}
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
+              <div className="p-4 rounded-2xl bg-[#181818] border border-slate-800 space-y-1">
+                <span className="text-[11px] font-bold text-slate-400">Prayer Requests Prayed</span>
+                <p className="text-xl font-black text-white">412</p>
+                <span className="text-[10px] text-amber-300">Active intercession altar</span>
+              </div>
+              <div className="p-4 rounded-2xl bg-[#181818] border border-slate-800 space-y-1">
+                <span className="text-[11px] font-bold text-slate-400">Active Payout Channels</span>
+                <p className="text-xl font-black text-white">{payoutAccounts.length} Accounts</p>
+                <span className="text-[10px] text-emerald-400">Mobile Money & Bank Wires</span>
               </div>
             </div>
           )}
 
-          {/* TAB 2: SOCIAL LINKS (Exact UI from user screenshot) */}
+          {/* TAB 2: SOCIAL CHANNELS */}
           {activePortalTab === 'socials' && (
-            <div className="bg-[#181818] border border-slate-800 rounded-3xl p-6 space-y-6 shadow-xl">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div>
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Share2 className="w-5 h-5 text-amber-400" />
-                    Social Links
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Connect your official channel across social media, publication platforms, and devotional feeds.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={addCustomSocialLink}
-                  className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 transition"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Link</span>
-                </button>
-              </div>
-
-              {/* Social Links List matching the screenshot structure */}
-              <div className="space-y-3">
-                {socialRows.map((row) => (
-                  <div 
-                    key={row.id} 
-                    className="flex flex-col sm:flex-row items-stretch sm:items-center bg-[#0f0f0f] border border-slate-700/80 rounded-2xl p-1.5 sm:p-2 gap-2 shadow-sm hover:border-slate-600 transition"
-                  >
-                    {/* Left Icon and Prefix Container */}
-                    <div className="flex items-center gap-2.5 px-2 py-1 shrink-0">
-                      {renderSocialIcon(row.platform)}
-                      <span className="text-xs font-medium text-slate-300 font-mono select-none">
-                        {row.prefix}
-                      </span>
-                    </div>
-
-                    {/* Right Text Input */}
-                    <div className="flex-1 flex items-center min-w-0 pr-1">
-                      <input
-                        type="text"
-                        value={row.username}
-                        onChange={(e) => updateSocialUsername(row.id, e.target.value)}
-                        placeholder={row.placeholder}
-                        className="w-full bg-transparent px-2 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none font-medium"
-                      />
-                      {row.suffix && (
-                        <span className="text-xs text-slate-400 font-mono pr-2 select-none">
-                          {row.suffix}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Remove or Copy Action */}
-                    <div className="flex items-center gap-1 px-1 shrink-0 self-end sm:self-center">
-                      {row.username && (
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(`${row.prefix}${row.username}${row.suffix || ''}`, row.id)}
-                          className="p-1.5 text-slate-400 hover:text-amber-400 transition"
-                          title="Copy Full URL"
-                        >
-                          {copiedLink === row.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                        </button>
-                      )}
-                      {socialRows.length > 5 && (
-                        <button
-                          type="button"
-                          onClick={() => removeSocialLink(row.id)}
-                          className="p-1.5 text-slate-500 hover:text-red-400 transition"
-                          title="Remove Row"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
+            <div className="bg-[#181818] border border-slate-800 rounded-3xl p-5 space-y-4">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Globe className="w-4 h-4 text-amber-400" />
+                Verified Social Links for {ministryName}
+              </h3>
+              <div className="space-y-2">
+                {socialRows.map(s => (
+                  <div key={s.id} className="p-3 bg-slate-950/80 border border-slate-800 rounded-xl flex items-center justify-between text-xs">
+                    <span className="font-bold text-white">{s.name}</span>
+                    <span className="font-mono text-amber-400">@{s.username}</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* TAB 3: MULTIPLE PAYOUT ACCOUNTS */}
+          {/* TAB 3: GIVING PAYOUTS */}
           {activePortalTab === 'payouts' && (
-            <div className="bg-[#181818] border border-slate-800 rounded-3xl p-6 space-y-6 shadow-xl">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div>
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Landmark className="w-5 h-5 text-amber-400" />
-                    Multiple Payout Accounts & Giving Destinations
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Configure multiple financial accounts for receiving direct tithes, building pledges, and mission funds.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={addPayoutAccount}
-                  className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 transition"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Payout Method</span>
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {payoutAccounts.length === 0 ? (
-                  <div className="p-8 rounded-2xl bg-[#0f0f0f] border border-dashed border-slate-800 text-center space-y-3">
-                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto">
-                      <Landmark className="w-6 h-6" />
-                    </div>
+            <div className="bg-[#181818] border border-slate-800 rounded-3xl p-5 space-y-4">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-emerald-400" />
+                Active Giving & Seed Payout Destinations ({payoutAccounts.length})
+              </h3>
+              <div className="space-y-3">
+                {payoutAccounts.map(acc => (
+                  <div key={acc.id} className="p-4 bg-slate-950/80 border border-slate-800 rounded-2xl flex items-center justify-between">
                     <div>
-                      <h4 className="text-sm font-bold text-white">No Payout Methods Configured</h4>
-                      <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-                        Configure financial accounts to receive direct tithes, partner offerings, seeds, and building donations directly from viewers.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={addPayoutAccount}
-                      className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 transition inline-flex items-center gap-1.5"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add Payout Method</span>
-                    </button>
-                  </div>
-                ) : (
-                  payoutAccounts.map((acc, idx) => (
-                  <div 
-                    key={acc.id} 
-                    className={`p-4 rounded-2xl border space-y-3 relative ${
-                      acc.isPrimary 
-                        ? 'bg-amber-950/20 border-amber-500/50' 
-                        : 'bg-[#0f0f0f] border-slate-800'
-                    }`}
-                  >
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white">
-                          Account #{idx + 1}: {acc.label || 'Untitled Account'}
-                        </span>
-                        {acc.isPrimary ? (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold">
-                            PRIMARY DESTINATION
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setPrimaryPayoutAccount(acc.id)}
-                            className="text-[10px] text-slate-400 hover:text-amber-400 underline font-semibold"
-                          >
-                            Set as Primary
-                          </button>
+                        <span className="text-xs font-bold text-white">{acc.label}</span>
+                        {acc.isPrimary && (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[9px] font-bold">PRIMARY</span>
                         )}
                       </div>
-
-                      {payoutAccounts.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removePayoutAccount(acc.id)}
-                          className="text-slate-500 hover:text-red-400 p-1 text-xs flex items-center gap-1 transition"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Remove</span>
-                        </button>
-                      )}
+                      <p className="text-[11px] text-slate-400 mt-0.5">{acc.type} • {acc.currency} • {acc.bankOrProvider}</p>
                     </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Account Purpose / Label</label>
-                        <input
-                          type="text"
-                          value={acc.label}
-                          onChange={(e) => updatePayoutAccount(acc.id, 'label', e.target.value)}
-                          placeholder="e.g. Building Fund Pledges"
-                          className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-medium"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Payout Method Type</label>
-                        <select
-                          value={acc.type}
-                          onChange={(e) => updatePayoutAccount(acc.id, 'type', e.target.value as any)}
-                          className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                        >
-                          <option value="Direct Bank Wire">Direct Bank Wire / ACH / IBAN</option>
-                          <option value="Mobile Money (M-Pesa / MTN)">Mobile Money (M-Pesa / MTN / Airtel)</option>
-                          <option value="Stripe Connect">Stripe Connect Account</option>
-                          <option value="PayPal Business">PayPal Business Email</option>
-                          <option value="Cash App / Zelle">Cash App / Zelle Tag</option>
-                          <option value="Crypto Giving (USDC/USDT)">Crypto Giving (USDC / USDT)</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Currency</label>
-                        <select
-                          value={acc.currency}
-                          onChange={(e) => updatePayoutAccount(acc.id, 'currency', e.target.value as any)}
-                          className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-medium"
-                        >
-                          <option value="USD ($)">USD ($) - US Dollar</option>
-                          <option value="GBP (£)">GBP (£) - British Pound</option>
-                          <option value="EUR (€)">EUR (€) - Euro</option>
-                          <option value="NGN (₦)">NGN (₦) - Nigerian Naira</option>
-                          <option value="KES (KSh)">KES (KSh) - Kenyan Shilling</option>
-                          <option value="GHS (GH₵)">GHS (GH₵) - Ghanaian Cedi</option>
-                          <option value="ZAR (R)">ZAR (R) - South African Rand</option>
-                          <option value="CAD ($)">CAD ($) - Canadian Dollar</option>
-                          <option value="AUD ($)">AUD ($) - Australian Dollar</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Account Holder / Entity</label>
-                        <input
-                          type="text"
-                          value={acc.accountHolder}
-                          onChange={(e) => updatePayoutAccount(acc.id, 'accountHolder', e.target.value)}
-                          placeholder="e.g. Grace Fellowship Cathedral"
-                          className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Bank / Network Provider</label>
-                        <input
-                          type="text"
-                          value={acc.bankOrProvider}
-                          onChange={(e) => updatePayoutAccount(acc.id, 'bankOrProvider', e.target.value)}
-                          placeholder="e.g. Chase Bank / Safaricom M-Pesa"
-                          className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Account No / IBAN / Phone / Tag</label>
-                        <input
-                          type="text"
-                          value={acc.accountNumber}
-                          onChange={(e) => updatePayoutAccount(acc.id, 'accountNumber', e.target.value)}
-                          placeholder="e.g. 0123456789 or $GraceTithe"
-                          className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-400"
-                        />
-                      </div>
-                    </div>
+                    <span className="text-xs text-emerald-400 font-mono font-bold">Ready</span>
                   </div>
-                )))}
+                ))}
               </div>
             </div>
           )}
 
-          {/* TAB 4: CHURCH CAMPUSES & MULTI-LOCATIONS */}
-          {activePortalTab === 'campuses' && selectedCategory === 'Church' && (
-            <div className="bg-[#181818] border border-slate-800 rounded-3xl p-6 space-y-6 shadow-xl">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-5 h-5 text-amber-400" />
-                    <h3 className="text-base font-bold text-white">
-                      Church Campuses & Google Maps Locations
-                    </h3>
-                    <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 text-[10px] font-bold border border-slate-700">
-                      Optional
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Provide Google Maps links and worship location details for 1-tap member navigation and driving directions.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={addChurchCampus}
-                  className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 transition shrink-0"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Location</span>
-                </button>
-              </div>
-
-              {churchCampuses.length === 0 ? (
-                <div className="p-8 rounded-2xl bg-[#0f0f0f] border border-dashed border-slate-800 text-center space-y-3">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto">
-                    <MapPin className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-white">No Physical Locations Added Yet</h4>
-                    <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-                      Locations are optional. You can add a Google Maps link to your worship cathedral, branch campus, or youth sanctuary anytime.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={addChurchCampus}
-                    className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 transition inline-flex items-center gap-1.5"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add First Location / Google Maps Link</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {churchCampuses.map((camp, idx) => (
-                    <div 
-                      key={camp.id} 
-                      className={`p-4 rounded-2xl border space-y-3 relative ${
-                        camp.isMain 
-                          ? 'bg-amber-950/20 border-amber-500/50' 
-                          : 'bg-[#0f0f0f] border-slate-800'
-                      }`}
-                    >
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-emerald-400" />
-                          <span className="text-xs font-bold text-white">
-                            Campus #{idx + 1}: {camp.campusName || 'New Campus'}
-                          </span>
-                          {camp.isMain ? (
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold">
-                              MAIN HEADQUARTERS
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => setMainCampus(camp.id)}
-                              className="text-[10px] text-slate-400 hover:text-amber-400 underline font-semibold"
-                            >
-                              Set as Main Campus
-                            </button>
-                          )}
-                        </div>
-
-                        {churchCampuses.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeChurchCampus(camp.id)}
-                            className="text-slate-500 hover:text-red-400 p-1 text-xs flex items-center gap-1 transition"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Remove Campus</span>
-                          </button>
+          {/* TAB 4: CHURCH CAMPUSES */}
+          {activePortalTab === 'campuses' && (
+            <div className="bg-[#181818] border border-slate-800 rounded-3xl p-5 space-y-4">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-amber-400" />
+                Church Campuses & Worship Sanctuaries ({churchCampuses.length})
+              </h3>
+              <div className="space-y-3">
+                {churchCampuses.map(camp => (
+                  <div key={camp.id} className="p-4 bg-slate-950/80 border border-slate-800 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white">{camp.campusName}</span>
+                        {camp.isMain && (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[9px] font-bold">MAIN SANCTUARY</span>
                         )}
                       </div>
-
-                      {/* 📍 PREFERRED: GOOGLE MAPS LINK INPUT */}
-                      <div className="p-3 rounded-xl bg-[#141414] border border-amber-500/30 space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
-                            <Navigation className="w-3.5 h-3.5 text-rose-400" />
-                            Google Maps Link / URL (Preferred)
-                          </label>
-                          {camp.googleMapsUrl && (
-                            <a
-                              href={camp.googleMapsUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[10px] text-pink-400 hover:text-pink-300 font-bold flex items-center gap-1 underline"
-                            >
-                              <span>Open in Google Maps</span>
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="url"
-                            value={camp.googleMapsUrl}
-                            onChange={(e) => updateChurchCampus(camp.id, 'googleMapsUrl', e.target.value)}
-                            placeholder="e.g. https://maps.app.goo.gl/... or https://maps.google.com/?q=..."
-                            className="w-full bg-[#0a0a0a] border border-slate-700 focus:border-amber-400 rounded-xl px-3 py-1.5 text-xs text-white placeholder:text-slate-500 font-mono"
-                          />
-                        </div>
-                        <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                          <Compass className="w-3 h-3 text-amber-400 shrink-0" />
-                          Paste share link from Google Maps for 1-tap mobile navigation and live GPS directions.
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Campus Name</label>
-                          <input
-                            type="text"
-                            value={camp.campusName}
-                            onChange={(e) => updateChurchCampus(camp.id, 'campusName', e.target.value)}
-                            placeholder="e.g. Downtown Grace Sanctuary"
-                            className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-medium"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Campus Type</label>
-                          <select
-                            value={camp.campusType}
-                            onChange={(e) => updateChurchCampus(camp.id, 'campusType', e.target.value as any)}
-                            className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                          >
-                            <option value="Main Sanctuary">Main Sanctuary / Cathedral</option>
-                            <option value="Branch Sanctuary">Branch Sanctuary</option>
-                            <option value="Youth Center">Youth & Student Center</option>
-                            <option value="International Fellowship">International Fellowship</option>
-                            <option value="Online Streaming Campus">Online Streaming Campus</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Resident Pastor / Leader</label>
-                          <input
-                            type="text"
-                            value={camp.leadPastor}
-                            onChange={(e) => updateChurchCampus(camp.id, 'leadPastor', e.target.value)}
-                            placeholder="e.g. Pastor Mark Anthony"
-                            className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                        <div className="sm:col-span-2">
-                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Street Address (Optional)</label>
-                          <input
-                            type="text"
-                            value={camp.address}
-                            onChange={(e) => updateChurchCampus(camp.id, 'address', e.target.value)}
-                            placeholder="e.g. 777 Grace Boulevard, Suite 100"
-                            className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-400 mb-1">City, State / Region</label>
-                          <input
-                            type="text"
-                            value={`${camp.city}${camp.stateOrRegion ? `, ${camp.stateOrRegion}` : ''}`}
-                            onChange={(e) => {
-                              const parts = e.target.value.split(',');
-                              updateChurchCampus(camp.id, 'city', parts[0]?.trim() || '');
-                              if (parts[1]) updateChurchCampus(camp.id, 'stateOrRegion', parts[1]?.trim() || '');
-                            }}
-                            placeholder="e.g. Atlanta, GA"
-                            className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Country</label>
-                          <input
-                            type="text"
-                            value={camp.country}
-                            onChange={(e) => updateChurchCampus(camp.id, 'country', e.target.value)}
-                            placeholder="e.g. United States"
-                            className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Worship Service Times</label>
-                          <input
-                            type="text"
-                            value={camp.serviceTimes}
-                            onChange={(e) => updateChurchCampus(camp.id, 'serviceTimes', e.target.value)}
-                            placeholder="e.g. Sundays 9:00 AM & 11:30 AM EST"
-                            className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Contact Phone & Email</label>
-                          <input
-                            type="text"
-                            value={camp.phone}
-                            onChange={(e) => updateChurchCampus(camp.id, 'phone', e.target.value)}
-                            placeholder="e.g. +1 (404) 555-7700"
-                            className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                          />
-                        </div>
-                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5">{camp.address}, {camp.city}, {camp.country}</p>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <a
+                      href={camp.googleMapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>Google Maps</span>
+                    </a>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -1375,11 +4034,8 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <Video className="w-4 h-4 text-red-400" />
-                  Live Broadcasting Credentials & OBS Setup
+                  Live Broadcasting Credentials & OBS Setup for {ministryName}
                 </h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Connect OBS Studio, vMix, or YouTube Live stream encoder using your dedicated channel credentials.
-                </p>
               </div>
 
               <div className="space-y-4">
@@ -1389,7 +4045,7 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
                     <input
                       type="text"
                       readOnly
-                      value="rtmp://live.gracetube.org/app/"
+                      value="rtmp://live.gospread.org/app/"
                       className="w-full bg-[#0f0f0f] border border-slate-700 rounded-xl px-3.5 py-2 text-xs font-mono text-amber-400 focus:outline-none"
                     />
                     <button 
@@ -1406,9 +4062,9 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
                   <label className="block text-xs font-bold text-slate-300 mb-1">Secret Stream Key</label>
                   <div className="flex items-center gap-2">
                     <input
-                      type="password"
+                      type="text"
                       readOnly
-                      value={`gt_live_key_${selectedCategory.toLowerCase()}_${Date.now()}`}
+                      value={`live_${ministryName.toLowerCase().replace(/[^a-z0-9]/g, '')}_${Date.now()}`}
                       className="w-full bg-[#0f0f0f] border border-slate-700 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-300 focus:outline-none"
                     />
                     <button 
@@ -1416,7 +4072,7 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
                       className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 rounded-xl flex items-center gap-1.5 shrink-0"
                     >
                       <Key className="w-4 h-4 text-amber-400" />
-                      <span>Show Key</span>
+                      <span>{copiedKey ? 'Copied' : 'Copy'}</span>
                     </button>
                   </div>
                 </div>
@@ -1427,80 +4083,61 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
           {/* TAB 6: PRAYER WALL */}
           {activePortalTab === 'prayers' && (
             <div className="p-6 rounded-3xl bg-[#181818] border border-slate-800 space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Heart className="w-4 h-4 text-blue-400" />
-                    Congregational Prayer Wall & Intercession Hub
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Incoming prayer requests submitted by viewers during live services.
-                  </p>
-                </div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Heart className="w-4 h-4 text-red-500" />
+                {ministryName} Prayer Altar Wall
+              </h3>
 
-                <span className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs font-bold">
-                  {prayerRequests.filter(p => p.status === 'Pending').length} Unprayed
-                </span>
-              </div>
-
-              {/* Add Prayer Request Form */}
-              <form onSubmit={handleAddInternalPrayer} className="flex items-center gap-2">
+              {/* Add Prayer Input */}
+              <form onSubmit={handleAddInternalPrayer} className="flex gap-2">
                 <input
                   type="text"
                   value={newPrayerInput}
                   onChange={(e) => setNewPrayerInput(e.target.value)}
-                  placeholder="Record an offline prayer request from church members..."
+                  placeholder="Record an offline prayer request for the pastoral altar..."
                   className="flex-1 bg-[#0f0f0f] border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-red-500"
                 />
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 transition shrink-0"
+                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center gap-1.5 transition shrink-0"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Add Request</span>
+                  <span>Add Altar Request</span>
                 </button>
               </form>
 
               {/* Prayer Requests List */}
               <div className="space-y-3">
-                {prayerRequests.length === 0 ? (
-                  <div className="p-8 rounded-2xl bg-[#0f0f0f] border border-dashed border-slate-800 text-center space-y-2">
-                    <Heart className="w-6 h-6 text-slate-600 mx-auto" />
-                    <p className="text-xs font-semibold text-slate-300">No Prayer Requests Yet</p>
-                    <p className="text-[11px] text-slate-500 max-w-sm mx-auto">Viewer requests submitted during broadcasts and online intercession will appear here.</p>
-                  </div>
-                ) : (
-                  prayerRequests.map((prayer) => (
-                    <div key={prayer.id} className="p-4 rounded-2xl bg-[#0f0f0f] border border-slate-800 flex items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-white">{prayer.name}</span>
-                          <span className="text-[10px] text-slate-500">• {prayer.time}</span>
-                          <span className={`px-2 py-0.2 text-[9px] font-bold rounded-full ${
-                            prayer.status === 'Prayed' 
-                              ? 'bg-emerald-500/20 text-emerald-400' 
-                              : 'bg-amber-500/20 text-amber-400'
-                          }`}>
-                            {prayer.status}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-300">{prayer.request}</p>
+                {prayerRequests.map((prayer) => (
+                  <div key={prayer.id} className="p-4 rounded-2xl bg-[#0f0f0f] border border-slate-800 flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white">{prayer.name}</span>
+                        <span className="text-[10px] text-slate-500">• {prayer.time}</span>
+                        <span className={`px-2 py-0.2 text-[9px] font-bold rounded-full ${
+                          prayer.status === 'Prayed' 
+                            ? 'bg-emerald-500/20 text-emerald-400' 
+                            : 'bg-amber-500/20 text-amber-400'
+                        }`}>
+                          {prayer.status}
+                        </span>
                       </div>
-
-                      <button
-                        onClick={() => handlePrayForRequest(prayer.id)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shrink-0 ${
-                          prayer.status === 'Prayed'
-                            ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
-                            : 'bg-blue-600 hover:bg-blue-500 text-white'
-                        }`}
-                      >
-                        <Heart className="w-3.5 h-3.5 fill-current" />
-                        <span>{prayer.status === 'Prayed' ? 'Prayed' : 'Pray Now'} ({prayer.prayedCount})</span>
-                      </button>
+                      <p className="text-xs text-slate-300">{prayer.request}</p>
                     </div>
-                  ))
-                )}
+
+                    <button
+                      onClick={() => handlePrayForRequest(prayer.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shrink-0 ${
+                        prayer.status === 'Prayed'
+                          ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
+                          : 'bg-red-600 hover:bg-red-500 text-white'
+                      }`}
+                    >
+                      <Heart className="w-3.5 h-3.5 fill-current" />
+                      <span>{prayer.status === 'Prayed' ? 'Prayed' : 'Pray Now'} ({prayer.prayedCount})</span>
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -1508,831 +4145,39 @@ export default function CreatePage({ onPublishSuccess, onCancel }: CreatePagePro
           {/* Bottom Action Footer */}
           <div className="flex items-center justify-between border-t border-slate-800 pt-4">
             <button
-              onClick={() => { setIsSubmitted(false); setCreatedStream(null); }}
+              onClick={() => { 
+                setIsSubmitted(false); 
+                setCreatedStream(null); 
+                setStudioAction('choose'); 
+                setUploadStep('select');
+              }}
               className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
             >
-              Register Another Channel Profile
+              Back to Studio Actions
             </button>
 
             <button
               onClick={handleFinishAndWatch}
-              className="px-6 py-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-red-600/20 transition"
+              className="px-6 py-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-red-600/20 transition cursor-pointer"
             >
-              <span>View Public Stream Player</span>
+              <span>Watch on Video Player</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </motion.div>
-      ) : (
-        /* REGISTRATION FORM */
-        <div className="space-y-6">
-          {/* Step 1: Select Category */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-              Step 1: Select Your Registration Category
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {[
-                {
-                  id: 'Church',
-                  title: 'Church / Ministry',
-                  subtitle: 'Live Services, Sermons & Campuses',
-                  icon: Building2,
-                  color: 'text-amber-400',
-                  border: 'border-amber-500/40',
-                  bg: 'bg-amber-950/20'
-                },
-                {
-                  id: 'Artiste',
-                  title: 'Gospel Artiste',
-                  subtitle: 'Singles, Albums & Choir Releases',
-                  icon: Music2,
-                  color: 'text-red-400',
-                  border: 'border-red-500/40',
-                  bg: 'bg-red-950/20'
-                },
-                {
-                  id: 'Creator',
-                  title: 'Content Creator',
-                  subtitle: 'Podcasts, Devotionals & Vlogs',
-                  icon: Mic,
-                  color: 'text-blue-400',
-                  border: 'border-blue-500/40',
-                  bg: 'bg-blue-950/20'
-                },
-              ].map((cat) => {
-                const Icon = cat.icon;
-                const isSelected = selectedCategory === cat.id;
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat.id as CreatorCategory)}
-                    className={`p-4 rounded-2xl border text-left transition flex flex-col justify-between gap-3 relative ${
-                      isSelected 
-                        ? `${cat.border} ${cat.bg} ring-2 ring-amber-500/50 shadow-xl` 
-                        : 'border-slate-800 bg-[#181818] hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className={`p-2 rounded-xl bg-slate-900 ${cat.color}`}>
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      {isSelected && (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[10px] font-black">Selected</span>
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-white">{cat.title}</h3>
-                      <p className="text-[11px] text-slate-400 mt-0.5">{cat.subtitle}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Registration Form with Targeted Questions */}
-          <form onSubmit={handleSubmit} className="bg-[#181818] border border-slate-800 rounded-3xl p-6 space-y-7 shadow-xl">
-            
-            {/* 1. Common Account Contact Information */}
-            <div className="space-y-4 border-b border-slate-800 pb-5">
-              <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">1. Account Contact & Verification</span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Official Contact Email *</label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                    <input
-                      type="email"
-                      required
-                      value={contactEmail}
-                      onChange={(e) => setContactEmail(e.target.value)}
-                      placeholder="pastor@church.org or manager@artist.com"
-                      className="w-full bg-[#0f0f0f] border border-slate-700 rounded-xl pl-9 pr-3.5 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Phone / WhatsApp Contact *</label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                    <input
-                      type="tel"
-                      required
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="+1 (800) 123-4567"
-                      className="w-full bg-[#0f0f0f] border border-slate-700 rounded-xl pl-9 pr-3.5 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 2. 💳 MULTIPLE GIVING & PAYOUT ACCOUNTS */}
-            <div className="space-y-4 border-b border-slate-800 pb-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block flex items-center gap-1.5">
-                    <Landmark className="w-4 h-4 text-amber-400" />
-                    2. Giving & Payout Accounts (Multiple Payouts Support) *
-                  </span>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Add multiple accounts for isolated destinations: General Tithes, Building Fund, Missions, and Ministry Seed Offerings.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={addPayoutAccount}
-                  className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/30 text-xs font-bold flex items-center gap-1 transition shrink-0"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Payout Method</span>
-                </button>
-              </div>
-
-              <div className="space-y-3.5">
-                {payoutAccounts.map((acc, idx) => (
-                  <div 
-                    key={acc.id} 
-                    className={`p-4 rounded-2xl border space-y-3 relative transition ${
-                      acc.isPrimary 
-                        ? 'bg-amber-950/20 border-amber-500/50 ring-1 ring-amber-500/30' 
-                        : 'bg-[#0f0f0f] border-slate-700/80'
-                    }`}
-                  >
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white">
-                          Account #{idx + 1}: {acc.label || 'Tithe/Giving Account'}
-                        </span>
-                        {acc.isPrimary ? (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold">
-                            PRIMARY DESTINATION
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setPrimaryPayoutAccount(acc.id)}
-                            className="text-[10px] text-slate-400 hover:text-amber-400 underline font-semibold"
-                          >
-                            Set as Primary
-                          </button>
-                        )}
-                      </div>
-
-                      {payoutAccounts.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removePayoutAccount(acc.id)}
-                          className="text-slate-500 hover:text-red-400 p-1 text-xs flex items-center gap-1 transition"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Remove</span>
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-300 mb-1">Account Purpose / Label *</label>
-                        <input
-                          type="text"
-                          required
-                          value={acc.label}
-                          onChange={(e) => updatePayoutAccount(acc.id, 'label', e.target.value)}
-                          placeholder="e.g. Sunday Tithes or Building Fund"
-                          className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-medium"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-300 mb-1">Payout Method Type *</label>
-                        <select
-                          value={acc.type}
-                          onChange={(e) => updatePayoutAccount(acc.id, 'type', e.target.value as any)}
-                          className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-medium"
-                        >
-                          <option value="Direct Bank Wire">Direct Bank Wire / ACH / IBAN</option>
-                          <option value="Mobile Money (M-Pesa / MTN)">Mobile Money (M-Pesa / MTN / Airtel)</option>
-                          <option value="Stripe Connect">Stripe Connect Account</option>
-                          <option value="PayPal Business">PayPal Business Email</option>
-                          <option value="Cash App / Zelle">Cash App / Zelle Tag</option>
-                          <option value="Crypto Giving (USDC/USDT)">Crypto Giving (USDC / USDT)</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-300 mb-1">Currency *</label>
-                        <select
-                          value={acc.currency}
-                          onChange={(e) => updatePayoutAccount(acc.id, 'currency', e.target.value as any)}
-                          className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-medium"
-                        >
-                          <option value="USD ($)">USD ($) - US Dollar</option>
-                          <option value="GBP (£)">GBP (£) - British Pound</option>
-                          <option value="EUR (€)">EUR (€) - Euro</option>
-                          <option value="NGN (₦)">NGN (₦) - Nigerian Naira</option>
-                          <option value="KES (KSh)">KES (KSh) - Kenyan Shilling</option>
-                          <option value="GHS (GH₵)">GHS (GH₵) - Ghanaian Cedi</option>
-                          <option value="ZAR (R)">ZAR (R) - South African Rand</option>
-                          <option value="CAD ($)">CAD ($) - Canadian Dollar</option>
-                          <option value="AUD ($)">AUD ($) - Australian Dollar</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-300 mb-1">Account Holder / Entity *</label>
-                        <input
-                          type="text"
-                          required
-                          value={acc.accountHolder}
-                          onChange={(e) => updatePayoutAccount(acc.id, 'accountHolder', e.target.value)}
-                          placeholder="e.g. Grace Fellowship Cathedral"
-                          className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-300 mb-1">Bank / Network Provider *</label>
-                        <input
-                          type="text"
-                          required
-                          value={acc.bankOrProvider}
-                          onChange={(e) => updatePayoutAccount(acc.id, 'bankOrProvider', e.target.value)}
-                          placeholder="e.g. Chase Bank / Safaricom M-Pesa"
-                          className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-300 mb-1">Account No / IBAN / Phone / Tag *</label>
-                        <input
-                          type="text"
-                          required
-                          value={acc.accountNumber}
-                          onChange={(e) => updatePayoutAccount(acc.id, 'accountNumber', e.target.value)}
-                          placeholder="e.g. 0123456789 or $GraceTithe"
-                          className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-400"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* 3. 🌐 MULTIPLE SOCIAL MEDIA LINKS (Matching user image structure) */}
-            <div className="space-y-4 border-b border-slate-800 pb-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block flex items-center gap-1.5">
-                    <Share2 className="w-4 h-4 text-amber-400" />
-                    3. Social Links (Multiple Social Media Channels)
-                  </span>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Connect your official handles across TikTok, Substack, Twitter/X, LinkedIn, Facebook, Instagram, Medium, YouTube, and Giving links.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={addCustomSocialLink}
-                  className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/30 text-xs font-bold flex items-center gap-1 transition shrink-0"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Link</span>
-                </button>
-              </div>
-
-              {/* Social Links List matching the screenshot structure */}
-              <div className="space-y-2.5">
-                {socialRows.map((row) => (
-                  <div 
-                    key={row.id} 
-                    className="flex flex-col sm:flex-row items-stretch sm:items-center bg-[#0f0f0f] border border-slate-700/80 rounded-2xl p-1.5 sm:p-2 gap-2 shadow-sm hover:border-slate-600 transition"
-                  >
-                    {/* Left Icon & Domain Prefix Container */}
-                    <div className="flex items-center gap-2.5 px-2 py-1 shrink-0">
-                      {renderSocialIcon(row.platform)}
-                      <span className="text-xs font-medium text-slate-300 font-mono select-none">
-                        {row.prefix}
-                      </span>
-                    </div>
-
-                    {/* Right Text Input for Username / Handle */}
-                    <div className="flex-1 flex items-center min-w-0 pr-1">
-                      <input
-                        type="text"
-                        value={row.username}
-                        onChange={(e) => updateSocialUsername(row.id, e.target.value)}
-                        placeholder={row.placeholder}
-                        className="w-full bg-transparent px-2 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none font-medium"
-                      />
-                      {row.suffix && (
-                        <span className="text-xs text-slate-400 font-mono pr-2 select-none">
-                          {row.suffix}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-1 px-1 shrink-0 self-end sm:self-center">
-                      {row.username && (
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(`${row.prefix}${row.username}${row.suffix || ''}`, row.id)}
-                          className="p-1.5 text-slate-400 hover:text-amber-400 transition"
-                          title="Copy Full URL"
-                        >
-                          {copiedLink === row.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                        </button>
-                      )}
-                      {socialRows.length > 4 && (
-                        <button
-                          type="button"
-                          onClick={() => removeSocialLink(row.id)}
-                          className="p-1.5 text-slate-500 hover:text-red-400 transition"
-                          title="Remove Row"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* 4. ⛪ MULTIPLE CHURCH LOCATIONS & CAMPUSES (OPTIONAL & GOOGLE MAPS FOCUSED) */}
-            {selectedCategory === 'Church' && (
-              <div className="space-y-4 border-b border-slate-800 pb-6">
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/30 via-slate-900 to-slate-900 border border-amber-500/30 space-y-3">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block flex items-center gap-1.5">
-                          <Building2 className="w-4 h-4 text-amber-400" />
-                          4. Church Locations & Google Maps Links
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full bg-slate-800 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
-                          Optional
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        Physical locations are optional. Prefer Google Maps links so worshippers can get 1-tap live GPS directions, satellite view, and parking instructions.
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={enableCampuses}
-                          onChange={(e) => setEnableCampuses(e.target.checked)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
-                        <span className="ml-2 text-xs font-bold text-slate-300 select-none">
-                          {enableCampuses ? 'Locations Enabled' : 'Disabled (Online Only)'}
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {!enableCampuses && (
-                    <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] text-slate-400 flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-sky-400 shrink-0" />
-                      <span>
-                        Locations disabled. Your channel will be registered as a global online broadcast ministry without physical branch requirements.
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {enableCampuses && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-400">
-                        {churchCampuses.length} Campus Location(s) Configured
-                      </span>
-
-                      <button
-                        type="button"
-                        onClick={addChurchCampus}
-                        className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 transition shrink-0"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Another Location / Google Maps Link</span>
-                      </button>
-                    </div>
-
-                    {churchCampuses.length === 0 ? (
-                      <div className="p-6 rounded-2xl bg-[#0f0f0f] border border-dashed border-slate-800 text-center space-y-2">
-                        <MapPin className="w-8 h-8 text-amber-400/60 mx-auto" />
-                        <p className="text-xs text-slate-400">No locations added yet.</p>
-                        <button
-                          type="button"
-                          onClick={addChurchCampus}
-                          className="px-3.5 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 transition inline-flex items-center gap-1"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Add Campus Location</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {churchCampuses.map((camp, idx) => (
-                          <div 
-                            key={camp.id} 
-                            className={`p-4 rounded-2xl border space-y-3.5 relative transition ${
-                              camp.isMain 
-                                ? 'bg-amber-950/20 border-amber-500/50 ring-1 ring-amber-500/30' 
-                                : 'bg-[#0f0f0f] border-slate-700/80'
-                            }`}
-                          >
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
-                              <div className="flex items-center gap-2">
-                                <MapPin className="w-4 h-4 text-emerald-400" />
-                                <span className="text-xs font-bold text-white">
-                                  Campus #{idx + 1}: {camp.campusName || 'Worship Campus'}
-                                </span>
-                                {camp.isMain ? (
-                                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold">
-                                    MAIN HEADQUARTERS
-                                  </span>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => setMainCampus(camp.id)}
-                                    className="text-[10px] text-slate-400 hover:text-amber-400 underline font-semibold"
-                                  >
-                                    Set as Main Campus
-                                  </button>
-                                )}
-                              </div>
-
-                              {churchCampuses.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => removeChurchCampus(camp.id)}
-                                  className="text-slate-500 hover:text-red-400 p-1 text-xs flex items-center gap-1 transition"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                  <span>Remove Campus</span>
-                                </button>
-                              )}
-                            </div>
-
-                            {/* 📍 PREFERRED: GOOGLE MAPS LINK INPUT */}
-                            <div className="p-3.5 rounded-2xl bg-[#141414] border border-amber-500/40 space-y-1.5 shadow-inner">
-                              <div className="flex items-center justify-between">
-                                <label className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                                  <Navigation className="w-3.5 h-3.5 text-rose-400" />
-                                  Google Maps Link / URL (Preferred)
-                                </label>
-                                {camp.googleMapsUrl && (
-                                  <a
-                                    href={camp.googleMapsUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-[11px] text-pink-400 hover:text-pink-300 font-bold flex items-center gap-1 underline"
-                                  >
-                                    <span>Open in Google Maps</span>
-                                    <ExternalLink className="w-3 h-3" />
-                                  </a>
-                                )}
-                              </div>
-                              <input
-                                type="url"
-                                value={camp.googleMapsUrl}
-                                onChange={(e) => updateChurchCampus(camp.id, 'googleMapsUrl', e.target.value)}
-                                placeholder="Paste Google Maps share link (e.g. https://maps.app.goo.gl/... or https://maps.google.com/?q=...)"
-                                className="w-full bg-[#0a0a0a] border border-slate-700 focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-slate-500 font-mono shadow-inner"
-                              />
-                              <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                                <Compass className="w-3 h-3 text-amber-400 shrink-0" />
-                                Preferred: pasting your Google Maps link automatically powers 1-tap navigation and directions for visitors.
-                              </p>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                              <div>
-                                <label className="block text-[10px] font-bold text-slate-300 mb-1">Campus Name</label>
-                                <input
-                                  type="text"
-                                  value={camp.campusName}
-                                  onChange={(e) => updateChurchCampus(camp.id, 'campusName', e.target.value)}
-                                  placeholder="e.g. Downtown Grace Sanctuary"
-                                  className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-medium"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold text-slate-300 mb-1">Campus Type</label>
-                                <select
-                                  value={camp.campusType}
-                                  onChange={(e) => updateChurchCampus(camp.id, 'campusType', e.target.value as any)}
-                                  className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-medium"
-                                >
-                                  <option value="Main Sanctuary">Main Sanctuary / Cathedral</option>
-                                  <option value="Branch Sanctuary">Branch Sanctuary</option>
-                                  <option value="Youth Center">Youth & Student Center</option>
-                                  <option value="International Fellowship">International Fellowship</option>
-                                  <option value="Online Streaming Campus">Online Streaming Campus</option>
-                                </select>
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold text-slate-300 mb-1">Resident Pastor / Leader (Optional)</label>
-                                <input
-                                  type="text"
-                                  value={camp.leadPastor}
-                                  onChange={(e) => updateChurchCampus(camp.id, 'leadPastor', e.target.value)}
-                                  placeholder="e.g. Pastor Mark Anthony"
-                                  className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                                />
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                              <div className="sm:col-span-2">
-                                <label className="block text-[10px] font-bold text-slate-300 mb-1">Street Address (Optional)</label>
-                                <input
-                                  type="text"
-                                  value={camp.address}
-                                  onChange={(e) => updateChurchCampus(camp.id, 'address', e.target.value)}
-                                  placeholder="e.g. 777 Grace Boulevard, Suite 100"
-                                  className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold text-slate-300 mb-1">City & State (Optional)</label>
-                                <input
-                                  type="text"
-                                  value={camp.city}
-                                  onChange={(e) => updateChurchCampus(camp.id, 'city', e.target.value)}
-                                  placeholder="e.g. Atlanta, GA"
-                                  className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold text-slate-300 mb-1">Country (Optional)</label>
-                                <input
-                                  type="text"
-                                  value={camp.country}
-                                  onChange={(e) => updateChurchCampus(camp.id, 'country', e.target.value)}
-                                  placeholder="e.g. United States"
-                                  className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                                />
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div>
-                                <label className="block text-[10px] font-bold text-slate-300 mb-1">Worship Service Times (Optional)</label>
-                                <input
-                                  type="text"
-                                  value={camp.serviceTimes}
-                                  onChange={(e) => updateChurchCampus(camp.id, 'serviceTimes', e.target.value)}
-                                  placeholder="e.g. Sundays 9:00 AM & 11:30 AM EST"
-                                  className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold text-slate-300 mb-1">Campus Phone & Email (Optional)</label>
-                                <input
-                                  type="text"
-                                  value={camp.phone}
-                                  onChange={(e) => updateChurchCampus(camp.id, 'phone', e.target.value)}
-                                  placeholder="e.g. +1 (404) 555-7700"
-                                  className="w-full bg-[#181818] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 5. Category-Specific Initial Service / Content Setup */}
-            {selectedCategory === 'Church' && (
-              <div className="space-y-4">
-                <div className="border-b border-slate-800 pb-3">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-amber-400" />
-                    5. Church Service Details & Stream Setup
-                  </h3>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">Church / Ministry Name *</label>
-                    <input
-                      type="text"
-                      required
-                      value={churchName}
-                      onChange={(e) => setChurchName(e.target.value)}
-                      placeholder="e.g. Grace Fellowship Cathedral"
-                      className="w-full bg-[#0f0f0f] border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-amber-400 font-bold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">Senior Pastor / Lead Preacher *</label>
-                    <input
-                      type="text"
-                      required
-                      value={pastorName}
-                      onChange={(e) => setPastorName(e.target.value)}
-                      placeholder="e.g. Rev. Dr. David Lawson"
-                      className="w-full bg-[#0f0f0f] border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-amber-400 font-bold"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">Service / Sermon Title *</label>
-                    <input
-                      type="text"
-                      required
-                      value={sermonTitle}
-                      onChange={(e) => setSermonTitle(e.target.value)}
-                      placeholder="e.g. Walking in Divine Victory and Grace"
-                      className="w-full bg-[#0f0f0f] border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">RTMP / Stream URL / YouTube Live *</label>
-                    <input
-                      type="url"
-                      required
-                      value={churchStreamUrl}
-                      onChange={(e) => setChurchStreamUrl(e.target.value)}
-                      placeholder="https://youtube.com/live/... or RTMP stream"
-                      className="w-full bg-[#0f0f0f] border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-amber-400 font-mono text-amber-300"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Anchor Scripture & Notes</label>
-                  <input
-                    type="text"
-                    value={churchScripture}
-                    onChange={(e) => setChurchScripture(e.target.value)}
-                    placeholder="e.g. Ephesians 2:8-10"
-                    className="w-full bg-[#0f0f0f] border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
-                  />
-                </div>
-              </div>
-            )}
-
-            {selectedCategory === 'Artiste' && (
-              <div className="space-y-4">
-                <div className="border-b border-slate-800 pb-3">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Music2 className="w-4 h-4 text-red-400" />
-                    5. Gospel Artiste & Track Release Setup
-                  </h3>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">Artiste or Group Name *</label>
-                    <input
-                      type="text"
-                      required
-                      value={artistName}
-                      onChange={(e) => setArtistName(e.target.value)}
-                      placeholder="e.g. Grace & Victory Collective"
-                      className="w-full bg-[#0f0f0f] border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-amber-400 font-bold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">Record Label / Ministry</label>
-                    <input
-                      type="text"
-                      value={recordLabel}
-                      onChange={(e) => setRecordLabel(e.target.value)}
-                      placeholder="e.g. Independent or Kingdom Sound"
-                      className="w-full bg-[#0f0f0f] border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">Single / Track Title *</label>
-                    <input
-                      type="text"
-                      required
-                      value={trackTitle}
-                      onChange={(e) => setTrackTitle(e.target.value)}
-                      placeholder="e.g. Oceans of Unfailing Mercy"
-                      className="w-full bg-[#0f0f0f] border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">Audio / Video Stream URL *</label>
-                    <input
-                      type="url"
-                      required
-                      value={musicMediaUrl}
-                      onChange={(e) => setMusicMediaUrl(e.target.value)}
-                      placeholder="https://..."
-                      className="w-full bg-[#0f0f0f] border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-amber-400 font-mono text-amber-300"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {selectedCategory === 'Creator' && (
-              <div className="space-y-4">
-                <div className="border-b border-slate-800 pb-3">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Mic className="w-4 h-4 text-blue-400" />
-                    5. Creator & Podcast Episode Setup
-                  </h3>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">Channel / Host Name *</label>
-                    <input
-                      type="text"
-                      required
-                      value={creatorName}
-                      onChange={(e) => setCreatorName(e.target.value)}
-                      placeholder="e.g. Kingdom Today Faith Pod"
-                      className="w-full bg-[#0f0f0f] border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-amber-400 font-bold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">Episode Title *</label>
-                    <input
-                      type="text"
-                      required
-                      value={episodeTitle}
-                      onChange={(e) => setEpisodeTitle(e.target.value)}
-                      placeholder="e.g. Overcoming Anxiety Through Scripture"
-                      className="w-full bg-[#0f0f0f] border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Terms and Submit Bar */}
-            <div className="pt-4 border-t border-slate-800 space-y-4">
-              <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-400">
-                <input
-                  type="checkbox"
-                  required
-                  checked={agreeTerms}
-                  onChange={(e) => setAgreeTerms(e.target.checked)}
-                  className="rounded border-slate-700 text-amber-500 focus:ring-0"
-                />
-                <span>I confirm this ministry registration aligns with GraceTube Community Guidelines and faith-centered broadcast standards.</span>
-              </label>
-
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-[11px] text-slate-400">
-                  Configuring {payoutAccounts.length} payout account(s), {socialRows.filter(s => s.username).length} social link(s){selectedCategory === 'Church' ? ` & ${churchCampuses.length} campus location(s)` : ''}.
-                </span>
-
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 transition shrink-0"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>Register & Activate {selectedCategory} Studio</span>
-                </button>
-              </div>
-            </div>
-
-          </form>
-
-        </div>
       )}
+
+      {/* 🔴 VOD RECORDING PUBLISH MODAL */}
+      {activeVODModalData && (
+        <LiveRecordingVODModal
+          currentUser={currentUser}
+          recordedData={activeVODModalData}
+          onPublishVOD={handlePublishRecordedVOD}
+          onSaveDraft={handleSaveVODDraft}
+          onClose={() => setActiveVODModalData(null)}
+        />
+      )}
+
     </div>
   );
 }

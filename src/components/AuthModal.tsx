@@ -18,12 +18,16 @@ import { motion, AnimatePresence } from 'motion/react';
 import { djangoApi } from '../services/djangoApi';
 import GospreadLogo from './GospreadLogo';
 
+export type CreatorProfileType = 'church' | 'artiste' | 'creator' | 'radio';
+
 export interface UserSession {
   id: string | number;
   username: string;
   email: string;
   fullName: string;
   churchName?: string;
+  ministryName?: string;
+  creatorType?: CreatorProfileType;
   avatarUrl?: string;
   avatar?: string;
   bio?: string;
@@ -88,6 +92,8 @@ export default function AuthModal({
           email: res.user.email || emailOrUsername,
           fullName: res.user.first_name ? `${res.user.first_name} ${res.user.last_name || ''}`.trim() : 'Believer',
           churchName: res.user.church_name || 'Grace City Cathedral',
+          ministryName: res.user.church_name || 'Grace City Cathedral',
+          creatorType: 'church',
           avatarUrl: res.user.avatar_url || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
           isLoggedIn: true,
           token: res.access
@@ -125,7 +131,9 @@ export default function AuthModal({
         username: regUsername || regEmail.split('@')[0],
         email: regEmail,
         fullName: regFullName,
-        churchName: regChurch || 'Kingdom Community Fellowship',
+        churchName: regChurch || 'Grace City Cathedral',
+        ministryName: regChurch || 'Grace City Cathedral',
+        creatorType: 'church',
         avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
         isLoggedIn: true,
         token: `jwt-auth-token-${Date.now()}`

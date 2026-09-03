@@ -129,17 +129,22 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
           </div>
 
           {!isLoggedIn && (
-            <button
-              onClick={() => {
-                onClose();
-                if (onOpenAuthPage) onOpenAuthPage('signin');
-                else onOpenAuth();
-              }}
-              className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 transition shadow-md shadow-amber-500/20"
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Sign In / Register Account</span>
-            </button>
+            <div className="space-y-1.5">
+              <button
+                onClick={() => {
+                  onClose();
+                  if (onOpenAuthPage) onOpenAuthPage('signup');
+                  else onOpenAuth();
+                }}
+                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 transition shadow-md shadow-amber-500/20"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Belong to Gospread (Free Account)</span>
+              </button>
+              <p className="text-[10px] text-center text-slate-400 font-medium">
+                Watch first. Belong later.
+              </p>
+            </div>
           )}
 
           {/* Gamification Stats Banner */}

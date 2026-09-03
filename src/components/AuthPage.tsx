@@ -181,6 +181,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           email: res.user.email || loginIdentifier,
           fullName: res.user.first_name ? `${res.user.first_name} ${res.user.last_name || ''}`.trim() : 'David Lawson',
           churchName: res.user.church_name || 'Grace City Cathedral',
+          ministryName: res.user.church_name || 'Grace City Cathedral',
+          creatorType: (res.user.creator_type as any) || 'church',
           avatarUrl: res.user.avatar_url || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
           isLoggedIn: true,
           token: res.access
@@ -253,12 +255,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
       const res = await djangoApi.register(payload);
 
+      let determinedCreatorType: 'church' | 'artiste' | 'creator' | 'radio' = 'church';
+      if (spiritualRole === 'worship') determinedCreatorType = 'artiste';
+      else if (spiritualRole === 'creator') determinedCreatorType = 'creator';
+      else if (spiritualRole === 'radio') determinedCreatorType = 'radio';
+
       const newUser: UserSession = {
         id: `usr-${Date.now()}`,
         username: payload.username,
         email: payload.email,
         fullName: fullName.trim(),
         churchName: finalChurch,
+        ministryName: finalChurch,
+        creatorType: determinedCreatorType,
         avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
         isLoggedIn: true,
         token: res?.access || 'jwt-registered-token'
@@ -297,6 +306,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         email: `believer@${provider.toLowerCase()}.com`,
         fullName: `Kingdom Believer (${provider})`,
         churchName: 'Grace City Cathedral',
+        ministryName: 'Grace City Cathedral',
+        creatorType: 'church',
         avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
         isLoggedIn: true,
         token: `jwt-social-${provider}`

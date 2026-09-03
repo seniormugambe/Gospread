@@ -31,6 +31,8 @@ import { VideoStream, AudioTrack, LIVE_VIDEO_STREAMS, AUDIO_TRACKS } from '../da
 import { decodeHtml } from '../lib/utils';
 import { GivingTarget } from './GivingModal';
 import { DISCOVER_MINISTRIES } from './DiscoverMinistriesHub';
+import WatchFirstBelongLaterCard from './WatchFirstBelongLaterCard';
+import { UserSession } from './AuthModal';
 
 interface KingdomHomeFeedProps {
   videoStreams: VideoStream[];
@@ -50,6 +52,9 @@ interface KingdomHomeFeedProps {
   followerCounts: Record<string, number>;
   streakDays?: number;
   praiseXp?: number;
+  userSession?: UserSession;
+  watchHistoryCount?: number;
+  onOpenAuthPage?: (mode?: 'signin' | 'signup') => void;
 }
 
 export default function KingdomHomeFeed({
@@ -69,7 +74,15 @@ export default function KingdomHomeFeed({
   onNavigateTab,
   followerCounts = {},
   streakDays = 5,
-  praiseXp = 1250
+  praiseXp = 1250,
+  userSession = {
+    id: 'guest',
+    username: 'guest_worshipper',
+    fullName: 'Guest Worshipper',
+    isLoggedIn: false
+  } as UserSession,
+  watchHistoryCount = 0,
+  onOpenAuthPage = () => {}
 }: KingdomHomeFeedProps) {
   const [selectedWatchCategory, setSelectedWatchCategory] = useState<string>('All');
   const [activeTabJourney, setActiveTabJourney] = useState<'now' | 'watch' | 'follow' | 'grow'>('now');
@@ -78,8 +91,6 @@ export default function KingdomHomeFeed({
   const safeVideos = (videoStreams && videoStreams.length > 0) ? videoStreams : LIVE_VIDEO_STREAMS;
   const safeAudio = (audioQueue && audioQueue.length > 0) ? audioQueue : AUDIO_TRACKS;
 
-  // Find the primary live broadcast (Grace City Cathedral live or first live stream)
-  const primaryLiveStream = safeVideos.find((v) => v?.isLive) || safeVideos[0] || LIVE_VIDEO_STREAMS[0];
   const liveRadioTrack = safeAudio.find((a) => a?.isLiveRadio || a?.category === '24/7 Gospel Radio') || safeAudio[0] || AUDIO_TRACKS[0];
 
   // Filter video list based on category for "What should I watch?"
@@ -97,83 +108,6 @@ export default function KingdomHomeFeed({
 
   return (
     <div className="space-y-8 sm:space-y-10 pb-12 max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
-      
-      {/* 👑 ARCHITECTURAL KINGDOM SANCTUARY MARQUEE & COMPACT PORTAL INDEX */}
-      <div className="relative rounded-2xl bg-stone-950 border border-stone-800/90 overflow-hidden shadow-xl p-4 sm:p-5">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          
-          {/* Left Title & Statement */}
-          <div className="space-y-1.5 max-w-2xl">
-            <div className="flex items-center gap-2 text-xs">
-              <span className="font-['Cinzel',serif] tracking-[0.18em] text-[10px] font-bold text-amber-400 uppercase">
-                Sanctuary Portal
-              </span>
-              <span className="w-1 h-1 rounded-full bg-stone-700" />
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-stone-900 border border-stone-800 text-stone-300 text-[10px]">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Live Sanctuaries Active
-              </span>
-            </div>
-
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-normal text-stone-100 font-['Playfair_Display',serif] tracking-tight leading-tight">
-              Experience God&apos;s move <span className="italic text-amber-200/95 font-serif">across the nations.</span>
-            </h1>
-
-            <p className="text-xs sm:text-sm text-stone-400 font-normal leading-relaxed line-clamp-1 sm:line-clamp-none">
-              Real-time global worship, apostolic revelations, verified ministry homes, and daily altar growth.
-            </p>
-          </div>
-
-          {/* Right Compact Gesture Pills */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:flex lg:items-center gap-2 shrink-0">
-            <a
-              href="#section-now"
-              className="group px-3 py-2 rounded-xl bg-stone-900/80 hover:bg-stone-900 border border-stone-800/90 hover:border-red-500/40 transition flex items-center gap-2 text-left"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />
-              <div className="truncate">
-                <span className="text-[9px] font-mono font-bold text-stone-400 block tracking-wider">01/LIVE</span>
-                <span className="text-xs font-semibold text-stone-200 group-hover:text-white transition truncate block">Sanctuaries</span>
-              </div>
-            </a>
-
-            <a
-              href="#section-watch"
-              className="group px-3 py-2 rounded-xl bg-stone-900/80 hover:bg-stone-900 border border-stone-800/90 hover:border-amber-500/40 transition flex items-center gap-2 text-left"
-            >
-              <BookOpen className="w-3.5 h-3.5 text-amber-400/90 shrink-0" />
-              <div className="truncate">
-                <span className="text-[9px] font-mono font-bold text-stone-400 block tracking-wider">02/WORD</span>
-                <span className="text-xs font-semibold text-stone-200 group-hover:text-white transition truncate block">Revelations</span>
-              </div>
-            </a>
-
-            <a
-              href="#section-follow"
-              className="group px-3 py-2 rounded-xl bg-stone-900/80 hover:bg-stone-900 border border-stone-800/90 hover:border-blue-500/40 transition flex items-center gap-2 text-left"
-            >
-              <Building2 className="w-3.5 h-3.5 text-blue-400/90 shrink-0" />
-              <div className="truncate">
-                <span className="text-[9px] font-mono font-bold text-stone-400 block tracking-wider">03/HOMES</span>
-                <span className="text-xs font-semibold text-stone-200 group-hover:text-white transition truncate block">Ministries</span>
-              </div>
-            </a>
-
-            <a
-              href="#section-grow"
-              className="group px-3 py-2 rounded-xl bg-stone-900/80 hover:bg-stone-900 border border-stone-800/90 hover:border-emerald-500/40 transition flex items-center gap-2 text-left"
-            >
-              <Flame className="w-3.5 h-3.5 text-emerald-400/90 shrink-0" />
-              <div className="truncate">
-                <span className="text-[9px] font-mono font-bold text-stone-400 block tracking-wider">04/ALTAR</span>
-                <span className="text-xs font-semibold text-stone-200 group-hover:text-white transition truncate block">Spiritual Pillars</span>
-              </div>
-            </a>
-          </div>
-
-        </div>
-      </div>
-
       {/* ========================================================================= */}
       {/* 🔴 1. WHAT'S HAPPENING NOW? (REAL-TIME LIVE SANCTUARIES & GLOBAL PULSE)     */}
       {/* ========================================================================= */}
@@ -200,116 +134,6 @@ export default function KingdomHomeFeed({
             <span className="text-[10px] text-slate-400 hidden md:inline">
               worshipping now
             </span>
-          </div>
-        </div>
-
-        {/* 🌟 COMPACT SPOTLIGHT BROADCAST: LIVE SANCTUARY CARD */}
-        <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-red-950/40 via-stone-950 to-stone-950 border border-red-500/40 p-3.5 sm:p-4 shadow-xl">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-            
-            {/* Left Video Thumbnail Column */}
-            <div className="md:col-span-5 lg:col-span-4">
-              <div 
-                onClick={() => onSelectVideo(primaryLiveStream)}
-                className="relative aspect-video rounded-xl overflow-hidden bg-slate-900 border border-red-500/40 shadow-lg cursor-pointer group"
-              >
-                <img 
-                  src={primaryLiveStream.thumbnail} 
-                  alt={primaryLiveStream.title} 
-                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                />
-                <div className="absolute inset-0 bg-black/35 group-hover:bg-black/15 transition flex items-center justify-center">
-                  <div className="w-10 h-10 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition">
-                    <Play className="w-4 h-4 fill-current ml-0.5" />
-                  </div>
-                </div>
-                <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between text-[11px] text-white bg-black/80 px-2 py-1 rounded-md backdrop-blur-sm">
-                  <span className="font-semibold truncate max-w-[70%]">{decodeHtml(primaryLiveStream.churchOrMinistry)}</span>
-                  <span className="text-red-400 font-mono font-bold flex items-center gap-1 shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                    LIVE
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Info Column */}
-            <div className="md:col-span-7 lg:col-span-8 space-y-2.5">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2 py-0.5 rounded-md bg-red-600 text-white font-black text-[10px] uppercase tracking-wider flex items-center gap-1 shadow-sm">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                  <span>LIVE SANCTUARY</span>
-                </span>
-                <span className="px-2 py-0.5 rounded-md bg-stone-900 border border-stone-800 text-amber-300 text-[11px] font-mono font-bold">
-                  {primaryLiveStream.viewsText || '12,480 worshipping'}
-                </span>
-                <span className="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-semibold">
-                  Cathedral Altar
-                </span>
-              </div>
-
-              <div>
-                <h3 
-                  onClick={() => onSelectVideo(primaryLiveStream)}
-                  className="text-base sm:text-lg font-bold text-white font-serif tracking-tight cursor-pointer hover:text-red-400 transition leading-snug line-clamp-2"
-                >
-                  {decodeHtml(primaryLiveStream.title)}
-                </h3>
-                <p className="text-xs text-slate-300 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                  <span className="font-semibold text-stone-200">{decodeHtml(primaryLiveStream.speakerOrArtist)}</span>
-                  <span className="text-stone-600">•</span>
-                  <span 
-                    onClick={() => onOpenChannelModal(primaryLiveStream.churchOrMinistry)}
-                    className="text-amber-400 hover:underline cursor-pointer flex items-center gap-1 font-medium"
-                  >
-                    {decodeHtml(primaryLiveStream.churchOrMinistry)}
-                    <CheckCircle2 className="w-3 h-3 text-amber-400 fill-amber-400" />
-                  </span>
-                </p>
-              </div>
-
-              {primaryLiveStream.bibleVerse && (
-                <p className="text-[11px] text-amber-200/90 font-serif italic line-clamp-1">
-                  📖 {primaryLiveStream.bibleVerse}
-                </p>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 flex-wrap pt-0.5">
-                <button
-                  onClick={() => onSelectVideo(primaryLiveStream)}
-                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs transition flex items-center gap-1.5 shadow-md shadow-red-600/30"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>Enter Live</span>
-                </button>
-
-                <button
-                  onClick={() => onOpenChannelModal(primaryLiveStream.churchOrMinistry)}
-                  className="px-3.5 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-amber-300 font-semibold text-xs border border-amber-500/30 transition flex items-center gap-1.5"
-                >
-                  <Building2 className="w-3.5 h-3.5" />
-                  <span>Church Profile</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    onOpenGivingModal({
-                      id: 'target-primary-live',
-                      name: primaryLiveStream.churchOrMinistry,
-                      avatar: primaryLiveStream.channelAvatar,
-                      type: 'church',
-                      categoryTitle: `${primaryLiveStream.churchOrMinistry} Kingdom Offering`
-                    });
-                  }}
-                  className="px-3 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-stone-300 hover:text-white font-medium text-xs border border-stone-800 transition flex items-center gap-1"
-                >
-                  <DollarSign className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Give</span>
-                </button>
-              </div>
-            </div>
-
           </div>
         </div>
 

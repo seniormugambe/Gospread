@@ -26,7 +26,9 @@ import {
   Crown,
   Lock,
   Globe,
-  Heart
+  Heart,
+  LayoutList,
+  LayoutGrid
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { djangoApi, CommunityPostApi } from '../services/djangoApi';
@@ -99,6 +101,7 @@ export default function SpiritualMomentumRankings({
   const [selectedUserForBadges, setSelectedUserForBadges] = useState<LeaderboardEntity | null>(null);
   const [leaderboardItems, setLeaderboardItems] = useState<LeaderboardEntity[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
 
   // Fetch live believer activity / rankings from Django backend
   useEffect(() => {
@@ -428,6 +431,34 @@ export default function SpiritualMomentumRankings({
               ))}
             </div>
           )}
+
+          {/* View Mode Switcher: Table vs Cards */}
+          <div className="flex items-center p-0.5 bg-slate-950 rounded-xl border border-slate-800 shrink-0 self-start sm:self-auto">
+            <button
+              onClick={() => setViewMode('table')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
+                viewMode === 'table'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Structured Table Display (Optimized for Tablet & Desktop)"
+            >
+              <LayoutList className="w-3 h-3" />
+              <span>Table</span>
+            </button>
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
+                viewMode === 'cards'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Cards Display"
+            >
+              <LayoutGrid className="w-3 h-3" />
+              <span>Cards</span>
+            </button>
+          </div>
         </div>
 
         {/* Search Bar */}
@@ -447,7 +478,7 @@ export default function SpiritualMomentumRankings({
         </div>
       </div>
 
-      {/* 🥇 4. LEADERBOARD LISTING */}
+      {/* 🥇 4. LEADERBOARD LISTING (TABLE & CARD VIEWS) */}
       <div className="space-y-3">
         {isLoading ? (
           <div className="p-8 text-center text-xs text-slate-400">Loading rankings...</div>
@@ -468,7 +499,282 @@ export default function SpiritualMomentumRankings({
               Reset Filters
             </button>
           </div>
+        ) : viewMode === 'table' ? (
+          /* 📋 STRUCTURED TABLE DISPLAY (Optimized for Tablet & Desktop with Mobile Card-Table Fallback) */
+          <div className="rounded-2xl bg-slate-900/90 border border-slate-800 overflow-hidden shadow-2xl backdrop-blur-xl">
+            {/* Desktop & Tablet HTML Table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-950/70 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                    <th className="py-3.5 px-4 w-16 text-center">Rank</th>
+                    <th className="py-3.5 px-4">Believer / Ministry</th>
+                    <th className="py-3.5 px-4">Faith Badges</th>
+                    <th className="py-3.5 px-4">{activeCategory === 'users' ? 'XP / Study' : 'Reach & Followers'}</th>
+                    <th className="py-3.5 px-4">{activeCategory === 'users' ? 'Daily Streak' : 'Growth'}</th>
+                    <th className="py-3.5 px-4 text-center">Momentum</th>
+                    <th className="py-3.5 px-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 text-xs">
+                  {filteredItems.map((entity, index) => {
+                    const rankDisplay = index + 1;
+                    const isJoinedChurch = joinedChurches.some(c => c.toLowerCase() === entity.name.toLowerCase());
+                    const badgeCount = entity.userBadges?.length || 1;
+                    return (
+                      <tr
+                        key={entity.id}
+                        className={`hover:bg-slate-800/40 transition-colors ${
+                          entity.isCurrentUser ? 'bg-amber-500/5' : ''
+                        }`}
+                      >
+                        {/* Rank Column */}
+                        <td className="py-3.5 px-4 align-middle text-center whitespace-nowrap">
+                          <span className={`inline-flex items-center justify-center w-8 h-8 rounded-xl font-mono font-bold text-xs shadow-sm ${
+                            rankDisplay === 1
+                              ? 'bg-amber-400 text-slate-950 font-black'
+                              : rankDisplay === 2
+                              ? 'bg-slate-200 text-slate-950 font-black'
+                              : rankDisplay === 3
+                              ? 'bg-amber-800 text-amber-100 font-bold'
+                              : 'bg-slate-800 text-slate-400'
+                          }`}>
+                            {rankDisplay === 1 ? '🥇' : rankDisplay === 2 ? '🥈' : rankDisplay === 3 ? '🥉' : `#${rankDisplay}`}
+                          </span>
+                        </td>
+
+                        {/* Believer / Ministry Info */}
+                        <td className="py-3.5 px-4 align-middle">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={entity.avatar}
+                              alt={entity.name}
+                              className="w-10 h-10 rounded-xl object-cover border border-slate-700 shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-white text-sm truncate">
+                                  {entity.name}
+                                </span>
+                                {entity.isCurrentUser && (
+                                  <span className="px-1.5 py-0.2 rounded bg-amber-500 text-slate-950 text-[8px] font-black">
+                                    YOU
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-slate-400 flex items-center gap-1.5 truncate">
+                                <span>{entity.locationOrHandle}</span>
+                                {entity.homeChurch && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-amber-400/90 truncate">⛪ {entity.homeChurch}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Faith Badges Column */}
+                        <td className="py-3.5 px-4 align-middle">
+                          <div className="flex items-center gap-1.5 flex-wrap max-w-xs">
+                            <span className={`px-2 py-0.5 rounded-full border text-[10px] font-black flex items-center gap-1 ${entity.unlockedBadge.bgClass} ${entity.unlockedBadge.colorClass}`}>
+                              <span>{entity.unlockedBadge.icon}</span>
+                              <span>{entity.unlockedBadge.name}</span>
+                            </span>
+                            {entity.category === 'users' && (
+                              <button
+                                onClick={() => setSelectedUserForBadges(entity)}
+                                className="px-2 py-0.5 rounded-full bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-[10px] font-bold"
+                                title="View badge showcase"
+                              >
+                                +{badgeCount} Badges
+                              </button>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Primary Metric */}
+                        <td className="py-3.5 px-4 align-middle whitespace-nowrap">
+                          <div className="space-y-0.5">
+                            <div className="font-bold text-white font-mono flex items-center gap-1">
+                              {entity.category === 'users' && <Sparkles className="w-3 h-3 text-cyan-400" />}
+                              <span>{entity.primaryMetricVal.toLocaleString()}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 block">{entity.primaryMetricLabel}</span>
+                          </div>
+                        </td>
+
+                        {/* Secondary Metric / Streak */}
+                        <td className="py-3.5 px-4 align-middle whitespace-nowrap">
+                          <div className="space-y-0.5">
+                            <div className="font-bold text-rose-300 font-mono flex items-center gap-1">
+                              {entity.category === 'users' && <Flame className="w-3 h-3 text-rose-400" />}
+                              <span>
+                                {entity.secondaryMetricVal.toLocaleString()}
+                                {entity.category === 'users' ? ' Days' : ''}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 block">{entity.secondaryMetricLabel}</span>
+                          </div>
+                        </td>
+
+                        {/* Momentum Score */}
+                        <td className="py-3.5 px-4 align-middle text-center whitespace-nowrap">
+                          <span className="inline-block px-2.5 py-1 rounded-xl bg-slate-950 text-amber-300 border border-amber-500/30 font-mono font-black text-xs">
+                            {entity.momentumScore.toFixed(1)}
+                          </span>
+                        </td>
+
+                        {/* Action Column */}
+                        <td className="py-3.5 px-4 align-middle text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {entity.category === 'users' ? (
+                              <button
+                                onClick={() => setSelectedUserForBadges(entity)}
+                                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold transition flex items-center gap-1 border border-slate-700"
+                              >
+                                <Award className="w-3.5 h-3.5 text-amber-400" />
+                                <span>Badges</span>
+                              </button>
+                            ) : (
+                              <>
+                                {entity.category === 'churches' && (
+                                  <button
+                                    onClick={() => onToggleJoinChurch && onToggleJoinChurch(entity.name)}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition ${
+                                      isJoinedChurch
+                                        ? 'bg-emerald-600 text-white'
+                                        : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+                                    }`}
+                                  >
+                                    {isJoinedChurch ? 'Joined' : 'Join'}
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => onSelectChannelModal && onSelectChannelModal(entity.name)}
+                                  className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
+                                  title="View Details"
+                                >
+                                  <ChevronRight className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card-Table Fallback (Screens < 640px) */}
+            <div className="sm:hidden divide-y divide-slate-800/80">
+              {filteredItems.map((entity, index) => {
+                const rankDisplay = index + 1;
+                const isJoinedChurch = joinedChurches.some(c => c.toLowerCase() === entity.name.toLowerCase());
+                const badgeCount = entity.userBadges?.length || 1;
+                return (
+                  <div key={entity.id} className="p-3.5 space-y-3 hover:bg-slate-800/30 transition">
+                    <div className="flex items-center gap-3">
+                      <span className={`w-7 h-7 rounded-lg font-mono font-bold text-xs flex items-center justify-center shrink-0 ${
+                        rankDisplay === 1
+                          ? 'bg-amber-400 text-slate-950 font-black'
+                          : rankDisplay === 2
+                          ? 'bg-slate-200 text-slate-950'
+                          : rankDisplay === 3
+                          ? 'bg-amber-800 text-amber-100'
+                          : 'bg-slate-800 text-slate-400'
+                      }`}>
+                        {rankDisplay === 1 ? '🥇' : rankDisplay === 2 ? '🥈' : rankDisplay === 3 ? '🥉' : `#${rankDisplay}`}
+                      </span>
+
+                      <img
+                        src={entity.avatar}
+                        alt={entity.name}
+                        className="w-9 h-9 rounded-xl object-cover border border-slate-700 shrink-0"
+                      />
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="font-bold text-white text-xs truncate">{entity.name}</h4>
+                          {entity.isCurrentUser && (
+                            <span className="px-1.5 py-0.2 rounded bg-amber-500 text-slate-950 text-[8px] font-black shrink-0">
+                              YOU
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-400 truncate">{entity.locationOrHandle}</p>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span className="text-[9px] text-slate-500 block uppercase">Momentum</span>
+                        <span className="font-mono font-black text-xs text-amber-300">
+                          {entity.momentumScore.toFixed(1)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Metrics Micro-Strip */}
+                    <div className="grid grid-cols-3 gap-2 bg-slate-950 p-2 rounded-xl border border-slate-800 text-center text-xs">
+                      <div>
+                        <span className="text-[9px] text-slate-500 block truncate">{entity.primaryMetricLabel}</span>
+                        <span className="font-bold text-white font-mono text-[11px]">{entity.primaryMetricVal.toLocaleString()}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-slate-500 block truncate">{entity.secondaryMetricLabel}</span>
+                        <span className="font-bold text-rose-300 font-mono text-[11px]">
+                          {entity.secondaryMetricVal.toLocaleString()}
+                          {entity.category === 'users' ? 'd' : ''}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-slate-500 block truncate">Badges</span>
+                        <span className="font-bold text-amber-300 font-mono text-[11px]">{badgeCount} Earned</span>
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-2">
+                      {entity.category === 'users' ? (
+                        <button
+                          onClick={() => setSelectedUserForBadges(entity)}
+                          className="w-full py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold transition flex items-center justify-center gap-1 border border-slate-700"
+                        >
+                          <Award className="w-3 h-3 text-amber-400" />
+                          <span>View Badges Showcase ({badgeCount})</span>
+                        </button>
+                      ) : (
+                        <>
+                          {entity.category === 'churches' && (
+                            <button
+                              onClick={() => onToggleJoinChurch && onToggleJoinChurch(entity.name)}
+                              className={`flex-1 py-1.5 rounded-xl text-xs font-black transition ${
+                                isJoinedChurch
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-amber-500 text-slate-950'
+                              }`}
+                            >
+                              {isJoinedChurch ? 'Joined Sanctuary' : 'Join Sanctuary'}
+                            </button>
+                          )}
+                          <button
+                            onClick={() => onSelectChannelModal && onSelectChannelModal(entity.name)}
+                            className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-200 text-xs font-bold"
+                          >
+                            Details
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         ) : (
+          /* 🗂️ ORIGINAL CARDS DISPLAY (Enhanced for Mobile & Tablet) */
           filteredItems.map((entity, index) => {
             const rankDisplay = index + 1;
             const isTopThree = rankDisplay <= 3;
@@ -584,8 +890,8 @@ export default function SpiritualMomentumRankings({
                   </div>
                 </div>
 
-                {/* Metrics & Momentum Score Breakdown */}
-                <div className="flex items-center justify-between md:justify-end gap-3.5 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800">
+                {/* Metrics & Momentum Score Breakdown (Responsive layout on Mobile & Tablet) */}
+                <div className="grid grid-cols-3 sm:flex items-center justify-between md:justify-end gap-2 sm:gap-3.5 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800">
                   <div className="text-left md:text-right text-xs space-y-0.5">
                     <span className="text-[10px] text-slate-500 font-medium block">
                       {entity.primaryMetricLabel}
@@ -609,20 +915,20 @@ export default function SpiritualMomentumRankings({
                     </div>
                   </div>
 
-                  <div className="text-right space-y-0.5 bg-slate-950 p-2.5 rounded-2xl border border-amber-500/20 shadow-inner">
+                  <div className="text-right space-y-0.5 bg-slate-950 p-2 sm:p-2.5 rounded-2xl border border-amber-500/20 shadow-inner">
                     <span className="text-[9px] text-amber-400 font-black uppercase tracking-wider block">
-                      Momentum Score
+                      Score
                     </span>
-                    <div className="font-black text-amber-300 text-sm font-mono">
+                    <div className="font-black text-amber-300 text-xs sm:text-sm font-mono">
                       {entity.momentumScore.toFixed(1)}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="col-span-3 sm:col-span-1 flex items-center justify-end gap-1.5 pt-1 sm:pt-0">
                     {entity.category === 'users' ? (
                       <button
                         onClick={() => setSelectedUserForBadges(entity)}
-                        className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold transition flex items-center gap-1 border border-slate-700 shadow-sm"
+                        className="w-full sm:w-auto px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold transition flex items-center justify-center gap-1 border border-slate-700 shadow-sm"
                         title="View Unlocked Badges"
                       >
                         <Award className="w-3.5 h-3.5 text-amber-400" />
@@ -633,7 +939,7 @@ export default function SpiritualMomentumRankings({
                         {entity.category === 'churches' && (
                           <button
                             onClick={() => onToggleJoinChurch && onToggleJoinChurch(entity.name)}
-                            className={`px-3 py-2 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-md ${
+                            className={`flex-1 sm:flex-initial px-3 py-2 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 shadow-md ${
                               isJoinedChurch
                                 ? 'bg-emerald-600 text-white'
                                 : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
