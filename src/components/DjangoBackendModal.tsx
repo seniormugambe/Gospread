@@ -516,9 +516,12 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
 ]
 
+CORS_ALLOW_ALL_ORIGINS = True  # For easy development & cross-origin client apps
+# Or restrict to specific frontend origins:
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "http://127.0.0.1:3000",
+    "https://ais-dev-prn3yqajheqpwqz23dpfvo-620618019121.europe-west2.run.app",
+    "https://ais-pre-prn3yqajheqpwqz23dpfvo-620618019121.europe-west2.run.app",
 ]
 CORS_ALLOW_CREDENTIALS = True
 

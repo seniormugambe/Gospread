@@ -99,6 +99,9 @@ import {
   AudioTrack,
   ChatMessage,
   ReactionType,
+  GRACE_SHORTS,
+  LIVE_VIDEO_STREAMS,
+  AUDIO_TRACKS,
 } from './data/gospelData';
 
 export default function App() {
@@ -118,8 +121,10 @@ export default function App() {
       localStorage.setItem('gospread_theme', theme);
       if (theme === 'light') {
         document.documentElement.classList.add('light-theme');
+        document.documentElement.classList.remove('dark');
       } else {
         document.documentElement.classList.remove('light-theme');
+        document.documentElement.classList.add('dark');
       }
     } catch (e) {
       console.error(e);
@@ -135,15 +140,34 @@ export default function App() {
     setIsPipDocked(false);
     setActiveVideo(null);
   };
-  const [videoStreams, setVideoStreams] = useState<VideoStream[]>([]);
-  const [shorts, setShorts] = useState<VideoStream[]>([]);
+  const [videoStreams, setVideoStreams] = useState<VideoStream[]>(LIVE_VIDEO_STREAMS);
+  const [shorts, setShorts] = useState<VideoStream[]>(() =>
+    GRACE_SHORTS.map(s => ({
+      id: s.id,
+      title: s.title,
+      speakerOrArtist: s.speaker,
+      churchOrMinistry: s.church,
+      channelAvatar: s.avatar,
+      subscribersCount: 'Verified',
+      likesCount: s.likes,
+      category: 'Sermon',
+      isLive: false,
+      viewersCount: s.amensCount * 12,
+      viewsText: `${s.likes} likes`,
+      duration: s.duration,
+      thumbnail: s.thumbnail,
+      description: s.tags.join(' '),
+      date: 'Today',
+      videoUrl: s.videoUrl,
+    }))
+  );
   const [churches, setChurches] = useState<Awaited<ReturnType<typeof djangoApi.getChurchLocations>>>([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isYoutubeLoading, setIsYoutubeLoading] = useState(false);
 
-  // Fetch published media from Django.
+  // Fetch published media from Django (with immediate fallback to offline sanctuary data).
   useEffect(() => {
     let isMounted = true;
     const loadMedia = async () => {
@@ -152,8 +176,7 @@ export default function App() {
         const backendChurches = await djangoApi.getChurchLocations();
         if (isMounted) setChurches(backendChurches);
       } catch (e) {
-        console.error('Error fetching churches:', e);
-        if (isMounted) setChurches([]);
+        console.warn('Backend churches notice (using sanctuary directory):', e);
       }
 
       try {
@@ -163,22 +186,27 @@ export default function App() {
           searchQuery,
         );
         if (isMounted) {
-          setVideoStreams(backendVideos);
-          setActiveVideo(prev => prev && backendVideos.some(video => video.id === prev.id)
+          const videos = backendVideos && backendVideos.length > 0 ? backendVideos : LIVE_VIDEO_STREAMS;
+          setVideoStreams(videos);
+          setActiveVideo(prev => prev && videos.some(video => video.id === prev.id)
             ? prev
-            : backendVideos[0] || null);
+            : videos[0] || null);
         }
       } catch (e) {
-        console.error('Error fetching media:', e);
-        if (isMounted) setVideoStreams([]);
+        console.warn('Backend media notice (using local streams):', e);
+        if (isMounted) {
+          setVideoStreams(LIVE_VIDEO_STREAMS);
+          setActiveVideo(prev => prev || LIVE_VIDEO_STREAMS[0] || null);
+        }
       }
 
       try {
         const backendShorts = await djangoApi.getShorts();
-        if (isMounted) setShorts(backendShorts);
+        if (isMounted && backendShorts && backendShorts.length > 0) {
+          setShorts(backendShorts);
+        }
       } catch (e) {
-        console.error('Error fetching shorts:', e);
-        if (isMounted) setShorts([]);
+        console.warn('Backend shorts notice (using local shorts):', e);
       }
 
       try {
@@ -189,11 +217,19 @@ export default function App() {
             setCurrentAudio(backendTracks[0]);
           }
         } else if (isMounted) {
-          setAudioQueue([]);
+          setAudioQueue(AUDIO_TRACKS);
+          if (!currentAudio && AUDIO_TRACKS[0]) {
+            setCurrentAudio(AUDIO_TRACKS[0]);
+          }
         }
       } catch (e) {
-        console.error('Error fetching audio tracks:', e);
-        if (isMounted) setAudioQueue([]);
+        console.warn('Backend audio tracks notice (using local playlist):', e);
+        if (isMounted) {
+          setAudioQueue(AUDIO_TRACKS);
+          if (!currentAudio && AUDIO_TRACKS[0]) {
+            setCurrentAudio(AUDIO_TRACKS[0]);
+          }
+        }
       }
 
       if (isMounted) setIsYoutubeLoading(false);
@@ -207,7 +243,19 @@ export default function App() {
   const [watchHistory, setWatchHistory] = useState<WatchHistoryItem[]>(() => {
     try {
       const saved = localStorage.getItem('gospread_watch_history');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .filter((item: any) => Boolean(item && (item.video?.title || item.title)))
+            .map((item: any) => {
+              if (!item.video && item.title) {
+                return { video: item, watchedAt: item.watchedAt || Date.now() };
+              }
+              return item;
+            });
+        }
+      }
     } catch (e) {
       console.error('Failed to load watch history:', e);
     }
@@ -215,8 +263,9 @@ export default function App() {
   });
 
   const addToWatchHistory = (video: VideoStream) => {
+    if (!video || !video.id) return;
     setWatchHistory(prev => {
-      const filtered = prev.filter(item => item.video.id !== video.id);
+      const filtered = prev.filter(item => Boolean(item && item.video && item.video.id !== video.id));
       const updated = [{ video, watchedAt: Date.now() }, ...filtered].slice(0, 30);
       try {
         localStorage.setItem('gospread_watch_history', JSON.stringify(updated));
@@ -229,7 +278,7 @@ export default function App() {
 
   const removeFromWatchHistory = (videoId: string) => {
     setWatchHistory(prev => {
-      const updated = prev.filter(item => item.video.id !== videoId);
+      const updated = prev.filter(item => Boolean(item && item.video && item.video.id !== videoId));
       try {
         localStorage.setItem('gospread_watch_history', JSON.stringify(updated));
       } catch (err) {
@@ -367,6 +416,7 @@ export default function App() {
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [showPromiseModal, setShowPromiseModal] = useState(false);
   const [showShortsModal, setShowShortsModal] = useState(false);
+  const [selectedShortId, setSelectedShortId] = useState<string | null>(null);
   const [showDjangoModal, setShowDjangoModal] = useState(false);
   const [showYouTubeModal, setShowYouTubeModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -967,7 +1017,6 @@ export default function App() {
                           { id: 'discover', label: 'Discover Ministries', icon: Building2, badge: 'EXPLORE', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
                           { id: 'history', label: 'Watch History', icon: History, badge: watchHistory.length > 0 ? `${watchHistory.length}` : undefined, badgeStyle: 'bg-amber-500/20 text-amber-400 border border-amber-500/30' },
                           { id: 'profile', label: 'My Kingdom Profile', icon: User, badge: 'YOU', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
-                          { id: 'settings', label: 'Account Settings', icon: Settings, badge: 'PREFS', badgeStyle: 'bg-slate-800 text-amber-400 border border-slate-700' },
                         ],
                       },
                       {
@@ -1107,7 +1156,7 @@ export default function App() {
         </AnimatePresence>
 
         {/* Main Body */}
-        <div className="flex-1 overflow-y-auto flex flex-col pb-32 md:pb-16">
+        <main className="flex-1 overflow-y-auto flex flex-col pb-32 md:pb-16">
           
           {activeTab === 'auth' ? (
             <div className="p-2 sm:p-4 lg:p-6 max-w-7xl w-full mx-auto">
@@ -1540,44 +1589,46 @@ export default function App() {
             /* Media Centric Grid Page */
             <div className="p-3 sm:p-4 lg:p-6 space-y-6 max-w-7xl w-full mx-auto">
               
-              {/* Category Filter Pills */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none py-1">
-                {categories.map((cat) => {
-                  const Icon = cat.icon;
-                  const isSelected = selectedCategory === cat.label;
-                  return (
-                    <button
-                      key={cat.label}
-                      onClick={() => {
-                        if (cat.label === 'Discover Ministries') {
-                          setActiveTab('discover');
-                          setActiveVideo(null);
-                        } else if (cat.label === 'Following' && !userSession.isLoggedIn) {
-                          handleOpenAuthPage('signin');
-                        } else {
-                          setSelectedCategory(cat.label);
-                          if (activeTab !== 'platform') setActiveTab('platform');
-                        }
-                      }}
-                      className={`px-3.5 py-2 sm:py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-2 shrink-0 min-h-[40px] sm:min-h-[34px] ${
-                        isSelected
-                          ? 'bg-white text-slate-950 shadow-md ring-2 ring-white/20'
-                          : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 active:bg-slate-600'
-                      }`}
-                    >
-                      <Icon className={`w-4 h-4 sm:w-3.5 sm:h-3.5 ${isSelected ? 'text-slate-950' : 'text-slate-400'}`} />
-                      <span>{cat.label}</span>
-                      {cat.count !== undefined && cat.count > 0 && (
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-[9px] font-black ${
-                          isSelected ? 'bg-slate-950 text-white' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                        }`}>
-                          {cat.count}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+              {/* Category Filter Pills (shown when filtering by category or searching) */}
+              {(selectedCategory !== 'All' || searchQuery.trim() !== '') && (
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none py-1">
+                  {categories.map((cat) => {
+                    const Icon = cat.icon;
+                    const isSelected = selectedCategory === cat.label;
+                    return (
+                      <button
+                        key={cat.label}
+                        onClick={() => {
+                          if (cat.label === 'Discover Ministries') {
+                            setActiveTab('discover');
+                            setActiveVideo(null);
+                          } else if (cat.label === 'Following' && !userSession.isLoggedIn) {
+                            handleOpenAuthPage('signin');
+                          } else {
+                            setSelectedCategory(cat.label);
+                            if (activeTab !== 'platform') setActiveTab('platform');
+                          }
+                        }}
+                        className={`px-3.5 py-2 sm:py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-2 shrink-0 min-h-[40px] sm:min-h-[34px] ${
+                          isSelected
+                            ? 'bg-white text-slate-950 shadow-md ring-2 ring-white/20'
+                            : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 active:bg-slate-600'
+                        }`}
+                      >
+                        <Icon className={`w-4 h-4 sm:w-3.5 sm:h-3.5 ${isSelected ? 'text-slate-950' : 'text-slate-400'}`} />
+                        <span>{cat.label}</span>
+                        {cat.count !== undefined && cat.count > 0 && (
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-[9px] font-black ${
+                            isSelected ? 'bg-slate-950 text-white' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                          }`}>
+                            {cat.count}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* 🎙️ PODCASTS & AUDIO HUB VIEW */}
               {(selectedCategory === 'Podcasts' || selectedCategory === '24/7 Gospel Radio') && (
@@ -1706,8 +1757,13 @@ export default function App() {
                   followerCounts={followerCounts}
                   userSession={userSession}
                   onOpenAuthPage={handleOpenAuthPage}
-                  onOpenShorts={() => setShowShortsModal(true)}
+                  onOpenShorts={(shortId) => {
+                    setSelectedShortId(shortId || null);
+                    setShowShortsModal(true);
+                  }}
                   shorts={shorts}
+                  watchHistory={watchHistory}
+                  onRemoveWatchHistory={removeFromWatchHistory}
                 />
               )}
 
@@ -1892,7 +1948,7 @@ export default function App() {
             </div>
           )}
 
-        </div>
+        </main>
       </div>
 
       {/* 🔴 ADVANCED MEDIA AUDIO PLAYER */}
@@ -2098,8 +2154,12 @@ export default function App() {
       {/* ⚡ Grace Shorts Video Modal */}
       {showShortsModal && (
         <GraceShortsModal
-          onClose={() => setShowShortsModal(false)}
+          onClose={() => {
+            setShowShortsModal(false);
+            setSelectedShortId(null);
+          }}
           onOpenGivingModal={handleOpenGiving}
+          initialShortId={selectedShortId || undefined}
         />
       )}
 

@@ -19,13 +19,21 @@ import { GivingTarget } from './GivingModal';
 interface GraceShortsModalProps {
   onClose: () => void;
   onOpenGivingModal: (target: GivingTarget) => void;
+  initialShortId?: string;
 }
 
 export default function GraceShortsModal({
   onClose,
-  onOpenGivingModal
+  onOpenGivingModal,
+  initialShortId
 }: GraceShortsModalProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    if (initialShortId) {
+      const idx = GRACE_SHORTS.findIndex((s) => s.id === initialShortId);
+      if (idx !== -1) return idx;
+    }
+    return 0;
+  });
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
   const [amensCountMap, setAmensCountMap] = useState<Record<string, number>>({});
   const [isMuted, setIsMuted] = useState(false);

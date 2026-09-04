@@ -50,12 +50,13 @@ export const WatchHistoryView: React.FC<WatchHistoryViewProps> = ({
 
   // Filter history by search term
   const filteredHistory = watchHistory.filter((item) => {
+    if (!item || !item.video) return false;
     if (!searchFilter.trim()) return true;
     const q = searchFilter.toLowerCase();
     return (
-      item.video.title.toLowerCase().includes(q) ||
-      item.video.speakerOrArtist.toLowerCase().includes(q) ||
-      item.video.churchOrMinistry.toLowerCase().includes(q)
+      Boolean(item.video.title && item.video.title.toLowerCase().includes(q)) ||
+      Boolean(item.video.speakerOrArtist && item.video.speakerOrArtist.toLowerCase().includes(q)) ||
+      Boolean(item.video.churchOrMinistry && item.video.churchOrMinistry.toLowerCase().includes(q))
     );
   });
 
@@ -278,13 +279,14 @@ export const WatchHistoryView: React.FC<WatchHistoryViewProps> = ({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {group.items.map((item) => {
+                {group.items.map((item, itemIdx) => {
+                  if (!item || !item.video) return null;
                   const video = item.video;
                   const isSaved = savedIds.includes(video.id);
 
                   return (
                     <motion.div
-                      key={`${video.id}-${item.watchedAt}`}
+                      key={`${video.id || itemIdx}-${item.watchedAt || itemIdx}`}
                       whileHover={{ y: -3, boxShadow: "0 15px 30px -5px rgba(0, 0, 0, 0.6), 0 5px 15px -5px rgba(245, 158, 11, 0.15)" }}
                       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                       className="p-3 rounded-2xl bg-[#141416] border border-slate-800/90 hover:border-amber-500/50 transition flex flex-col justify-between group relative"

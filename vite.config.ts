@@ -14,8 +14,9 @@ export default defineConfig(() => {
     server: {
       proxy: {
         '/api': {
-          target: process.env.DJANGO_PROXY_TARGET || 'http://127.0.0.1:8000',
+          target: process.env.DJANGO_PROXY_TARGET || 'https://gospread-api.onrender.com',
           changeOrigin: true,
+          secure: false,
         },
       },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

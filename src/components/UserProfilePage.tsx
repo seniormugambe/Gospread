@@ -314,7 +314,18 @@ export default function UserProfilePage({
           <div className="absolute inset-0 bg-gradient-to-t from-[#121215] via-transparent to-transparent" />
 
           {/* Banner Quick Actions */}
-          <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+          <div className="absolute top-4 right-4 flex items-center gap-2 z-10 flex-wrap justify-end">
+            {onOpenSettingsModal && (
+              <button
+                onClick={onOpenSettingsModal}
+                className="px-3.5 py-1.5 rounded-full bg-slate-950/80 hover:bg-slate-900 text-slate-200 hover:text-white font-bold text-xs border border-slate-700/80 backdrop-blur-md flex items-center gap-1.5 transition shadow-sm"
+                title="Account Settings"
+              >
+                <Settings className="w-3.5 h-3.5 text-amber-400" />
+                <span>Account Settings</span>
+              </button>
+            )}
+
             {onOpenAuthPage && (
               <button
                 onClick={() => onOpenAuthPage('signin')}
@@ -432,6 +443,17 @@ export default function UserProfilePage({
               <Heart className="w-4 h-4 text-red-400" />
               <span>Post Prayer</span>
             </button>
+
+            {onOpenSettingsModal && (
+              <button
+                onClick={onOpenSettingsModal}
+                className="px-4 py-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs border border-slate-700 flex items-center gap-1.5 transition shadow-sm"
+                title="Account Settings"
+              >
+                <Settings className="w-4 h-4 text-amber-400" />
+                <span>Account Settings</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

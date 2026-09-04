@@ -21,11 +21,15 @@ export const StreamingVideoCard: React.FC<StreamingVideoCardProps> = ({
   className = '',
   showCategoryBadge = false,
 }) => {
+  if (!video) return null;
+
   const isLive = video.isLive;
   const viewersText = isLive
-    ? video.viewersCount
-      ? `${(video.viewersCount / 1000).toFixed(1)}K watching`
-      : 'Live now'
+    ? video.viewsText || (video.viewersCount
+      ? video.viewersCount >= 1000
+        ? `${(video.viewersCount / 1000).toFixed(1)}K watching`
+        : `${video.viewersCount} watching`
+      : 'Live now')
     : video.viewsText || '142K views';
 
   return (
@@ -172,11 +176,23 @@ export const StreamingVideoCard: React.FC<StreamingVideoCardProps> = ({
 
           {/* Views or Viewers Count */}
           <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-            <span className={isLive ? 'text-amber-300 font-semibold' : ''}>{viewersText}</span>
-            {!isLive && video.date && (
+            {isLive ? (
+              <div className="flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-600/20 text-red-400 text-[10px] font-black tracking-wider uppercase">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  LIVE
+                </span>
+                <span className="text-amber-300 font-semibold">{viewersText}</span>
+              </div>
+            ) : (
               <>
-                <span>•</span>
-                <span>{video.date}</span>
+                <span>{viewersText}</span>
+                {video.date && (
+                  <>
+                    <span>•</span>
+                    <span>{video.date}</span>
+                  </>
+                )}
               </>
             )}
           </div>
