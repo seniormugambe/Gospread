@@ -437,10 +437,10 @@ export default function App() {
       console.error(e);
     }
     return {
-      id: 'usr-guest',
-      username: 'guest_worshipper',
+      id: '',
+      username: '',
       email: '',
-      fullName: 'Guest Believer',
+      fullName: '',
       churchName: '',
       ministryName: '',
       avatarUrl: '',
@@ -1172,9 +1172,9 @@ export default function App() {
                     id: '',
                     username: '',
                     email: '',
-                    fullName: 'Guest Believer',
-                    churchName: 'Seeking Sanctuary',
-                    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+                    fullName: '',
+                    churchName: '',
+                    avatarUrl: '',
                     isLoggedIn: false
                   });
                 }}
@@ -2191,10 +2191,10 @@ export default function App() {
         onLogout={() => {
           djangoApi.logout();
           setUserSession({
-            id: 'guest',
-            username: 'guest',
+            id: '',
+            username: '',
             email: '',
-            fullName: 'Guest Believer',
+            fullName: '',
             isLoggedIn: false
           });
         }}

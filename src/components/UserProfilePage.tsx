@@ -92,7 +92,7 @@ export default function UserProfilePage({
       const custom = localStorage.getItem('gospread_custom_name');
       if (custom) return custom;
     } catch {}
-    return currentUser?.fullName || (currentUser?.isLoggedIn ? currentUser.username : 'Kingdom Believer');
+    return currentUser?.fullName || (currentUser?.isLoggedIn ? currentUser.username : '');
   });
 
   const [userHandle, setUserHandle] = useState(() => {
@@ -191,84 +191,6 @@ export default function UserProfilePage({
       return val !== null ? val === 'true' : true;
     } catch { return true; }
   });
-
-  // Dynamic achievement badges based purely on real active metrics
-  const badges = [
-    {
-      id: 'streak_1',
-      title: 'Devotion Seeker',
-      desc: 'Completed daily devotion prayer & study.',
-      icon: '🌱',
-      active: streakDays >= 1,
-      cat: 'Devotion',
-      progress: `${streakDays}/1 Day`
-    },
-    {
-      id: 'streak_7',
-      title: 'Overcomer 7D',
-      desc: '7 consecutive days of daily faith devotion.',
-      icon: '🔥',
-      active: streakDays >= 7,
-      cat: 'Streak',
-      progress: `${streakDays}/7 Days`
-    },
-    {
-      id: 'praise_50',
-      title: 'Praise Voice',
-      desc: 'Accumulated 50 Praise XP through active worship.',
-      icon: '✨',
-      active: praiseXp >= 50,
-      cat: 'Worship',
-      progress: `${praiseXp}/50 XP`
-    },
-    {
-      id: 'praise_500',
-      title: 'Kingdom Ambassador',
-      desc: 'Reached 500 Praise XP milestone.',
-      icon: '👑',
-      active: praiseXp >= 500,
-      cat: 'Ambassador',
-      progress: `${praiseXp}/500 XP`
-    },
-    {
-      id: 'sower',
-      title: 'Diligent Sower',
-      desc: 'Contributed an offering seed to support gospel broadcast.',
-      icon: '🌾',
-      active: totalGivingAmount > 0,
-      cat: 'Stewardship',
-      progress: totalGivingAmount > 0 ? `$${totalGivingAmount} Sowed` : '$0 Sowed'
-    },
-    {
-      id: 'bookmarks',
-      title: 'Word Gatherer',
-      desc: 'Saved gospel sermons or worship audio for study.',
-      icon: '📖',
-      active: savedIds.length >= 1,
-      cat: 'Study',
-      progress: `${savedIds.length} Saved`
-    },
-    {
-      id: 'channels',
-      title: 'Ministry Follower',
-      desc: 'Following live ministries and broadcast creators.',
-      icon: '📺',
-      active: subscribedChannels.length >= 1,
-      cat: 'Channels',
-      progress: `${subscribedChannels.length} Followed`
-    },
-    {
-      id: 'church_member',
-      title: 'Fellowship Pillar',
-      desc: 'Joined a registered online church family.',
-      icon: '🏛️',
-      active: joinedChurches.length >= 1,
-      cat: 'Fellowship',
-      progress: `${joinedChurches.length} Joined`
-    }
-  ];
-
-  const unlockedBadgesCount = badges.filter(b => b.active).length;
 
   // Saved Media Items
   const savedVideos = LIVE_VIDEO_STREAMS.filter((v) => savedIds.includes(v.id));
@@ -371,7 +293,7 @@ export default function UserProfilePage({
                 />
               ) : (
                 <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-br from-amber-600 via-amber-700 to-amber-950 border-4 border-[#121215] shadow-2xl flex items-center justify-center text-white font-serif font-black text-3xl">
-                  {userName ? userName.charAt(0).toUpperCase() : 'U'}
+                  {userName ? userName.charAt(0).toUpperCase() : <User className="w-10 h-10 text-amber-200" />}
                 </div>
               )}
               {currentUser?.isLoggedIn && (
@@ -382,14 +304,14 @@ export default function UserProfilePage({
             {/* Name, Handle & Badges */}
             <div className="space-y-1.5">
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                <h1 className="text-xl sm:text-2xl font-black text-white font-serif tracking-wide">{userName}</h1>
+                <h1 className="text-xl sm:text-2xl font-black text-white font-serif tracking-wide">{userName || 'Guest Believer'}</h1>
                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border ${
                   currentUser?.isLoggedIn 
                     ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                    : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                    : 'bg-slate-800 text-slate-400 border-slate-700'
                 }`}>
                   <ShieldCheck className="w-3 h-3" />
-                  {currentUser?.isLoggedIn ? (currentUser.role ? `${currentUser.role.toUpperCase()} MEMBER` : 'VERIFIED MEMBER') : 'BELIEVER'}
+                  {currentUser?.isLoggedIn ? (currentUser.role ? `${currentUser.role.toUpperCase()} MEMBER` : 'VERIFIED MEMBER') : 'GUEST'}
                 </span>
               </div>
 
@@ -410,7 +332,7 @@ export default function UserProfilePage({
                 </p>
               ) : (
                 <p className="text-xs text-slate-500 italic pt-1">
-                  No bio added yet. Click &ldquo;Edit Profile&rdquo; to set your personal faith statement.
+                  No bio added yet. Click &ldquo;Edit Profile&rdquo; to add your bio.
                 </p>
               )}
             </div>
@@ -555,110 +477,46 @@ export default function UserProfilePage({
         </div>
       )}
 
-      {/* 🔴 2. REAL FAITH STATS CARDS */}
+      {/* 🟢 2. AUTHENTIC ACCOUNT ACTIVITY METRICS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Stat 1: Faith Streak */}
-        <div className="p-4 rounded-2xl bg-[#181818] border border-amber-500/30 space-y-1">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] font-bold uppercase tracking-wider">Faith Streak</span>
-            <Flame className={`w-4 h-4 ${streakDays > 0 ? 'text-amber-400 fill-amber-400' : 'text-slate-600'}`} />
-          </div>
-          <p className="text-xl sm:text-2xl font-black text-white font-serif">{streakDays} Days</p>
-          <p className="text-[10px] text-amber-400/90 font-medium">
-            {streakDays > 0 ? 'Daily Devotion Active' : 'Start Daily Devotion'}
-          </p>
-        </div>
-
-        {/* Stat 2: Praise XP */}
+        {/* Metric 1: Bookmarks */}
         <div className="p-4 rounded-2xl bg-[#181818] border border-slate-800 space-y-1">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] font-bold uppercase tracking-wider">Praise XP</span>
-            <Sparkles className="w-4 h-4 text-amber-300" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">Saved Media</span>
+            <Bookmark className="w-4 h-4 text-amber-400" />
           </div>
-          <p className="text-xl sm:text-2xl font-black text-white font-serif">{praiseXp} XP</p>
-          <p className="text-[10px] text-slate-400 font-medium">
-            {praiseXp >= 500 ? 'Level 5 Ambassador' : praiseXp >= 100 ? 'Level 2 Overcomer' : 'Level 1 Seeker'}
-          </p>
+          <p className="text-xl sm:text-2xl font-black text-white font-serif">{savedIds.length}</p>
+          <p className="text-[10px] text-slate-400 font-medium">Sermons & Worship Tracks</p>
         </div>
 
-        {/* Stat 3: Total Sowed */}
+        {/* Metric 2: Giving Sowed */}
         <div className="p-4 rounded-2xl bg-[#181818] border border-emerald-500/30 space-y-1">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] font-bold uppercase tracking-wider">Seeds Sowed</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider">Total Seeds Sowed</span>
             <DollarSign className="w-4 h-4 text-emerald-400" />
           </div>
           <p className="text-xl sm:text-2xl font-black text-emerald-400 font-serif">${totalGivingAmount.toLocaleString()}</p>
-          <p className="text-[10px] text-slate-400 font-medium">
-            {totalGivingAmount > 0 ? 'Kingdom Partner' : 'No Seeds Recorded'}
-          </p>
+          <p className="text-[10px] text-slate-400 font-medium">{givingLogs.length} Recorded Seed{givingLogs.length === 1 ? '' : 's'}</p>
         </div>
 
-        {/* Stat 4: Bookmarks */}
+        {/* Metric 3: Followed Ministries */}
         <div className="p-4 rounded-2xl bg-[#181818] border border-slate-800 space-y-1">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] font-bold uppercase tracking-wider">Bookmarks</span>
-            <Bookmark className="w-4 h-4 text-amber-400" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">Followed Channels</span>
+            <Tv className="w-4 h-4 text-amber-400" />
           </div>
-          <p className="text-xl sm:text-2xl font-black text-white font-serif">{savedIds.length} Saved</p>
-          <p className="text-[10px] text-slate-400 font-medium">Sermons & Audio Tracks</p>
-        </div>
-      </div>
-
-      {/* 🏆 REAL ACHIEVEMENTS SHOWCASE (CALCULATED FROM LIVE USAGE) */}
-      <div className="p-4 sm:p-6 rounded-3xl bg-[#181818] border border-amber-500/30 space-y-4 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
-          <div>
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <Award className="w-4 h-4 text-amber-400" />
-              <span>Kingdom Achievement Milestones</span>
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Badges earned through active daily devotions, worship listening, saved sermons, and fellowship.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-mono font-bold">
-              {unlockedBadgesCount} / {badges.length} Badges Unlocked
-            </span>
-          </div>
+          <p className="text-xl sm:text-2xl font-black text-white font-serif">{subscribedChannels.length}</p>
+          <p className="text-[10px] text-slate-400 font-medium">Broadcast Ministries</p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {badges.map((badge) => (
-            <div
-              key={badge.id}
-              className={`p-3 rounded-2xl border text-xs space-y-1.5 flex flex-col justify-between transition ${
-                badge.active
-                  ? 'bg-gradient-to-br from-amber-950/30 via-slate-900 to-slate-900 border-amber-500/40 text-white shadow-md'
-                  : 'bg-slate-950/60 border-slate-900 text-slate-500 opacity-60'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-2xl p-1.5 bg-slate-950/60 rounded-xl border border-slate-800 shrink-0">
-                  {badge.icon}
-                </span>
-                <span className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 font-bold shrink-0">
-                  {badge.cat}
-                </span>
-              </div>
-
-              <div>
-                <h4 className="font-bold text-xs leading-tight text-white flex items-center gap-1">
-                  <span>{badge.title}</span>
-                  {badge.active && <CheckCircle2 className="w-3 h-3 text-amber-400 shrink-0" />}
-                </h4>
-                <p className="text-[10px] text-slate-400 leading-snug mt-0.5">{badge.desc}</p>
-              </div>
-
-              <div className="pt-1 border-t border-slate-800/80 text-[9px] font-mono flex items-center justify-between">
-                <span className={badge.active ? 'text-emerald-400 font-bold' : 'text-slate-500'}>
-                  {badge.active ? '✓ Unlocked' : 'Locked'}
-                </span>
-                <span className="text-slate-400">{badge.progress}</span>
-              </div>
-            </div>
-          ))}
+        {/* Metric 4: Joined Churches */}
+        <div className="p-4 rounded-2xl bg-[#181818] border border-slate-800 space-y-1">
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-[10px] font-bold uppercase tracking-wider">Joined Churches</span>
+            <Church className="w-4 h-4 text-amber-400" />
+          </div>
+          <p className="text-xl sm:text-2xl font-black text-white font-serif">{joinedChurches.length}</p>
+          <p className="text-[10px] text-slate-400 font-medium">Church Fellowships</p>
         </div>
       </div>
 
@@ -677,7 +535,7 @@ export default function UserProfilePage({
                 </span>
               </div>
               <p className="text-xs text-slate-300">
-                Online registered church memberships and fellowship family connections
+                Online registered church memberships and fellowship connections
               </p>
             </div>
           </div>
@@ -697,7 +555,6 @@ export default function UserProfilePage({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
           {joinedChurches.length > 0 ? (
             joinedChurches.map((churchName) => {
-              const mCount = churchMemberCounts[churchName] || 1;
               return (
                 <div
                   key={churchName}
@@ -711,10 +568,8 @@ export default function UserProfilePage({
                       <h4 className="text-xs font-bold text-white truncate group-hover:text-amber-300 transition">
                         {churchName}
                       </h4>
-                      <p className="text-[10px] text-amber-400 font-mono font-bold flex items-center gap-1.5">
-                        <span>👥 {mCount.toLocaleString()} Members</span>
-                        <span>•</span>
-                        <span className="text-emerald-400">✓ Official Member</span>
+                      <p className="text-[10px] text-emerald-400 font-medium">
+                        ✓ Member
                       </p>
                     </div>
                   </div>
