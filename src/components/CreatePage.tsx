@@ -74,7 +74,12 @@ import {
   EyeOff,
   Cpu,
   MonitorPlay,
-  Youtube
+  Youtube,
+  Sliders,
+  TrendingUp,
+  Activity,
+  Zap,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream, ChurchLocation, SocialLink, registerChurchProfile } from '../data/gospelData';
@@ -178,6 +183,7 @@ export interface CreatePageProps {
   initialUploadSource?: UploadMode;
   onPublishSuccess: (newStream: VideoStream) => void;
   onCancel: () => void;
+  theme?: 'light' | 'dark';
 }
 
 interface PrayerRequest {
@@ -275,8 +281,10 @@ export default function CreatePage({
   initialAction = 'choose',
   initialUploadSource = 'device',
   onPublishSuccess, 
-  onCancel 
+  onCancel,
+  theme = 'dark'
 }: CreatePageProps) {
+  const isLight = theme === 'light';
   // Current studio action mode: 'choose' | 'upload' | 'live' | 'schedule' | 'live_control_room' | 'dashboard' | 'content' | 'analytics' | 'community' | 'giving' | 'settings'
   const [studioAction, setStudioAction] = useState<StudioAction>(initialAction);
   const [uploadMode, setUploadMode] = useState<UploadMode>(initialUploadSource);
@@ -459,6 +467,15 @@ export default function CreatePage({
   const [scheduleScripture, setScheduleScripture] = useState('Romans 8:28');
   const [scheduleDescription, setScheduleDescription] = useState('Set your reminder! Join believers worldwide for this scheduled Kingdom broadcast and communion.');
   const [notifySubscribers, setNotifySubscribers] = useState(true);
+
+  // 🎛️ STUDIO COCKPIT & QUICK ACTION STATE
+  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
+  const [streamLatencyMode, setStreamLatencyMode] = useState<'ultra_low' | 'low' | 'normal'>('ultra_low');
+  const [copiedOverviewRtmp, setCopiedOverviewRtmp] = useState(false);
+  const [copiedOverviewKey, setCopiedOverviewKey] = useState(false);
+  const [overviewShowKey, setOverviewShowKey] = useState(false);
+  const [overviewSimulatedSignal, setOverviewSimulatedSignal] = useState(true);
+  const [scheduledPremiereReminded, setScheduledPremiereReminded] = useState(false);
 
   // 💳 GIVING & PAYOUT ACCOUNTS STATE
   const [payoutAccounts, setPayoutAccounts] = useState<PayoutAccountItem[]>([
@@ -1041,67 +1058,133 @@ export default function CreatePage({
   }
 
   return (
-    <div className="max-w-4xl w-full mx-auto p-3 sm:p-6 my-2 sm:my-4 space-y-6">
+    <div className={`creator-studio-portal max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 space-y-6 ${
+      isLight ? 'creator-studio-light' : 'creator-studio-dark'
+    }`}>
       
-      {/* 👑 RECOGNIZED MINISTRY IDENTITY BANNER */}
-      <div className="bg-gradient-to-r from-slate-900 via-amber-950/30 to-slate-900 border border-amber-500/30 rounded-3xl p-4 sm:p-6 shadow-2xl relative overflow-hidden">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
-          <div className="flex items-center gap-3.5 sm:gap-4">
+      {/* 👑 RECOGNIZED MINISTRY IDENTITY & STUDIO COMMAND BAR */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-900/90 to-amber-950/40 border border-amber-500/30 rounded-3xl p-4 sm:p-6 shadow-2xl relative overflow-hidden backdrop-blur-xl">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 relative z-10">
+          
+          {/* Left: Ministry Brand Info */}
+          <div className="flex items-center gap-4">
             <div className="relative shrink-0">
               <img 
                 src={avatarUrl} 
                 alt={ministryName} 
                 referrerPolicy="no-referrer"
-                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover ring-2 ring-amber-500/50 shadow-xl" 
+                className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl object-cover ring-2 ring-amber-500/60 shadow-2xl" 
               />
-              <span className="absolute -bottom-1 -right-1 p-1 bg-emerald-500 text-slate-950 rounded-full shadow-md">
-                <CheckCircle2 className="w-3.5 h-3.5" />
+              <span className="absolute -bottom-1 -right-1 p-1 bg-emerald-500 text-slate-950 rounded-full shadow-lg" title="Verified Kingdom Broadcaster">
+                <CheckCircle2 className="w-4 h-4" />
               </span>
             </div>
 
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg sm:text-2xl font-black text-white tracking-tight truncate">
+            <div className="min-w-0 space-y-1">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight truncate">
                   {ministryName}
                 </h1>
                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1 border ${currentConfig.badgeColor}`}>
                   <ShieldCheck className="w-3.5 h-3.5" />
                   {currentConfig.badge}
                 </span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  RTMP Ingest: Online 1080p60
+                </span>
               </div>
-              <p className="text-xs text-slate-300 mt-1 flex items-center gap-1.5 flex-wrap">
+
+              <div className="text-xs text-slate-300 flex items-center gap-2 flex-wrap">
                 <span className="font-semibold text-white">{ownerName}</span>
-                <span className="text-slate-500">•</span>
+                <span className="text-slate-600">•</span>
                 <span className="text-amber-400 font-mono text-[11px]">@{ministryName.toLowerCase().replace(/[^a-z0-9]/g, '')}</span>
-              </p>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Direct creator uploads with adaptive bitrate transcoding & resumable sessions.
-              </p>
+                <span className="text-slate-600">•</span>
+                <span className="text-slate-400 text-[11px]">Direct HLS/RTMP Transcoder & Cloud Studio</span>
+              </div>
+
+              {/* Live Studio Quick Metric Badges */}
+              <div className="flex items-center gap-3 pt-1 flex-wrap text-[11px]">
+                <div className="flex items-center gap-1 text-slate-300 font-medium">
+                  <Users className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="font-bold text-white">18.4K</span> Saints
+                </div>
+                <span className="text-slate-700">•</span>
+                <div className="flex items-center gap-1 text-slate-300 font-medium">
+                  <Film className="w-3.5 h-3.5 text-sky-400" />
+                  <span className="font-bold text-white">142</span> Sermons & VODs
+                </div>
+                <span className="text-slate-700">•</span>
+                <div className="flex items-center gap-1 text-slate-300 font-medium">
+                  <Compass className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="font-bold text-white">98.2K</span> Watch Hours
+                </div>
+                <span className="text-slate-700">•</span>
+                <div className="flex items-center gap-1 text-slate-300 font-medium">
+                  <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="font-bold text-emerald-400">$14,850</span> Seed Balance
+                </div>
+              </div>
             </div>
           </div>
 
-          <button
-            onClick={onCancel}
-            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-bold text-slate-400 hover:text-white transition border border-slate-800 shrink-0 self-end sm:self-auto cursor-pointer"
-          >
-            Exit Studio
-          </button>
+          {/* Right: Quick Action Buttons & Exit */}
+          <div className="flex items-center gap-2.5 shrink-0 self-stretch sm:self-auto justify-end flex-wrap">
+            <button
+              onClick={() => {
+                setStudioAction('live');
+                setLiveSetupStep('setup');
+              }}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs flex items-center gap-1.5 shadow-lg shadow-red-600/20 transition active:scale-95 cursor-pointer"
+            >
+              <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+              <RadioTower className="w-3.5 h-3.5" />
+              <span>Go Live</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setStudioAction('upload');
+                setUploadStep('select');
+              }}
+              className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition active:scale-95 cursor-pointer"
+            >
+              <UploadCloud className="w-3.5 h-3.5" />
+              <span>Upload Video</span>
+            </button>
+
+            <button
+              onClick={() => setStudioAction('live_control_room')}
+              className="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+              title="Open Live Broadcast Control Room"
+            >
+              <MonitorPlay className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Control Room</span>
+            </button>
+
+            <button
+              onClick={onCancel}
+              className="px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-xs font-bold text-slate-400 hover:text-white transition border border-slate-800 cursor-pointer"
+            >
+              Exit Studio
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 🏛️ KINGDOM CREATOR STUDIO NAVIGATION (User Design Specification) */}
+      {/* 🏛️ KINGDOM CREATOR STUDIO NAVIGATION */}
       {!isSubmitted && studioAction === 'choose' && (
-        <div className="flex items-center justify-between gap-2 overflow-x-auto scrollbar-none pb-2 border-b border-slate-800">
+        <div className="flex items-center justify-between gap-3 overflow-x-auto scrollbar-none pb-2 border-b border-slate-800">
           <div className="flex items-center gap-1.5 shrink-0">
             {[
               { id: 'overview', label: 'Overview', icon: RadioTower },
               { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-              { id: 'content', label: 'Content', icon: Film },
-              { id: 'live_hub', label: 'Live', icon: Video },
+              { id: 'content', label: 'Content', count: '142', icon: Film },
+              { id: 'live_hub', label: 'Live Hub', badge: 'LIVE', icon: Video },
               { id: 'schedule_hub', label: 'Schedule', icon: Calendar },
               { id: 'analytics', label: 'Analytics', icon: Compass },
-              { id: 'community', label: 'Community', icon: MessageSquare },
-              { id: 'giving', label: 'Giving', icon: DollarSign },
+              { id: 'community', label: 'Community', count: '348', icon: MessageSquare },
+              { id: 'giving', label: 'Giving & Partners', icon: DollarSign },
               { id: 'settings', label: 'Ministry Settings', icon: Settings },
             ].map((item) => {
               const ItemIcon = item.icon;
@@ -1119,22 +1202,117 @@ export default function CreatePage({
                 >
                   <ItemIcon className="w-3.5 h-3.5" />
                   <span>{item.label}</span>
+                  {item.badge && (
+                    <span className={`px-1.5 py-0.2 rounded text-[9px] font-black ${
+                      isActive ? 'bg-slate-950 text-amber-400' : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    }`}>
+                      {item.badge}
+                    </span>
+                  )}
+                  {item.count && (
+                    <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                      isActive ? 'bg-slate-950 text-amber-300' : 'bg-slate-800 text-slate-400'
+                    }`}>
+                      {item.count}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setStudioNavTab('overview');
-              setStudioAction('choose');
-            }}
-            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-red-600/20 shrink-0 cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5 stroke-[3]" />
-            <span>Create</span>
-          </button>
+          {/* Create Button with Popover Action Menu */}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-red-600/20 transition cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[3]" />
+              <span>Create</span>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isCreateMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Quick Action Dropdown Menu */}
+            <AnimatePresence>
+              {isCreateMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 6, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 6, scale: 0.96 }}
+                  className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-1.5 z-50 space-y-1"
+                >
+                  <button
+                    onClick={() => {
+                      setIsCreateMenuOpen(false);
+                      setStudioAction('upload');
+                      setUploadStep('select');
+                    }}
+                    className="w-full px-3 py-2 rounded-xl hover:bg-slate-800 text-left text-xs font-bold text-slate-200 hover:text-white flex items-center gap-2.5 transition cursor-pointer"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                      <UploadCloud className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="font-bold">Upload Video</p>
+                      <p className="text-[10px] text-slate-400">Prerecorded sermon or podcast</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsCreateMenuOpen(false);
+                      setStudioAction('live');
+                      setLiveSetupStep('setup');
+                    }}
+                    className="w-full px-3 py-2 rounded-xl hover:bg-slate-800 text-left text-xs font-bold text-slate-200 hover:text-white flex items-center gap-2.5 transition cursor-pointer"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-red-500/20 text-red-400 flex items-center justify-center">
+                      <RadioTower className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="font-bold">Go Live Broadcast</p>
+                      <p className="text-[10px] text-slate-400">Stream live Sunday service</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsCreateMenuOpen(false);
+                      setStudioAction('schedule');
+                    }}
+                    className="w-full px-3 py-2 rounded-xl hover:bg-slate-800 text-left text-xs font-bold text-slate-200 hover:text-white flex items-center gap-2.5 transition cursor-pointer"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                      <CalendarDays className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="font-bold">Schedule Premiere</p>
+                      <p className="text-[10px] text-slate-400">Set future countdown event</p>
+                    </div>
+                  </button>
+
+                  <div className="pt-1 border-t border-slate-800">
+                    <button
+                      onClick={() => {
+                        setIsCreateMenuOpen(false);
+                        setStudioAction('live_control_room');
+                      }}
+                      className="w-full px-3 py-2 rounded-xl hover:bg-slate-800 text-left text-xs font-bold text-amber-300 flex items-center gap-2.5 transition cursor-pointer"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-400 flex items-center justify-center">
+                        <MonitorPlay className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="font-bold">Live Control Room</p>
+                        <p className="text-[10px] text-slate-400">Open production switcher suite</p>
+                      </div>
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       )}
 
@@ -1157,6 +1335,7 @@ export default function CreatePage({
           socialRows={socialRows}
           prayerRequests={prayerRequests}
           onPrayForRequest={handlePrayForRequest}
+          theme={theme}
           onAddPrayerRequest={(req) => {
             setPrayerRequests(prev => [
               { id: `pr-${Date.now()}`, name: ownerName, request: req, time: 'Just now', status: 'Pending', prayedCount: 0 },
@@ -1183,62 +1362,78 @@ export default function CreatePage({
         />
       )}
 
-      {/* 🚀 STEP 1: WHAT DO YOU WANT TO DO? (THREE BIG OPTIONS - OVERVIEW) */}
+      {/* 🚀 STEP 1: WHAT DO YOU WANT TO DO? (ADVANCED CREATOR STUDIO COCKPIT OVERVIEW) */}
       {!isSubmitted && studioAction === 'choose' && studioNavTab === 'overview' && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
-          <div className="text-center sm:text-left space-y-1">
-            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              What do you want to do?
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-400">
-              Choose how you would like to broadcast and share God's word with the global congregation today.
-            </p>
+          {/* Cockpit Headline */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
+                <span>Creator Studio Cockpit</span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold uppercase">
+                  Production Ready
+                </span>
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-400">
+                Broadcast God's word globally with real-time RTMP ingest, automated transcoding, and congregation altar tools.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setStudioAction('live_control_room')}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-400 border border-amber-500/30 text-xs font-bold transition flex items-center gap-2 shadow-sm"
+              >
+                <MonitorPlay className="w-4 h-4" />
+                <span>Open Control Room</span>
+              </button>
+            </div>
           </div>
 
-          {/* Three Big Cards Grid */}
+          {/* Three Big Hero Action Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
             
             {/* OPTION 1: 📤 UPLOAD VIDEO */}
             <motion.button
-              whileHover={{ scale: 1.02, y: -2 }}
+              whileHover={{ scale: 1.015, y: -2 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => {
                 setStudioAction('upload');
                 setUploadStep('select');
               }}
-              className="p-6 rounded-3xl bg-gradient-to-b from-[#1c1c1c] to-[#121212] border-2 border-slate-800 hover:border-amber-500/60 transition-all text-left group shadow-xl flex flex-col justify-between h-full relative overflow-hidden cursor-pointer"
+              className="p-6 rounded-3xl bg-gradient-to-b from-[#1c1c1c] via-[#161616] to-[#101010] border border-slate-800 hover:border-amber-500/60 transition-all text-left group shadow-xl flex flex-col justify-between h-full relative overflow-hidden cursor-pointer"
             >
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-slate-950 transition-colors shadow-lg">
                     <UploadCloud className="w-6 h-6" />
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
-                    Direct Upload
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-bold uppercase tracking-wider">
+                    Direct Transcode
                   </span>
                 </div>
 
                 <div className="space-y-1.5">
-                  <h3 className="text-lg font-black text-white group-hover:text-amber-300 transition-colors flex items-center gap-1.5">
+                  <h3 className="text-lg font-black text-white group-hover:text-amber-300 transition-colors flex items-center gap-2">
                     <span>📤 Upload Video</span>
                   </h3>
                   <p className="text-xs text-slate-400 leading-relaxed">
-                    Upload a prerecorded sermon, worship video, testimony, or faith podcast directly from your device.
+                    Upload a prerecorded Sunday sermon, worship concert, testimony, or faith podcast directly from your device.
                   </p>
                 </div>
 
                 <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
                   <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Resumable direct upload (unstable connection safe)</span>
+                    <span>Multi-bitrate 4K & 1080p60 transcode</span>
                   </div>
                   <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Scriptures, sermon tags & key takeaways</span>
+                    <span>AI sermon summary, scriptures & thumbnail generator</span>
                   </div>
                 </div>
               </div>
@@ -1251,10 +1446,13 @@ export default function CreatePage({
 
             {/* OPTION 2: 🔴 GO LIVE */}
             <motion.button
-              whileHover={{ scale: 1.02, y: -2 }}
+              whileHover={{ scale: 1.015, y: -2 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => setStudioAction('live')}
-              className="p-6 rounded-3xl bg-gradient-to-b from-[#1c1c1c] to-[#121212] border-2 border-slate-800 hover:border-red-500/60 transition-all text-left group shadow-xl flex flex-col justify-between h-full relative overflow-hidden cursor-pointer"
+              onClick={() => {
+                setStudioAction('live');
+                setLiveSetupStep('setup');
+              }}
+              className="p-6 rounded-3xl bg-gradient-to-b from-[#1c1c1c] via-[#161616] to-[#101010] border border-slate-800 hover:border-red-500/60 transition-all text-left group shadow-xl flex flex-col justify-between h-full relative overflow-hidden cursor-pointer"
             >
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -1263,12 +1461,12 @@ export default function CreatePage({
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
-                    Real-Time
+                    Real-Time RTMP
                   </span>
                 </div>
 
                 <div className="space-y-1.5">
-                  <h3 className="text-lg font-black text-white group-hover:text-red-300 transition-colors flex items-center gap-1.5">
+                  <h3 className="text-lg font-black text-white group-hover:text-red-300 transition-colors flex items-center gap-2">
                     <span>🔴 Go Live</span>
                   </h3>
                   <p className="text-xs text-slate-400 leading-relaxed">
@@ -1279,11 +1477,11 @@ export default function CreatePage({
                 <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
                   <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>OBS Studio & RTMP stream key</span>
+                    <span>OBS Studio, vMix & Hardware encoder support</span>
                   </div>
                   <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Live chat & congregation prayer altar</span>
+                    <span>Live congregation intercession altar & real-time chat</span>
                   </div>
                 </div>
               </div>
@@ -1296,23 +1494,23 @@ export default function CreatePage({
 
             {/* OPTION 3: 📅 SCHEDULE */}
             <motion.button
-              whileHover={{ scale: 1.02, y: -2 }}
+              whileHover={{ scale: 1.015, y: -2 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setStudioAction('schedule')}
-              className="p-6 rounded-3xl bg-gradient-to-b from-[#1c1c1c] to-[#121212] border-2 border-slate-800 hover:border-blue-500/60 transition-all text-left group shadow-xl flex flex-col justify-between h-full relative overflow-hidden cursor-pointer"
+              className="p-6 rounded-3xl bg-gradient-to-b from-[#1c1c1c] via-[#161616] to-[#101010] border border-slate-800 hover:border-blue-500/60 transition-all text-left group shadow-xl flex flex-col justify-between h-full relative overflow-hidden cursor-pointer"
             >
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="w-12 h-12 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors shadow-lg">
                     <CalendarDays className="w-6 h-6" />
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
-                    Upcoming Premiere
+                  <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold uppercase tracking-wider">
+                    Future Premiere
                   </span>
                 </div>
 
                 <div className="space-y-1.5">
-                  <h3 className="text-lg font-black text-white group-hover:text-blue-300 transition-colors flex items-center gap-1.5">
+                  <h3 className="text-lg font-black text-white group-hover:text-blue-300 transition-colors flex items-center gap-2">
                     <span>📅 Schedule</span>
                   </h3>
                   <p className="text-xs text-slate-400 leading-relaxed">
@@ -1323,11 +1521,11 @@ export default function CreatePage({
                 <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
                   <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Countdown page & follower reminders</span>
+                    <span>Countdown page & congregation reminders</span>
                   </div>
                   <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Advance prayer wall & intercession</span>
+                    <span>Pre-service prayer wall & partner commitments</span>
                   </div>
                 </div>
               </div>
@@ -1339,6 +1537,345 @@ export default function CreatePage({
             </motion.button>
 
           </div>
+
+          {/* 📡 LIVE BROADCAST INGEST & ENCODER HEALTH MONITOR */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-[#151515] border border-slate-800 shadow-xl space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                    <span>RTMP Stream Ingest & Broadcast Monitor</span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">
+                      READY TO BROADCAST
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Connect OBS Studio, vMix, or ATEM switcher to your private high-throughput cloud ingest.
+                  </p>
+                </div>
+              </div>
+
+              {/* Simulated Audio VU Meter & Bitrate Badge */}
+              <div className="flex items-center gap-3 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800 self-start sm:self-auto">
+                <div className="flex items-end gap-0.5 h-4">
+                  <span className="w-1 bg-emerald-500 rounded-sm h-2 animate-pulse" />
+                  <span className="w-1 bg-emerald-500 rounded-sm h-3 animate-pulse" />
+                  <span className="w-1 bg-emerald-400 rounded-sm h-4 animate-pulse" />
+                  <span className="w-1 bg-amber-400 rounded-sm h-2.5 animate-pulse" />
+                  <span className="w-1 bg-emerald-500 rounded-sm h-3.5 animate-pulse" />
+                </div>
+                <div className="text-[11px] font-mono font-bold text-slate-300">
+                  <span>6,180 kbps • 1080p60</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Ingest Credentials Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              {/* Server URL */}
+              <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400 font-bold flex items-center gap-1.5">
+                    <Globe className="w-3.5 h-3.5 text-amber-400" />
+                    Stream URL (RTMPS)
+                  </span>
+                  <span className="text-[10px] text-emerald-400 font-bold">Encrypted TLS</span>
+                </div>
+                <div className="flex items-center justify-between gap-2 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800">
+                  <span className="text-xs font-mono text-slate-200 truncate">{rtmpServerUrl}</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(rtmpServerUrl);
+                      setCopiedOverviewRtmp(true);
+                      setTimeout(() => setCopiedOverviewRtmp(false), 2000);
+                    }}
+                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition shrink-0 cursor-pointer flex items-center gap-1"
+                  >
+                    {copiedOverviewRtmp ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span className="text-[10px]">{copiedOverviewRtmp ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Stream Key */}
+              <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400 font-bold flex items-center gap-1.5">
+                    <Key className="w-3.5 h-3.5 text-amber-400" />
+                    Stream Key (Keep Private)
+                  </span>
+                  <button
+                    onClick={() => setOverviewShowKey(!overviewShowKey)}
+                    className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer font-semibold"
+                  >
+                    {overviewShowKey ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                    <span>{overviewShowKey ? 'Hide' : 'Reveal'}</span>
+                  </button>
+                </div>
+                <div className="flex items-center justify-between gap-2 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800">
+                  <span className="text-xs font-mono text-amber-400 truncate">
+                    {overviewShowKey ? liveStreamKey : '••••••••••••••••••••••••'}
+                  </span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(liveStreamKey);
+                      setCopiedOverviewKey(true);
+                      setTimeout(() => setCopiedOverviewKey(false), 2000);
+                    }}
+                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition shrink-0 cursor-pointer flex items-center gap-1"
+                  >
+                    {copiedOverviewKey ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span className="text-[10px]">{copiedOverviewKey ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Latency Mode Selector & Quick Action Bar */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-2 border-t border-slate-800/80 gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-slate-400">Stream Latency:</span>
+                {[
+                  { id: 'ultra_low', label: 'Ultra-Low (1.5s)', desc: 'Best for live prayer & altar call' },
+                  { id: 'low', label: 'Low Latency (3s)', desc: 'Recommended for Sunday worship' },
+                  { id: 'normal', label: 'Standard (15s)', desc: 'Maximum playback stability' }
+                ].map((mode) => (
+                  <button
+                    key={mode.id}
+                    onClick={() => setStreamLatencyMode(mode.id as any)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      streamLatencyMode === mode.id
+                        ? 'bg-amber-500 text-slate-950 shadow-sm'
+                        : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                    }`}
+                    title={mode.desc}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <button
+                  onClick={() => setStudioAction('live_control_room')}
+                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-red-600/20 transition cursor-pointer"
+                >
+                  <MonitorPlay className="w-3.5 h-3.5" />
+                  <span>Launch Live Control Room</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          {/* 📊 CHANNEL PERFORMANCE PULSE & KPI GRID */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+            <div className="p-4 sm:p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span className="font-bold">Congregation Reach</span>
+                <Eye className="w-4 h-4 text-amber-400" />
+              </div>
+              <p className="text-2xl sm:text-3xl font-black text-white">92,450</p>
+              <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-bold">
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>+14.2% this week</span>
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span className="font-bold">Broadcast Watch Hours</span>
+                <Compass className="w-4 h-4 text-sky-400" />
+              </div>
+              <p className="text-2xl sm:text-3xl font-black text-white">14,820</p>
+              <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-bold">
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>+22.5% vs last month</span>
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span className="font-bold">Kingdom Seed Balance</span>
+                <DollarSign className="w-4 h-4 text-emerald-400" />
+              </div>
+              <p className="text-2xl sm:text-3xl font-black text-emerald-400">$14,850</p>
+              <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                <span>1,420 Active Partners</span>
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span className="font-bold">Intercession Altar</span>
+                <Heart className="w-4 h-4 text-rose-400" />
+              </div>
+              <p className="text-2xl sm:text-3xl font-black text-rose-400">348</p>
+              <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                <span>Prayers standing in agreement</span>
+              </div>
+            </div>
+          </div>
+
+          {/* DUAL SPOTLIGHT GRID: LATEST SERMON + LIVE PRAYER ALTAR STREAM */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            
+            {/* Spotlight 1: Latest Published Sermon Performance */}
+            <div className="p-5 sm:p-6 rounded-3xl bg-[#151515] border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Film className="w-4 h-4 text-amber-400" />
+                  <h3 className="text-sm sm:text-base font-bold text-white">Latest Sermon Spotlight</h3>
+                </div>
+                <button
+                  onClick={() => {
+                    setStudioNavTab('content');
+                    setContentSubTab('videos');
+                  }}
+                  className="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer"
+                >
+                  <span>View All in Library</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-slate-900/80 p-4 rounded-2xl border border-slate-800">
+                <div className="relative shrink-0 w-full sm:w-44 aspect-video rounded-xl overflow-hidden bg-slate-950">
+                  <img
+                    src="https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=600&q=80"
+                    alt="Walking in Supernatural Revelation"
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover"
+                  />
+                  <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-mono text-white">
+                    1:12:45
+                  </span>
+                  <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 font-black text-[9px] uppercase tracking-wider">
+                    4K UHD
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 min-w-0">
+                  <h4 className="text-sm font-bold text-white line-clamp-2">
+                    Walking in Supernatural Revelation & Divine Grace
+                  </h4>
+                  <p className="text-xs text-slate-400">
+                    Ephesians 1:17 • Published Aug 30, 2026
+                  </p>
+                  <div className="flex items-center gap-3 pt-1 text-xs">
+                    <span className="text-white font-bold">12,480 <span className="text-slate-500 font-normal">views</span></span>
+                    <span className="text-emerald-400 font-bold">1,240 <span className="text-slate-500 font-normal">likes</span></span>
+                    <span className="text-amber-400 font-bold">318 <span className="text-slate-500 font-normal">Amens</span></span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                <span>Transcoded in 4K, 1080p60, 720p HLS</span>
+                <span className="text-emerald-400 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  100% Monetization Active
+                </span>
+              </div>
+            </div>
+
+            {/* Spotlight 2: Live Congregation Prayer Altar Stream */}
+            <div className="p-5 sm:p-6 rounded-3xl bg-[#151515] border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Heart className="w-4 h-4 text-rose-400" />
+                  <h3 className="text-sm sm:text-base font-bold text-white">Live Prayer Altar Stream</h3>
+                </div>
+                <button
+                  onClick={() => {
+                    setStudioNavTab('community');
+                    setCommunitySubTab('prayers');
+                  }}
+                  className="text-xs font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Open Altar Wall</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="space-y-2.5">
+                {prayerRequests.slice(0, 3).map((req) => (
+                  <div
+                    key={req.id}
+                    className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800/80 flex items-start justify-between gap-3"
+                  >
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white">{req.name}</span>
+                        <span className="text-[10px] text-slate-500">{req.time}</span>
+                      </div>
+                      <p className="text-xs text-slate-300 line-clamp-2">
+                        "{req.request}"
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => handlePrayForRequest(req.id)}
+                      className="px-2.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer"
+                    >
+                      <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/40" />
+                      <span>Amen ({req.prayedCount})</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-[11px] text-slate-500 text-center">
+                Intercessory prayers synced across mobile app, web stream, and sanctuary display.
+              </p>
+            </div>
+
+          </div>
+
+          {/* UPCOMING SCHEDULED BROADCAST TIMELINE */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-blue-950/20 to-slate-900 border border-blue-500/20 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] font-bold uppercase">
+                  Upcoming Service Premiere
+                </span>
+                <span className="text-xs text-slate-400 font-mono">In 2 days, 14 hours</span>
+              </div>
+              <h3 className="text-sm sm:text-base font-black text-white">
+                First Sunday Anointing Service — Covenant of Preservation
+              </h3>
+              <p className="text-xs text-slate-400">
+                Sunday, Sept 6, 2026 • 9:00 AM EAT • Ministering: Senior Pastor David Lawson
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 self-end sm:self-auto shrink-0">
+              <button
+                onClick={() => setScheduledPremiereReminded(!scheduledPremiereReminded)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  scheduledPremiereReminded
+                    ? 'bg-emerald-500 text-slate-950 font-black'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                }`}
+              >
+                <Bell className="w-3.5 h-3.5" />
+                <span>{scheduledPremiereReminded ? 'Notification Set' : 'Set Reminder'}</span>
+              </button>
+
+              <button
+                onClick={() => setStudioAction('schedule')}
+                className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition cursor-pointer"
+              >
+                Manage Schedule
+              </button>
+            </div>
+          </div>
+
         </motion.div>
       )}
 

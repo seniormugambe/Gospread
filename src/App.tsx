@@ -1430,21 +1430,37 @@ export default function App() {
           ) : activeTab === 'create' ? (
             <div className="w-full">
               {/* Distinct Creator World Portal Header */}
-              <div className="bg-stone-950 border-b border-stone-800/80 px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+              <div className={`creator-studio-header border-b px-4 sm:px-6 py-3 flex items-center justify-between gap-4 transition-colors ${
+                theme === 'light'
+                  ? 'bg-white/95 backdrop-blur-md border-slate-200 shadow-xs'
+                  : 'bg-stone-950 border-stone-800/80'
+              }`}>
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-gradient-to-br from-red-600/30 to-amber-500/20 border border-red-500/40 text-red-400">
+                  <div className={`p-2 rounded-xl border transition-colors ${
+                    theme === 'light'
+                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-600'
+                      : 'bg-gradient-to-br from-red-600/30 to-amber-500/20 border-red-500/40 text-red-400'
+                  }`}>
                     <RadioTower className="w-5 h-5" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black uppercase tracking-wider bg-red-950/80 text-red-400 border border-red-800/60 px-2 py-0.5 rounded-full">
+                      <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                        theme === 'light'
+                          ? 'bg-amber-100 text-amber-900 border-amber-300'
+                          : 'bg-red-950/80 text-red-400 border-red-800/60'
+                      }`}>
                         CREATOR WORLD
                       </span>
-                      <span className="text-[11px] text-stone-400 hidden sm:inline">
+                      <span className={`text-[11px] hidden sm:inline ${
+                        theme === 'light' ? 'text-slate-600 font-medium' : 'text-stone-400'
+                      }`}>
                         Broadcast & Ministry Studio
                       </span>
                     </div>
-                    <h2 className="text-sm font-bold text-white mt-0.5">
+                    <h2 className={`text-sm font-bold mt-0.5 ${
+                      theme === 'light' ? 'text-slate-900' : 'text-white'
+                    }`}>
                       Kingdom Broadcasting Studio
                     </h2>
                   </div>
@@ -1452,7 +1468,11 @@ export default function App() {
 
                 <button
                   onClick={() => setActiveTab('platform')}
-                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-amber-400 border border-stone-700 text-xs font-bold transition shadow-sm"
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer ${
+                    theme === 'light'
+                      ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300'
+                      : 'bg-stone-900 hover:bg-stone-800 text-amber-400 border border-stone-700'
+                  }`}
                 >
                   <Compass className="w-4 h-4" />
                   <span>Return to Viewer Experience</span>
@@ -1465,6 +1485,7 @@ export default function App() {
                 initialUploadSource={initialUploadSource}
                 onPublishSuccess={handlePublishSuccess}
                 onCancel={() => setActiveTab('platform')}
+                theme={theme}
               />
             </div>
           ) : activeTab === 'generated' ? (

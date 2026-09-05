@@ -238,3 +238,274 @@
   background: #f472b6;
   border-radius: 9999px;
 }
+
+/* ══════════════════════════════════════════════════════════════════ */
+/* 🏛️ KINGDOM CREATOR STUDIO LIGHT THEME SYSTEM                      */
+/* ══════════════════════════════════════════════════════════════════ */
+
+/* 1. Header Bar in Light Theme */
+.light-theme .creator-studio-header {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(16px) !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
+  color: #0f172a !important;
+}
+
+.light-theme .creator-studio-header h2 {
+  color: #0f172a !important;
+}
+
+.light-theme .creator-studio-header .text-stone-400 {
+  color: #64748b !important;
+}
+
+/* 2. Primary Cards & Panels in Creator Studio */
+.light-theme .creator-studio-portal [class*="bg-[#1"],
+.light-theme .creator-studio-portal [class*="bg-[#0"],
+.light-theme .creator-studio-portal [class*="bg-slate-900"],
+.light-theme .creator-studio-portal [class*="bg-slate-950"],
+.light-theme .creator-studio-portal [class*="bg-slate-800"],
+.light-theme .creator-studio-portal [class*="bg-stone-900"],
+.light-theme .creator-studio-portal [class*="bg-stone-950"] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 18px -2px rgba(15, 23, 42, 0.05), 0 1px 4px rgba(0, 0, 0, 0.02) !important;
+  color: #0f172a !important;
+}
+
+/* Sub-panels, Nested Rows, Code Blocks, and Internal Well Containers */
+.light-theme .creator-studio-portal [class*="bg-slate-900/80"],
+.light-theme .creator-studio-portal [class*="bg-slate-900/90"],
+.light-theme .creator-studio-portal [class*="bg-slate-900/60"],
+.light-theme .creator-studio-portal [class*="bg-slate-800/80"],
+.light-theme .creator-studio-portal [class*="bg-slate-800/60"],
+.light-theme .creator-studio-portal [class*="bg-[#101010]"],
+.light-theme .creator-studio-portal [class*="bg-[#0f0f0f]"],
+.light-theme .creator-studio-portal [class*="bg-slate-950"] {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+/* 3. Hero Command Bar & Identity in Light Theme */
+.light-theme .creator-studio-portal .bg-gradient-to-r[class*="from-slate-900"] {
+  background: linear-gradient(135deg, #ffffff 0%, #fffbeb 50%, #ffffff 100%) !important;
+  border: 1px solid #fde68a !important;
+  box-shadow: 0 8px 24px -4px rgba(217, 119, 6, 0.1) !important;
+  color: #0f172a !important;
+}
+
+/* Hero Action Cards Gradient Reset */
+.light-theme .creator-studio-portal [class*="bg-gradient-to-b"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 6px 20px -3px rgba(15, 23, 42, 0.06) !important;
+}
+
+.light-theme .creator-studio-portal [class*="bg-gradient-to-b"]:hover {
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.1) !important;
+}
+
+/* 4. Typography, Titles, and Body Text inside Creator Studio */
+.light-theme .creator-studio-portal h1,
+.light-theme .creator-studio-portal h2,
+.light-theme .creator-studio-portal h3,
+.light-theme .creator-studio-portal h4,
+.light-theme .creator-studio-portal h5,
+.light-theme .creator-studio-portal h6,
+.light-theme .creator-studio-portal .text-white {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+.light-theme .creator-studio-portal p,
+.light-theme .creator-studio-portal label {
+  color: #334155 !important;
+}
+
+.light-theme .creator-studio-portal .text-slate-400,
+.light-theme .creator-studio-portal .text-slate-500,
+.light-theme .creator-studio-portal .text-stone-400 {
+  color: #64748b !important;
+  font-weight: 500 !important;
+}
+
+.light-theme .creator-studio-portal .text-slate-300,
+.light-theme .creator-studio-portal .text-slate-200 {
+  color: #334155 !important;
+}
+
+/* Warm Golden Amber Accents (NOT Pink!) */
+.light-theme .creator-studio-portal .text-amber-400,
+.light-theme .creator-studio-portal .text-amber-300 {
+  color: #d97706 !important;
+  font-weight: 700 !important;
+}
+
+.light-theme .creator-studio-portal .text-emerald-400 {
+  color: #059669 !important;
+  font-weight: 700 !important;
+}
+
+.light-theme .creator-studio-portal .text-sky-400,
+.light-theme .creator-studio-portal .text-blue-400 {
+  color: #0284c7 !important;
+  font-weight: 700 !important;
+}
+
+.light-theme .creator-studio-portal .text-purple-400 {
+  color: #7c3aed !important;
+  font-weight: 700 !important;
+}
+
+.light-theme .creator-studio-portal .text-rose-400 {
+  color: #e11d48 !important;
+  font-weight: 700 !important;
+}
+
+/* 5. Clean Action Buttons in Creator Studio */
+/* Amber Button: True Warm Gold, Dark Slate Text */
+.light-theme .creator-studio-portal .bg-amber-500,
+.light-theme .creator-studio-portal .bg-amber-400,
+.light-theme .creator-studio-portal [class*="bg-amber-500"] {
+  background: #f59e0b !important;
+  color: #0f172a !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25) !important;
+  border: none !important;
+}
+
+.light-theme .creator-studio-portal .bg-amber-500 *,
+.light-theme .creator-studio-portal .bg-amber-400 * {
+  color: #0f172a !important;
+}
+
+.light-theme .creator-studio-portal .bg-amber-500:hover,
+.light-theme .creator-studio-portal .bg-amber-400:hover {
+  background: #d97706 !important;
+  color: #ffffff !important;
+}
+
+.light-theme .creator-studio-portal .bg-amber-500:hover * {
+  color: #ffffff !important;
+}
+
+/* Crimson Live Broadcast Button */
+.light-theme .creator-studio-portal .bg-red-600,
+.light-theme .creator-studio-portal [class*="from-red-600"] {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.25) !important;
+}
+
+.light-theme .creator-studio-portal .bg-red-600 *,
+.light-theme .creator-studio-portal [class*="from-red-600"] * {
+  color: #ffffff !important;
+}
+
+/* Slate Secondary / Outline Buttons */
+.light-theme .creator-studio-portal .bg-slate-800,
+.light-theme .creator-studio-portal [class*="bg-slate-800/"],
+.light-theme .creator-studio-portal .bg-slate-900,
+.light-theme .creator-studio-portal [class*="bg-slate-900/"],
+.light-theme .creator-studio-portal .bg-stone-900 {
+  background-color: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #1e293b !important;
+  font-weight: 700 !important;
+}
+
+.light-theme .creator-studio-portal .bg-slate-800 *,
+.light-theme .creator-studio-portal [class*="bg-slate-800/"] *,
+.light-theme .creator-studio-portal .bg-slate-900 *,
+.light-theme .creator-studio-portal .bg-stone-900 * {
+  color: #1e293b !important;
+}
+
+.light-theme .creator-studio-portal .bg-slate-800:hover,
+.light-theme .creator-studio-portal .bg-slate-900:hover {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* 6. Navigation Tabs */
+.light-theme .creator-studio-portal .border-b[class*="border-slate-800"] {
+  border-color: #e2e8f0 !important;
+}
+
+.light-theme .creator-studio-portal button.text-slate-400 {
+  color: #475569 !important;
+}
+
+.light-theme .creator-studio-portal button.text-slate-400:hover {
+  color: #0f172a !important;
+  background-color: #f1f5f9 !important;
+}
+
+/* 7. Forms, Inputs, Selects, and Textareas */
+.light-theme .creator-studio-portal input,
+.light-theme .creator-studio-portal select,
+.light-theme .creator-studio-portal textarea {
+  background-color: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.light-theme .creator-studio-portal input:focus,
+.light-theme .creator-studio-portal select:focus,
+.light-theme .creator-studio-portal textarea:focus {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15) !important;
+}
+
+.light-theme .creator-studio-portal input::placeholder,
+.light-theme .creator-studio-portal textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* 8. Video Thumbnails (Cinematic Black Canvas) */
+.light-theme .creator-studio-portal [class*="aspect-video"],
+.light-theme .creator-studio-portal [class*="aspect-16\/9"],
+.light-theme .creator-studio-portal .video-thumb-container {
+  background-color: #0f172a !important;
+}
+
+.light-theme .creator-studio-portal [class*="aspect-video"] span,
+.light-theme .creator-studio-portal [class*="aspect-video"] [class*="bg-black"],
+.light-theme .creator-studio-portal [class*="aspect-video"] [class*="bg-slate-950"] {
+  color: #ffffff !important;
+}
+
+.light-theme .creator-studio-portal [class*="aspect-video"] [class*="bg-black"] *,
+.light-theme .creator-studio-portal [class*="aspect-video"] [class*="bg-slate-950"] * {
+  color: #ffffff !important;
+}
+
+/* 9. Dropdown & Popovers */
+.light-theme .creator-studio-portal .shadow-2xl[class*="bg-slate-900"] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 12px 30px -4px rgba(15, 23, 42, 0.12) !important;
+}
+
+.light-theme .creator-studio-portal .shadow-2xl[class*="bg-slate-900"] button {
+  color: #1e293b !important;
+}
+
+.light-theme .creator-studio-portal .shadow-2xl[class*="bg-slate-900"] button:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* 10. Dividers & Borders */
+.light-theme .creator-studio-portal [class*="border-slate-800"] {
+  border-color: #e2e8f0 !important;
+}
+
+.light-theme .creator-studio-portal [class*="divide-slate-800"] > * {
+  border-color: #e2e8f0 !important;
+}
