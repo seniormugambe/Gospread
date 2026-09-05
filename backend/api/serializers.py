@@ -247,6 +247,9 @@ class SermonSerializer(serializers.ModelSerializer):
             "is_featured", "published_at", "is_published", "created_at", "is_saved",
             "media_file", "thumbnail_file",
         )
+        extra_kwargs = {
+            "church": {"required": False},
+        }
         read_only_fields = ("id", "created_at", "church_name", "is_saved", "view_count")
 
     def _store_upload(self, uploaded_file, prefix):

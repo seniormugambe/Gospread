@@ -366,6 +366,7 @@ export default function CreatePage({
     sizeBytes: number;
     type: string;
   } | null>(null);
+  const [selectedMediaFile, setSelectedMediaFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -662,6 +663,7 @@ export default function CreatePage({
 
   // File Selector Handler
   const handleFileChosen = (file: File) => {
+    setSelectedMediaFile(file);
     const sizeInGB = (file.size / (1024 * 1024 * 1024)).toFixed(1);
     const sizeFormatted = file.size > 1024 * 1024 * 1024 
       ? `${sizeInGB} GB` 
@@ -752,8 +754,30 @@ export default function CreatePage({
   };
 
   // Final Publish Handler for Action 1: Upload Video
-  const handleFinalUploadPublish = (e: FormEvent) => {
+  const handleFinalUploadPublish = async (e: FormEvent) => {
     e.preventDefault();
+    if (!selectedMediaFile) {
+      setExternalImportError('Choose a video file before publishing.');
+      return;
+    }
+
+    const isScheduled = publishActionOption === 'schedule';
+    const isDraft = publishActionOption === 'save_draft';
+    const formattedTakeaways = keyTakeaways.length > 0
+      ? `\n\nKey Takeaways:\n${keyTakeaways.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
+      : '';
+
+    try {
+      const uploadedSermon = await djangoApi.createSermon({
+        title: uploadTitle || 'Sunday Worship Service',
+        speaker: uploadSpeaker || ownerName,
+        description: `${uploadDescription}${formattedTakeaways}`,
+        category: uploadCategory,
+        kind: 'video',
+        is_published: !isDraft && !isScheduled,
+        media_file: selectedMediaFile,
+        thumbnail_url: uploadThumbnail,
+      });
     prepareGlobalRegistration();
 
     // Map Category to VideoStream Category
@@ -762,17 +786,11 @@ export default function CreatePage({
       uploadCategory === 'Gospel Music' ? 'Gospel Music' :
       uploadCategory === 'Bible Study' ? 'Bible Study' : 'Sermon') as any;
 
-    const formattedTakeaways = keyTakeaways.length > 0 
-      ? `\n\nKey Takeaways:\n${keyTakeaways.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
-      : '';
-
-    const isScheduled = publishActionOption === 'schedule';
-    const isDraft = publishActionOption === 'save_draft';
     const formattedScheduleText = `${publishScheduledDate} at ${publishScheduledTime} (${publishScheduledTimezone})`;
     const visibilityBadgeText = videoVisibility === 'public' ? 'Public' : videoVisibility === 'unlisted' ? 'Unlisted' : 'Private';
 
     const newVideo: VideoStream = {
-      id: `vod-${Date.now()}`,
+      id: String(uploadedSermon.id || `vod-${Date.now()}`),
       title: isScheduled ? `[UPCOMING] ${uploadTitle || 'Sunday Worship Service'}` : isDraft ? `[DRAFT] ${uploadTitle || 'Sunday Worship Service'}` : uploadTitle || 'Sunday Worship Service',
       speakerOrArtist: uploadSpeaker || ownerName,
       churchOrMinistry: uploadMinistry || ministryName,
@@ -795,6 +813,9 @@ export default function CreatePage({
 
     setCreatedStream(newVideo);
     setIsSubmitted(true);
+    } catch (error) {
+      setExternalImportError(error instanceof Error ? error.message : 'Media upload failed.');
+    }
   };
 
   // Submit Handler for Action 2: Go Live

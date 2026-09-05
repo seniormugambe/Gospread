@@ -133,7 +133,40 @@ export default function App() {
   }, [theme]);
 
   const [activeTab, setActiveTab] = useState<'platform' | 'generated' | 'create' | 'profile' | 'history' | 'discover' | 'community' | 'auth'>('platform');
-  const [activeAudioSpace, setActiveAudioSpace] = useState<ActiveAudioSpace | null>(null);
+  const [activeAudioSpace, setActiveAudioSpace] = useState<ActiveAudioSpace | null>(() => {
+    try {
+      const saved = localStorage.getItem('gospread_active_audio_space');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key !== 'gospread_active_audio_space') return;
+      try {
+        setActiveAudioSpace(event.newValue ? JSON.parse(event.newValue) : null);
+      } catch {
+        setActiveAudioSpace(null);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  const handleAudioSpaceChange = (space: ActiveAudioSpace | null) => {
+    setActiveAudioSpace(space);
+    try {
+      if (space) localStorage.setItem('gospread_active_audio_space', JSON.stringify(space));
+      else localStorage.removeItem('gospread_active_audio_space');
+    } catch (error) {
+      console.error(error);
+    }
+  };
   const [initialAuthMode, setInitialAuthMode] = useState<'signin' | 'signup'>('signin');
 
   const handleOpenAuthPage = (mode: 'signin' | 'signup' = 'signin') => {
@@ -1513,7 +1546,7 @@ export default function App() {
                 onPublishSuccess={handlePublishSuccess}
                 onCancel={() => setActiveTab('platform')}
                 activeAudioSpace={activeAudioSpace}
-                onAudioSpaceChange={setActiveAudioSpace}
+                onAudioSpaceChange={handleAudioSpaceChange}
                 theme={theme}
               />
             </div>

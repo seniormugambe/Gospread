@@ -258,10 +258,12 @@ class DjangoApiClient {
     const csrfToken = this.getCsrfToken();
 
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       'Accept': 'application/json',
       ...(options.headers as Record<string, string> || {}),
     };
+    if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -386,6 +388,30 @@ class DjangoApiClient {
 
   public async getMe(): Promise<UserProfileData> {
     return await this.request<UserProfileData>('/auth/me/');
+  }
+
+  public async createSermon(payload: {
+    title: string;
+    speaker: string;
+    description?: string;
+    category?: string;
+    kind?: 'video' | 'audio' | 'article';
+    is_published?: boolean;
+    media_file: File;
+    thumbnail_url?: string;
+  }): Promise<any> {
+    const formData = new FormData();
+    formData.append('title', payload.title);
+    formData.append('speaker', payload.speaker);
+    formData.append('description', payload.description || '');
+    formData.append('category', payload.category || 'Sermon');
+    formData.append('kind', payload.kind || 'video');
+    formData.append('is_published', String(payload.is_published ?? true));
+    formData.append('media_file', payload.media_file);
+    if (payload.thumbnail_url && !payload.thumbnail_url.startsWith('data:')) {
+      formData.append('thumbnail_url', payload.thumbnail_url);
+    }
+    return await this.request('/sermons/', { method: 'POST', body: formData });
   }
 
   public async logout(): Promise<void> {

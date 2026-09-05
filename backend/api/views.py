@@ -189,11 +189,14 @@ class SermonViewSet(viewsets.ModelViewSet):
         return queryset.filter(is_published=True)
 
     def perform_create(self, serializer):
-        church = serializer.validated_data["church"]
+        church = serializer.validated_data.get("church") or self.request.user.owned_churches.order_by("created_at").first()
+        if church is None:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"church": "Create a church profile before uploading media."})
         if church.owner_id != self.request.user.id:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You can only publish sermons for your own church.")
-        serializer.save()
+        serializer.save(church=church)
 
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def save(self, request, pk=None):
