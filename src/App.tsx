@@ -180,17 +180,15 @@ export default function App() {
       }
 
       try {
-        const backendVideos = await djangoApi.getVideos(
-          selectedCategory === 'All' ? undefined : selectedCategory,
-          undefined,
-          searchQuery,
-        );
-        if (isMounted) {
-          const videos = backendVideos && backendVideos.length > 0 ? backendVideos : LIVE_VIDEO_STREAMS;
-          setVideoStreams(videos);
-          setActiveVideo(prev => prev && videos.some(video => video.id === prev.id)
+        const backendVideos = await djangoApi.getVideos();
+        if (isMounted && backendVideos && backendVideos.length > 0) {
+          setVideoStreams(backendVideos);
+          setActiveVideo(prev => prev && backendVideos.some(video => video.id === prev.id)
             ? prev
-            : videos[0] || null);
+            : backendVideos[0] || null);
+        } else if (isMounted) {
+          setVideoStreams(LIVE_VIDEO_STREAMS);
+          setActiveVideo(prev => prev || LIVE_VIDEO_STREAMS[0] || null);
         }
       } catch (e) {
         console.warn('Backend media notice (using local streams):', e);
@@ -237,7 +235,7 @@ export default function App() {
 
     loadMedia();
     return () => { isMounted = false; };
-  }, [searchQuery, selectedCategory]);
+  }, []);
 
   // 🕒 Watch History State & Local Persistence
   const [watchHistory, setWatchHistory] = useState<WatchHistoryItem[]>(() => {
@@ -685,17 +683,19 @@ export default function App() {
     } else if (selectedCategory === 'Worship' || selectedCategory === 'Gospel Music' || selectedCategory === 'Choir Special') {
       matchesCategory = v.category === 'Live Worship' || v.category === 'Choir Special' || v.category === 'Gospel Music';
     } else if (selectedCategory === 'Podcasts' || selectedCategory === '24/7 Gospel Radio') {
-      matchesCategory = false;
+      matchesCategory = true;
     } else if (selectedCategory === 'Ministries' || selectedCategory === 'Discover Ministries') {
       matchesCategory = true;
     } else if (selectedCategory === 'Following') {
-      matchesCategory = subscribedChannels.some(ch => 
+      matchesCategory = subscribedChannels.length === 0 || subscribedChannels.some(ch => 
         v.churchOrMinistry.toLowerCase().includes(ch.toLowerCase()) || 
         v.speakerOrArtist.toLowerCase().includes(ch.toLowerCase())
       );
     } else {
-      matchesCategory = v.category === selectedCategory;
+      matchesCategory = v.category === selectedCategory || v.category.toLowerCase().includes(selectedCategory.toLowerCase());
     }
+
+    if (!searchQuery.trim()) return matchesCategory;
 
     const matchesSearch = 
       v.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -1907,7 +1907,9 @@ export default function App() {
                         <div className="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center mx-auto text-amber-400">
                           <Search className="w-6 h-6" />
                         </div>
-                        <h3 className="text-base font-bold text-white">No video streams match "{searchQuery}"</h3>
+                        <h3 className="text-base font-bold text-white">
+                          {searchQuery.trim() ? `No video streams match "${searchQuery}"` : `No broadcasts currently in "${selectedCategory}"`}
+                        </h3>
                         <p className="text-xs text-slate-400 max-w-md mx-auto">
                           Try adjusting your query, checking spelling, or resetting your filter category to find divine worship broadcasts.
                         </p>
