@@ -17,19 +17,23 @@ from .models import (
 
 class UserSerializer(serializers.ModelSerializer):
     church_name = serializers.SerializerMethodField()
+    creator_type = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = (
             "id", "email", "username", "first_name", "last_name", "avatar_url",
-            "bio", "role", "praise_xp", "streak_days", "last_checkin_date",
+            "bio", "role", "creator_type", "praise_xp", "streak_days", "last_checkin_date",
             "total_study_minutes", "church_name",
         )
         read_only_fields = ("id", "email", "praise_xp", "streak_days", "last_checkin_date", "total_study_minutes")
 
     def get_church_name(self, user):
-        church = user.owned_churches.order_by("created_at").first()
+        church = user.owned_churches.order_by("created_at").first() or user.followed_churches.order_by("name").first()
         return church.name if church else None
+
+    def get_creator_type(self, user):
+        return {User.Role.PASTOR: "church", User.Role.ARTISTE: "artiste", User.Role.CREATOR: "creator"}.get(user.role)
 
 
 class GospreadTokenSerializer(TokenObtainPairSerializer):
@@ -66,10 +70,11 @@ class SignupSerializer(serializers.ModelSerializer):
     church_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, min_length=8)
     role = serializers.ChoiceField(choices=User.Role.choices, default=User.Role.BELIEVER, required=False)
+    church_id = serializers.PrimaryKeyRelatedField(source="joined_church", queryset=Church.objects.all(), write_only=True, required=False, allow_null=True)
 
     class Meta:
         model = User
-        fields = ("id", "email", "password", "name", "church_name", "role")
+        fields = ("id", "email", "password", "name", "church_name", "church_id", "role")
         read_only_fields = ("id",)
 
     def validate(self, attrs):
@@ -85,8 +90,11 @@ class SignupSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         name = validated_data.pop("name").strip()
         church_name = validated_data.pop("church_name", "").strip()
+        joined_church = validated_data.pop("joined_church", None)
         password = validated_data.pop("password")
         role = validated_data.pop("role", User.Role.BELIEVER)
+        if church_name and role == User.Role.BELIEVER:
+            role = User.Role.PASTOR
         parts = name.split(maxsplit=1)
         email = validated_data["email"].lower()
         username_base = slugify(email.split("@", 1)[0]) or "member"
@@ -104,8 +112,7 @@ class SignupSerializer(serializers.ModelSerializer):
         )
         user.set_password(password)
         user.save()
-        # If a church name was provided during signup, create the church and attach the user as owner.
-        if church_name:
+        if role == User.Role.PASTOR and church_name:
             base_slug = slugify(church_name) or "church"
             slug = base_slug
             suffix = 1
@@ -113,6 +120,8 @@ class SignupSerializer(serializers.ModelSerializer):
                 suffix += 1
                 slug = f"{base_slug}-{suffix}"
             Church.objects.create(name=church_name, slug=slug, owner=user)
+        if joined_church:
+            joined_church.followers.add(user)
         return user
 
 

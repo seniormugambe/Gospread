@@ -42,6 +42,8 @@ export default function SimpleAuthCard({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [creatorType, setCreatorType] = useState<'church' | 'artiste' | 'creator'>('creator');
+  const [churchName, setChurchName] = useState('');
 
   // Status feedback
   const [isLoading, setIsLoading] = useState(false);
@@ -104,9 +106,9 @@ export default function SimpleAuthCard({
             fullName: res.user.first_name
               ? `${res.user.first_name} ${res.user.last_name || ''}`.trim()
               : 'Kingdom Believer',
-            churchName: res.user.church_name || 'Grace City Cathedral',
-            ministryName: res.user.church_name || 'Grace City Cathedral',
-            creatorType: 'church',
+            churchName: res.user.church_name || undefined,
+            ministryName: res.user.church_name || undefined,
+            creatorType: res.user.creator_type || (res.user.role === 'pastor' ? 'church' : res.user.role === 'artiste' ? 'artiste' : 'creator'),
             avatarUrl:
               res.user.avatar_url ||
               'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
@@ -138,9 +140,16 @@ export default function SimpleAuthCard({
         const payload = {
           email: email.trim(),
             name: `${firstName} ${lastName}`.trim(),
-          church_name: 'Grace City Cathedral',
+          church_name: creatorType === 'church' ? churchName.trim() : '',
+          role: creatorType === 'church' ? 'pastor' : creatorType === 'artiste' ? 'artiste' : 'creator',
           password
         };
+
+        if (creatorType === 'church' && !churchName.trim()) {
+          setErrorMessage('Enter your church or ministry name.');
+          setIsLoading(false);
+          return;
+        }
 
           const res = await djangoApi.register(payload);
 
@@ -149,9 +158,9 @@ export default function SimpleAuthCard({
             username: res.user.username,
             email: res.user.email,
             fullName: [res.user.first_name, res.user.last_name].filter(Boolean).join(' ') || fullName.trim(),
-            churchName: res.user.church_name || 'Grace City Cathedral',
-            ministryName: res.user.church_name || 'Grace City Cathedral',
-            creatorType: res.user.creator_type || 'church',
+            churchName: res.user.church_name || undefined,
+            ministryName: res.user.church_name || undefined,
+            creatorType: res.user.creator_type || creatorType,
           avatarUrl:
               res.user.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
           isLoggedIn: true,
@@ -341,6 +350,27 @@ export default function SimpleAuthCard({
               placeholder="full name"
               className="w-full bg-transparent outline-none text-slate-800 dark:text-white placeholder:text-sky-900/60 dark:placeholder:text-sky-200/60 text-base font-normal"
             />
+          </div>
+        )}
+
+        {mode === 'signup' && (
+          <div className="space-y-2">
+            <p className="px-2 text-xs font-semibold text-slate-700 dark:text-slate-200">What will you create?</p>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                ['church', 'Church'],
+                ['artiste', 'Artiste'],
+                ['creator', 'Content Creator'],
+              ] as const).map(([value, label]) => (
+                <button key={value} type="button" onClick={() => setCreatorType(value)} className={`rounded-2xl border px-2 py-3 text-xs font-bold transition ${creatorType === value ? 'border-sky-500 bg-sky-500/20 text-sky-900 dark:text-sky-200' : 'border-white/60 bg-white/30 text-slate-600 dark:border-white/20 dark:bg-white/10 dark:text-slate-300'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {creatorType === 'church' && (
+              <input value={churchName} onChange={event => setChurchName(event.target.value)} placeholder="Church or ministry name" className="w-full rounded-2xl border border-white/70 bg-white/45 px-4 py-3 text-sm text-slate-800 outline-none dark:border-white/20 dark:bg-white/10 dark:text-white" />
+            )}
+            <p className="px-2 text-[11px] text-slate-500">You can join an existing church later from Discover Ministries.</p>
           </div>
         )}
 

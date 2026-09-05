@@ -470,6 +470,7 @@ class DjangoApiClient {
     first_name?: string;
     last_name?: string;
     role?: string;
+    church_id?: number;
   }): Promise<DjangoAuthResponse> {
     const res = await this.request<DjangoAuthResponse>('/auth/register/', {
       method: 'POST',
