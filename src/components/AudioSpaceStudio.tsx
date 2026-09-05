@@ -38,8 +38,11 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
 
   useEffect(() => () => {
     streamRef.current?.getTracks().forEach(track => track.stop());
+    if (currentUser?.isLoggedIn && roomRef.current?.name) {
+      void djangoApi.endAudioSpace(roomRef.current.name);
+    }
     roomRef.current?.disconnect();
-  }, []);
+  }, [currentUser?.isLoggedIn]);
 
   const startSpace = async () => {
     setError('');
@@ -53,15 +56,21 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
         return;
       }
       const roomName = `audio-space-${crypto.randomUUID()}`;
-      const { server_url: serverUrl, participant_token: token } = await djangoApi.createAudioSpaceToken(roomName, true);
+      const spaceTitle = title.trim();
+      const spaceTopic = topic.trim();
+      const { server_url: serverUrl, participant_token: token } = await djangoApi.createAudioSpaceToken(roomName, true, {
+        title: spaceTitle,
+        topic: spaceTopic,
+        ministry_name: ministryName,
+      });
       const room = new Room();
       await room.connect(serverUrl, token);
       await room.localParticipant.setMicrophoneEnabled(true);
       roomRef.current = room;
       setIsLive(true);
       onSpaceChange?.({
-        title: title.trim(),
-        topic: topic.trim(),
+        title: spaceTitle,
+        topic: spaceTopic,
         hostName: currentUser?.fullName || currentUser?.username || 'Host',
         ministryName,
         startedAt: Date.now(),
@@ -75,10 +84,12 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
   };
 
   const endSpace = () => {
+    const roomName = roomRef.current?.name;
     streamRef.current?.getTracks().forEach(track => track.stop());
     streamRef.current = null;
     roomRef.current?.disconnect();
     roomRef.current = null;
+    if (roomName) void djangoApi.endAudioSpace(roomName);
     setIsLive(false);
     setIsMuted(false);
     onSpaceChange?.(null);
@@ -119,7 +130,7 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
           </label>
           {error && <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs font-bold text-rose-300">{error}</p>}
           <button onClick={startSpace} className="flex w-full items-center justify-center gap-2 rounded-full bg-amber-500 px-5 py-3 text-sm font-black text-slate-950 hover:bg-amber-400"><Mic className="w-4 h-4" /> Start Audio Space</button>
-          <p className="text-center text-[11px] text-slate-500">Microphone preview is active in this client. Remote listeners and co-hosts require the signaling service.</p>
+          <p className="text-center text-[11px] text-slate-500">Your microphone is published through LiveKit. Listeners can join from Home or Audio Podcasts.</p>
         </div>
       ) : (
         <div className="mx-auto max-w-3xl space-y-5">

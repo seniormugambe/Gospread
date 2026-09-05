@@ -9,7 +9,7 @@ from django.utils.text import slugify
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import (
-    Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund, LiveStream, PrayerComment, PrayerRequest,
+    AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund, LiveStream, PrayerComment, PrayerRequest,
     PaymentGatewayCheckout, SavedSermon, Scripture, Sermon, SermonShort, User,
     WatchProgress, WorshipSlide, WorshipSong,
 )
@@ -587,3 +587,14 @@ class WorshipSongSerializer(serializers.ModelSerializer):
             for index, slide_data in enumerate(slides_data, start=1):
                 WorshipSlide.objects.create(song=instance, order=slide_data.get("order") or index, text=slide_data["text"])
         return instance
+
+
+class AudioSpaceSerializer(serializers.ModelSerializer):
+    host_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AudioSpace
+        fields = ("room_name", "title", "topic", "host_name", "ministry_name", "started_at")
+
+    def get_host_name(self, obj):
+        return obj.host.get_full_name() or obj.host.username

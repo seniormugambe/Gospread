@@ -213,6 +213,15 @@ export interface AudioSpaceTokenResponse {
   room_name: string;
 }
 
+export interface ActiveAudioSpaceApi {
+  room_name: string;
+  title: string;
+  topic: string;
+  host_name: string;
+  ministry_name: string;
+  started_at: string;
+}
+
 class DjangoApiClient {
   private baseUrl: string;
 
@@ -228,10 +237,22 @@ class DjangoApiClient {
     return this.baseUrl;
   }
 
-  public async createAudioSpaceToken(roomName: string, canPublish = false): Promise<AudioSpaceTokenResponse> {
+  public async createAudioSpaceToken(roomName: string, canPublish = false, metadata?: { title?: string; topic?: string; ministry_name?: string }): Promise<AudioSpaceTokenResponse> {
     return this.request<AudioSpaceTokenResponse>('/audio-spaces/token/', {
       method: 'POST',
-      body: JSON.stringify({ room_name: roomName, can_publish: canPublish }),
+      body: JSON.stringify({ room_name: roomName, can_publish: canPublish, ...metadata }),
+    });
+  }
+
+  public async getActiveAudioSpaces(): Promise<ActiveAudioSpaceApi[]> {
+    const response = await this.request<ActiveAudioSpaceApi[] | { results: ActiveAudioSpaceApi[] }>('/audio-spaces/');
+    return Array.isArray(response) ? response : response.results || [];
+  }
+
+  public async endAudioSpace(roomName: string): Promise<void> {
+    await this.request('/audio-spaces/end/', {
+      method: 'POST',
+      body: JSON.stringify({ room_name: roomName }),
     });
   }
 

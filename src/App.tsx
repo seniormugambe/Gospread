@@ -169,6 +169,34 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const syncActiveAudioSpace = async () => {
+      try {
+        const spaces = await djangoApi.getActiveAudioSpaces();
+        if (!active) return;
+        const space = spaces[0];
+        setActiveAudioSpace(space ? {
+          title: space.title,
+          topic: space.topic,
+          hostName: space.host_name,
+          ministryName: space.ministry_name,
+          startedAt: Date.parse(space.started_at),
+          roomName: space.room_name,
+        } : null);
+      } catch (error) {
+        console.warn('[Audio Space] Metadata sync notice:', error);
+      }
+    };
+
+    void syncActiveAudioSpace();
+    const interval = window.setInterval(syncActiveAudioSpace, 10000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, []);
+
   const handleAudioSpaceChange = (space: ActiveAudioSpace | null) => {
     setActiveAudioSpace(space);
     try {

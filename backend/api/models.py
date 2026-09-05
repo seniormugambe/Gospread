@@ -364,6 +364,23 @@ class WorshipSlide(models.Model):
         return f"{self.song} slide {self.order}"
 
 
+class AudioSpace(models.Model):
+    host = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="audio_spaces")
+    room_name = models.CharField(max_length=180, unique=True)
+    title = models.CharField(max_length=220)
+    topic = models.CharField(max_length=280, blank=True)
+    ministry_name = models.CharField(max_length=180, blank=True)
+    started_at = models.DateTimeField(auto_now_add=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    is_live = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-started_at"]
+
+    def __str__(self):
+        return self.title
+
+
 class SavedSermon(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="saved_sermons")
     sermon = models.ForeignKey(Sermon, on_delete=models.CASCADE, related_name="saved_by")

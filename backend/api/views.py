@@ -10,10 +10,10 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from livekit import api as livekit_api
-from .models import Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund, LiveStream, PaymentGatewayCheckout, PrayerComment, PrayerRequest, Scripture, SavedSermon, Sermon, SermonShort, WatchProgress, WorshipSong
+from .models import AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund, LiveStream, PaymentGatewayCheckout, PrayerComment, PrayerRequest, Scripture, SavedSermon, Sermon, SermonShort, WatchProgress, WorshipSong
 from .permissions import IsPastorOwnerOrReadOnly
 from .serializers import (
-    ChurchEventSerializer, ChurchSerializer, CommunityCommentSerializer, CommunityPostSerializer, DonationCheckoutSerializer, DonationSerializer,
+    AudioSpaceSerializer, ChurchEventSerializer, ChurchSerializer, CommunityCommentSerializer, CommunityPostSerializer, DonationCheckoutSerializer, DonationSerializer,
     GivingFundSerializer, LiveStreamSerializer, PaymentGatewayCheckoutSerializer,
     PrayerCommentSerializer, PrayerRequestSerializer, SavedSermonSerializer, ChangePasswordSerializer,
     GospreadTokenSerializer, ScriptureSerializer, SermonSerializer, SermonShortSerializer,
@@ -169,11 +169,43 @@ class AudioSpaceTokenView(generics.GenericAPIView):
         if not livekit_url or not api_key or not api_secret:
             return Response({"detail": "LiveKit is not configured on the backend."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
+        if can_publish:
+            AudioSpace.objects.update_or_create(
+                room_name=room_name,
+                defaults={
+                    "host": request.user,
+                    "title": str(request.data.get("title", "Live Audio Space")).strip()[:220],
+                    "topic": str(request.data.get("topic", "")).strip()[:280],
+                    "ministry_name": str(request.data.get("ministry_name", "")).strip()[:180],
+                    "ended_at": None,
+                    "is_live": True,
+                },
+            )
+
         identity = f"user-{request.user.id}"
         token = livekit_api.AccessToken(api_key, api_secret).with_identity(identity).with_name(
             request.user.get_full_name() or request.user.username
         ).with_grants(livekit_api.VideoGrants(room_join=True, room=room_name, can_publish=can_publish, can_subscribe=True))
         return Response({"server_url": livekit_url, "participant_token": token.to_jwt(), "room_name": room_name})
+
+
+class AudioSpaceListView(generics.ListAPIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = AudioSpaceSerializer
+
+    def get_queryset(self):
+        return AudioSpace.objects.filter(is_live=True).select_related("host")
+
+
+class AudioSpaceEndView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        room_name = str(request.data.get("room_name", "")).strip()
+        updated = AudioSpace.objects.filter(room_name=room_name, host=request.user, is_live=True).update(
+            is_live=False, ended_at=timezone.now()
+        )
+        return Response({"ended": bool(updated)})
 
 
 class ChurchViewSet(viewsets.ModelViewSet):
