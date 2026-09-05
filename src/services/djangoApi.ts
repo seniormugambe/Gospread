@@ -290,11 +290,25 @@ class DjangoApiClient {
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
     try {
-      const response = await fetch(url, {
+      let response = await fetch(url, {
         ...options,
         headers,
         signal: controller.signal,
       });
+
+      // A stale JWT must not block public read endpoints. Retry once without
+      // credentials; protected endpoints will still return their original 401.
+      const method = options.method?.toUpperCase() || 'GET';
+      if (response.status === 401 && token && ['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+        this.clearTokens();
+        const anonymousHeaders = { ...headers };
+        delete anonymousHeaders.Authorization;
+        response = await fetch(url, {
+          ...options,
+          headers: anonymousHeaders,
+          signal: controller.signal,
+        });
+      }
 
       clearTimeout(timeoutId);
 
