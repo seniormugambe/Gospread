@@ -724,11 +724,11 @@ export default function App() {
         
         {/* Left: Brand Logo & Top Navigation Links */}
         <div className="flex items-center space-x-3 sm:space-x-6 shrink-0">
-          {/* Mobile Drawer Hamburger (mobile only) */}
+          {/* Platform Side Menu Toggle Hamburger */}
           <button 
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="md:hidden p-2 rounded-full hover:bg-slate-800 text-slate-300 transition"
-            title="Open Menu"
+            onClick={() => setIsSidebarOpen(prev => !prev)}
+            className="p-2 rounded-xl hover:bg-slate-800/80 text-slate-300 hover:text-white transition"
+            title={isSidebarOpen ? "Collapse Platform Menu" : "Expand Platform Menu"}
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -973,6 +973,169 @@ export default function App() {
       {/* Main Layout */}
       <div className="flex-1 flex overflow-hidden">
         
+        {/* 💻 DESKTOP PLATFORM SIDE MENU (Persistent & Collapsible) */}
+        {isSidebarOpen && (
+          <aside className={`hidden md:block shrink-0 w-64 lg:w-72 border-r select-none z-30 transition-all duration-300 ${
+            theme === 'light' 
+              ? 'bg-white/95 border-slate-200/90 text-slate-800 shadow-sm' 
+              : 'bg-[#0c0c0e]/95 border-slate-800/80 text-slate-200 shadow-xl'
+          } backdrop-blur-md overflow-y-auto p-3.5 h-[calc(100vh-61px)] sticky top-[61px]`}>
+            <div className="space-y-5">
+              {[
+                {
+                  section: 'PLATFORM',
+                  items: [
+                    { id: 'home', label: 'Home Feed', icon: Compass },
+                    { id: 'community', label: 'Fellowship & Voices', icon: MessageSquareHeart, badge: 'COMMUNITY', badgeStyle: 'bg-fuchsia-600 text-white font-black' },
+                    { id: 'discover', label: 'Discover Ministries', icon: Building2, badge: 'EXPLORE', badgeStyle: 'bg-pink-600 text-white font-black' },
+                    { id: 'history', label: 'Watch History', icon: History, badge: watchHistory.length > 0 ? `${watchHistory.length}` : undefined, badgeStyle: 'bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/30' },
+                    ...(!userSession.isLoggedIn ? [
+                      { id: 'auth', label: 'Kingdom Login', icon: ShieldCheck, badge: 'SECURE', badgeStyle: 'bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-bold' }
+                    ] : []),
+                    { id: 'profile', label: 'My Profile', icon: User, badge: 'YOU', badgeStyle: 'bg-pink-600 text-white font-bold' },
+                  ],
+                },
+                {
+                  section: 'WORSHIP & MEDIA',
+                  items: [
+                    { id: 'live', label: 'Live Broadcasts', icon: Tv, badge: 'LIVE', badgeStyle: 'bg-red-600 text-white font-bold' },
+                    { id: 'radio', label: '24/7 Gospel Radio', icon: RadioIcon, badge: '24/7', badgeStyle: 'bg-pink-600 text-white font-bold' },
+                    { id: 'podcasts', label: 'Audio Podcasts', icon: Music },
+                    { id: 'schedule', label: 'Church Service Times', icon: Calendar, badge: 'TIMES', badgeStyle: 'bg-amber-400 text-slate-950 font-black' },
+                  ],
+                },
+                {
+                  section: 'MINISTRY & SUPPORT',
+                  items: [
+                    { id: 'giving', label: 'Kingdom Giving & Offering', icon: DollarSign, badge: 'SUPPORT', badgeStyle: 'bg-emerald-600 text-white font-black' },
+                    { id: 'create', label: 'Register Ministry Channel', icon: UserCheck, badge: 'NEW', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
+                  ],
+                },
+              ].map((grp) => (
+                <div key={grp.section} className="space-y-1.5">
+                  <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest px-2 block">
+                    {grp.section}
+                  </span>
+                  <div className="space-y-1">
+                    {grp.items.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = item.id === 'create' 
+                        ? activeTab === 'create' 
+                        : item.id === 'profile'
+                        ? activeTab === 'profile'
+                        : item.id === 'auth'
+                        ? activeTab === 'auth'
+                        : item.id === 'community'
+                        ? activeTab === 'community'
+                        : item.id === 'history'
+                        ? activeTab === 'history'
+                        : item.id === 'discover'
+                        ? activeTab === 'discover'
+                        : (activeTab === 'platform' && (
+                            (item.id === 'home' && selectedCategory === 'All') || 
+                            (item.id === 'live' && (selectedCategory === 'Live' || selectedCategory === 'Live Worship')) ||
+                            (item.id === 'schedule' && selectedCategory === 'Church Schedules') ||
+                            (item.id === 'podcasts' && selectedCategory === 'Podcasts') ||
+                            (item.id === 'radio' && selectedCategory === '24/7 Gospel Radio')
+                          ));
+
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            if (item.id === 'create') {
+                              openProtectedTab('create');
+                            } else if (item.id === 'profile') {
+                              openProtectedTab('profile');
+                            } else if (item.id === 'auth') {
+                              handleOpenAuthPage('signin');
+                            } else if (item.id === 'community') {
+                              setActiveTab('community');
+                              setIsPipDocked(false);
+                              setActiveVideo(null);
+                            } else if (item.id === 'settings') {
+                              if (userSession.isLoggedIn) setShowSettingsModal(true);
+                              else handleOpenAuthPage('signin');
+                            } else if (item.id === 'history') {
+                              openProtectedTab('history');
+                            } else if (item.id === 'discover') {
+                              setActiveTab('discover');
+                              setIsPipDocked(false);
+                              setActiveVideo(null);
+                            } else if (item.id === 'giving') {
+                              handleOpenGiving();
+                            } else {
+                              if (item.id === 'following' && !userSession.isLoggedIn) {
+                                handleOpenAuthPage('signin');
+                                return;
+                              }
+                              setActiveTab('platform');
+                              setIsPipDocked(false);
+                              setActiveVideo(null);
+                              setSearchQuery('');
+                              setSelectedCategory(
+                                item.id === 'radio' ? '24/7 Gospel Radio' :
+                                item.id === 'podcasts' ? 'Podcasts' :
+                                item.id === 'schedule' ? 'Church Schedules' :
+                                item.id === 'live' ? 'Live Worship' : 'All'
+                              );
+                            }
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition group ${
+                            isActive
+                              ? 'bg-amber-100/90 dark:bg-amber-500/20 text-amber-900 dark:text-amber-300 border border-amber-300/80 dark:border-amber-500/40 font-bold shadow-xs'
+                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/90 dark:hover:bg-slate-800/80 hover:text-slate-950 dark:hover:text-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Icon className={`w-4 h-4 shrink-0 transition ${
+                              isActive 
+                                ? 'text-amber-600 dark:text-amber-400' 
+                                : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white'
+                            }`} />
+                            <span className="truncate">{item.label}</span>
+                          </div>
+                          {item.badge && (
+                            <span className={`px-2 py-0.5 rounded text-[9px] shrink-0 ${item.badgeStyle || 'bg-amber-500 text-slate-950 font-extrabold'}`}>
+                              {item.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              <hr className="border-slate-200 dark:border-slate-800 my-2" />
+
+              {/* Followed Ministries */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-2">
+                  <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                    Followed Ministries ({subscribedChannels.length})
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  {subscriptionChannels.map((ch) => (
+                    <div
+                      key={ch.name}
+                      onClick={() => setSelectedChannelModal(ch.name)}
+                      className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/80 cursor-pointer text-xs text-slate-700 dark:text-slate-300 transition"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <img src={ch.avatar} alt={ch.name} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                        <span className="font-medium truncate">{ch.name}</span>
+                      </div>
+                      {ch.liveNow && <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse shrink-0" />}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </aside>
+        )}
+
         {/* 📱 MOBILE SLIDE-OUT DRAWER SIDEBAR (Accessible via hamburger on mobile) */}
         <AnimatePresence>
           {isSidebarOpen && (
@@ -989,19 +1152,21 @@ export default function App() {
                 animate={{ x: 0 }}
                 exit={{ x: '-100%' }}
                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="relative w-80 max-w-[85vw] bg-[#0c0c0e] border-r border-slate-800 h-full flex flex-col justify-between p-4 z-10 overflow-y-auto shadow-2xl"
+                className={`relative w-80 max-w-[85vw] border-r h-full flex flex-col justify-between p-4 z-10 overflow-y-auto shadow-2xl ${
+                  theme === 'light' ? 'bg-white text-slate-800 border-slate-200' : 'bg-[#0c0c0e] text-slate-200 border-slate-800'
+                }`}
               >
                 <div>
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
                     <GospreadLogo
                       size="sm"
-                      badgeText="Menu"
+                      badgeText="Platform"
                       badgeVariant="gold"
                       onClick={() => setIsSidebarOpen(false)}
                     />
                     <button
                       onClick={() => setIsSidebarOpen(false)}
-                      className="p-1.5 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white transition"
+                      className="p-1.5 rounded-full bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -1010,34 +1175,37 @@ export default function App() {
                   <div className="space-y-5 py-4">
                     {[
                       {
-                        section: 'Main Platform',
+                        section: 'PLATFORM',
                         items: [
                           { id: 'home', label: 'Home Feed', icon: Compass },
-                          { id: 'community', label: 'Fellowship & Testimonies', icon: MessageSquareHeart, badge: 'COMMUNITY', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
-                          { id: 'discover', label: 'Discover Ministries', icon: Building2, badge: 'EXPLORE', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
-                          { id: 'history', label: 'Watch History', icon: History, badge: watchHistory.length > 0 ? `${watchHistory.length}` : undefined, badgeStyle: 'bg-amber-500/20 text-amber-400 border border-amber-500/30' },
-                          { id: 'profile', label: 'My Kingdom Profile', icon: User, badge: 'YOU', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
+                          { id: 'community', label: 'Fellowship & Voices', icon: MessageSquareHeart, badge: 'COMMUNITY', badgeStyle: 'bg-fuchsia-600 text-white font-black' },
+                          { id: 'discover', label: 'Discover Ministries', icon: Building2, badge: 'EXPLORE', badgeStyle: 'bg-pink-600 text-white font-black' },
+                          { id: 'history', label: 'Watch History', icon: History, badge: watchHistory.length > 0 ? `${watchHistory.length}` : undefined, badgeStyle: 'bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/30' },
+                          ...(!userSession.isLoggedIn ? [
+                            { id: 'auth', label: 'Kingdom Login', icon: ShieldCheck, badge: 'SECURE', badgeStyle: 'bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-bold' }
+                          ] : []),
+                          { id: 'profile', label: 'My Profile', icon: User, badge: 'YOU', badgeStyle: 'bg-pink-600 text-white font-bold' },
                         ],
                       },
                       {
-                        section: 'Worship & Media',
+                        section: 'WORSHIP & MEDIA',
                         items: [
                           { id: 'live', label: 'Live Broadcasts', icon: Tv, badge: 'LIVE', badgeStyle: 'bg-red-600 text-white font-bold' },
-                          { id: 'radio', label: '24/7 Gospel Radio', icon: RadioIcon, badge: '24/7', badgeStyle: 'bg-amber-400 text-slate-950 font-black' },
+                          { id: 'radio', label: '24/7 Gospel Radio', icon: RadioIcon, badge: '24/7', badgeStyle: 'bg-pink-600 text-white font-bold' },
                           { id: 'podcasts', label: 'Audio Podcasts', icon: Music },
-                          { id: 'schedule', label: 'Church Service Times', icon: Calendar, badge: 'TIMES', badgeStyle: 'bg-amber-400/90 text-slate-950 font-black' },
+                          { id: 'schedule', label: 'Church Service Times', icon: Calendar, badge: 'TIMES', badgeStyle: 'bg-amber-400 text-slate-950 font-black' },
                         ],
                       },
                       {
-                        section: 'Ministry & Support',
+                        section: 'MINISTRY & SUPPORT',
                         items: [
-                          { id: 'giving', label: 'Kingdom Giving & Offering', icon: DollarSign, badge: 'SUPPORT', badgeStyle: 'bg-emerald-500 text-slate-950 font-black' },
+                          { id: 'giving', label: 'Kingdom Giving & Offering', icon: DollarSign, badge: 'SUPPORT', badgeStyle: 'bg-emerald-600 text-white font-black' },
                           { id: 'create', label: 'Register Ministry Channel', icon: UserCheck, badge: 'NEW', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
                         ],
                       },
                     ].map((grp) => (
                       <div key={grp.section} className="space-y-1.5">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">
+                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest px-2 block">
                           {grp.section}
                         </span>
                         <div className="space-y-1">
@@ -1057,6 +1225,7 @@ export default function App() {
                               ? activeTab === 'discover'
                               : (activeTab === 'platform' && (
                                   (item.id === 'home' && selectedCategory === 'All') || 
+                                  (item.id === 'live' && (selectedCategory === 'Live' || selectedCategory === 'Live Worship')) ||
                                   (item.id === 'schedule' && selectedCategory === 'Church Schedules') ||
                                   (item.id === 'podcasts' && selectedCategory === 'Podcasts') ||
                                   (item.id === 'radio' && selectedCategory === '24/7 Gospel Radio')
@@ -1095,22 +1264,32 @@ export default function App() {
                                     }
                                     setActiveTab('platform');
                                     setIsPipDocked(false);
+                                    setActiveVideo(null);
+                                    setSearchQuery('');
                                     setSelectedCategory(
                                       item.id === 'radio' ? '24/7 Gospel Radio' :
                                       item.id === 'podcasts' ? 'Podcasts' :
-                                      item.id === 'schedule' ? 'Church Schedules' : 'All'
+                                      item.id === 'schedule' ? 'Church Schedules' :
+                                      item.id === 'live' ? 'Live Worship' : 'All'
                                     );
                                   }
                                 }}
-                                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
+                                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition group ${
                                   isActive
-                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
-                                    : 'text-slate-200 hover:bg-slate-800/80'
+                                    ? 'bg-amber-100/90 dark:bg-amber-500/20 text-amber-900 dark:text-amber-300 border border-amber-300/80 dark:border-amber-500/40 font-bold shadow-xs'
+                                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/90 dark:hover:bg-slate-800/80 hover:text-slate-950 dark:hover:text-white'
                                 }`}
                               >
-                                <span className={isActive ? 'text-amber-300 font-bold' : 'text-slate-200 font-medium'}>{item.label}</span>
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <Icon className={`w-4 h-4 shrink-0 transition ${
+                                    isActive 
+                                      ? 'text-amber-600 dark:text-amber-400' 
+                                      : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white'
+                                  }`} />
+                                  <span className="truncate">{item.label}</span>
+                                </div>
                                 {item.badge && (
-                                  <span className={`px-2 py-0.5 rounded text-[9px] ${item.badgeStyle || 'bg-amber-500 text-slate-950 font-extrabold'}`}>
+                                  <span className={`px-2 py-0.5 rounded text-[9px] shrink-0 ${item.badgeStyle || 'bg-amber-500 text-slate-950 font-extrabold'}`}>
                                     {item.badge}
                                   </span>
                                 )}
@@ -1121,11 +1300,11 @@ export default function App() {
                       </div>
                     ))}
 
-                    <hr className="border-slate-800" />
+                    <hr className="border-slate-200 dark:border-slate-800 my-2" />
 
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between px-1">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                      <div className="flex items-center justify-between px-2">
+                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                           Followed Ministries ({subscribedChannels.length})
                         </span>
                       </div>
@@ -1137,13 +1316,13 @@ export default function App() {
                               setIsSidebarOpen(false);
                               setSelectedChannelModal(ch.name);
                             }}
-                            className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-800 cursor-pointer text-xs text-slate-300 transition"
+                            className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/80 cursor-pointer text-xs text-slate-700 dark:text-slate-300 transition"
                           >
-                            <div className="flex items-center gap-2.5">
-                              <img src={ch.avatar} alt={ch.name} className="w-6 h-6 rounded-full object-cover" />
-                              <span className="font-medium">{ch.name}</span>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <img src={ch.avatar} alt={ch.name} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                              <span className="font-medium truncate">{ch.name}</span>
                             </div>
-                            {ch.liveNow && <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />}
+                            {ch.liveNow && <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse shrink-0" />}
                           </div>
                         ))}
                       </div>

@@ -369,11 +369,14 @@ export default function UserProfilePage({
             {onOpenSettingsModal && (
               <button
                 onClick={onOpenSettingsModal}
-                className="px-4 py-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs border border-slate-700 flex items-center gap-1.5 transition shadow-sm"
+                className="px-4 py-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs border border-amber-500/40 flex items-center gap-2 transition shadow-md hover:border-amber-400 group"
                 title="Account Settings"
               >
-                <Settings className="w-4 h-4 text-amber-400" />
+                <Settings className="w-4 h-4 text-amber-400 group-hover:rotate-45 transition-transform duration-300" />
                 <span>Account Settings</span>
+                <span className="px-1.5 py-0.5 rounded text-[9px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border border-slate-700">
+                  PREFS
+                </span>
               </button>
             )}
           </div>
@@ -622,7 +625,7 @@ export default function UserProfilePage({
             { id: 'giving', label: 'Giving & Seeds Log', icon: DollarSign, count: givingLogs.length },
             { id: 'prayers', label: 'My Prayers & Notes', icon: Heart, count: myPrayers.length },
             { id: 'subscriptions', label: 'Followed Channels', icon: Tv, count: subscribedChannels.length },
-            { id: 'settings', label: 'Preferences & Settings', icon: Settings }
+            { id: 'settings', label: 'Account Settings & Preferences', icon: Settings }
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeProfileTab === tab.id;
