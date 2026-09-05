@@ -96,7 +96,7 @@ export default function SimpleAuthCard({
           password
         });
 
-        if (res && res.user) {
+        if (res?.user && res.access) {
           const loggedUser: UserSession = {
             id: res.user.id || 'usr-101',
             username: res.user.username || email.split('@')[0],
@@ -127,33 +127,7 @@ export default function SimpleAuthCard({
             if (onNavigateHome) onNavigateHome();
           }, 600);
         } else {
-          // Graceful fallback for quick local authentication
-          const fallbackUser: UserSession = {
-            id: `usr-${Date.now()}`,
-            username: email.split('@')[0],
-            email,
-            fullName: fullName.trim() || 'Faithful Believer',
-            churchName: 'Grace City Cathedral',
-            ministryName: 'Grace City Cathedral',
-            creatorType: 'church',
-            avatarUrl:
-              'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
-            isLoggedIn: true,
-            token: `demo-token-${Date.now()}`
-          };
-
-          try {
-            localStorage.setItem('gospread_user_session', JSON.stringify(fallbackUser));
-          } catch (e) {
-            console.error(e);
-          }
-
-          setSuccessMessage('Welcome back to the Sanctuary!');
-          setTimeout(() => {
-            onLoginSuccess(fallbackUser);
-            if (onClose) onClose();
-            if (onNavigateHome) onNavigateHome();
-          }, 600);
+          throw new Error('The login response did not include a valid access token.');
         }
       } else {
         // Sign up
@@ -162,28 +136,26 @@ export default function SimpleAuthCard({
         const lastName = nameParts.slice(1).join(' ') || '';
 
         const payload = {
-          username: email.split('@')[0],
           email: email.trim(),
-          first_name: firstName,
-          last_name: lastName,
+            name: `${firstName} ${lastName}`.trim(),
           church_name: 'Grace City Cathedral',
           password
         };
 
-        const res = await djangoApi.register(payload).catch(() => null);
+          const res = await djangoApi.register(payload);
 
         const newUser: UserSession = {
-          id: `usr-${Date.now()}`,
-          username: payload.username,
-          email: payload.email,
-          fullName: fullName.trim(),
-          churchName: 'Grace City Cathedral',
-          ministryName: 'Grace City Cathedral',
-          creatorType: 'church',
+            id: res.user.id,
+            username: res.user.username,
+            email: res.user.email,
+            fullName: [res.user.first_name, res.user.last_name].filter(Boolean).join(' ') || fullName.trim(),
+            churchName: res.user.church_name || 'Grace City Cathedral',
+            ministryName: res.user.church_name || 'Grace City Cathedral',
+            creatorType: res.user.creator_type || 'church',
           avatarUrl:
-            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+              res.user.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
           isLoggedIn: true,
-          token: res?.access || `registered-jwt-${Date.now()}`
+            token: res.access
         };
 
         try {
@@ -206,43 +178,10 @@ export default function SimpleAuthCard({
     }
   };
 
-  // Social Fast Login (Google & Apple)
+  // Social login requires a configured OAuth callback; do not create a local session.
   const handleSocialLogin = (provider: 'Google' | 'Apple') => {
-    setIsLoading(true);
     setErrorMessage(null);
-    setSuccessMessage(`Connecting with ${provider}...`);
-
-    setTimeout(() => {
-      const socialUser: UserSession = {
-        id: `usr-${provider.toLowerCase()}-${Date.now()}`,
-        username: `believer_${provider.toLowerCase()}`,
-        email: `believer@${provider.toLowerCase()}.com`,
-        fullName: `${provider} Believer`,
-        churchName: 'Grace City Cathedral',
-        ministryName: 'Grace City Cathedral',
-        creatorType: 'church',
-        avatarUrl:
-          provider === 'Google'
-            ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80'
-            : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80',
-        isLoggedIn: true,
-        token: `jwt-social-${provider}-${Date.now()}`
-      };
-
-      try {
-        localStorage.setItem('gospread_user_session', JSON.stringify(socialUser));
-      } catch (e) {
-        console.error(e);
-      }
-
-      setSuccessMessage(`Logged in with ${provider}!`);
-      setTimeout(() => {
-        setIsLoading(false);
-        onLoginSuccess(socialUser);
-        if (onClose) onClose();
-        if (onNavigateHome) onNavigateHome();
-      }, 500);
-    }, 600);
+    setSuccessMessage(`${provider} login will be available after OAuth is configured.`);
   };
 
   // Fast Demo Login

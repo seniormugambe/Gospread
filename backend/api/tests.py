@@ -29,6 +29,28 @@ class AuthenticationTests(APITestCase):
         self.assertIn("access", token.data)
         self.assertEqual(token.data["user"]["church_name"], "Grace Community")
 
+    def test_signup_returns_tokens_for_frontend_session(self):
+        response = self.client.post(reverse("signup"), {
+            "email": "new-member@example.com",
+            "password": "StrongPass123!",
+            "name": "New Member",
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
+        self.assertEqual(response.data["user"]["email"], "new-member@example.com")
+
+    def test_invalid_login_does_not_authenticate(self):
+        User.objects.create_user(username="member", email="member@example.com", password="StrongPass123!")
+
+        response = self.client.post(reverse("token"), {
+            "email": "member@example.com",
+            "password": "wrong-password",
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
     def test_congregant_signup_does_not_create_church(self):
         response = self.client.post(reverse("signup"), {
             "email": "member@example.com",

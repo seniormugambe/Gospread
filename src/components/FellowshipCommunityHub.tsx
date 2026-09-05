@@ -112,6 +112,7 @@ interface FellowshipCommunityHubProps {
   praiseXp: number;
   onAwardXp?: (amount: number, reason: string) => void;
   onOpenGiving?: () => void;
+  onRequireAuth: () => void;
 }
 
 export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
@@ -120,6 +121,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
   praiseXp,
   onAwardXp,
   onOpenGiving,
+  onRequireAuth,
 }) => {
   const mapComment = (comment: CommunityCommentApi): CommunityComment => ({
     id: String(comment.id),
@@ -176,6 +178,14 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
   const [prayerNotification, setPrayerNotification] = useState<string | null>(null);
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const [activeStorySpotlight, setActiveStorySpotlight] = useState<string | null>(null);
+
+  const handleOpenCreateModal = () => {
+    if (!userSession.isLoggedIn) {
+      onRequireAuth();
+      return;
+    }
+    setShowCreateModal(true);
+  };
 
   // Dynamic Stories & Heroes computed from real live posts
   const faithStories = React.useMemo(() => {
@@ -242,6 +252,10 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
 
   // Handle Amen Reaction
   const handleToggleAmen = (postId: string) => {
+    if (!userSession.isLoggedIn) {
+      onRequireAuth();
+      return;
+    }
     setPosts(prev => prev.map(p => {
       if (p.id === postId) {
         const hasAmened = !p.hasAmened;
@@ -259,6 +273,10 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
 
   // Handle "I Prayed for You" Reaction
   const handleTogglePrayed = (postId: string) => {
+    if (!userSession.isLoggedIn) {
+      onRequireAuth();
+      return;
+    }
     setPosts(prev => prev.map(p => {
       if (p.id === postId) {
         const hasPrayed = !p.hasPrayed;
@@ -280,6 +298,10 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
 
   // Handle Glory to God Reaction
   const handleToggleGlory = (postId: string) => {
+    if (!userSession.isLoggedIn) {
+      onRequireAuth();
+      return;
+    }
     setPosts(prev => prev.map(p => {
       if (p.id === postId) {
         const hasGlory = !p.hasGlory;
@@ -296,6 +318,10 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
 
   // Handle Bookmark
   const handleToggleBookmark = (postId: string) => {
+    if (!userSession.isLoggedIn) {
+      onRequireAuth();
+      return;
+    }
     setPosts(prev => prev.map(p => {
       if (p.id === postId) {
         const nextState = !p.hasBookmarked;
@@ -312,6 +338,10 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
 
   // Submit Comment
   const handleAddComment = (postId: string, quickText?: string) => {
+    if (!userSession.isLoggedIn) {
+      onRequireAuth();
+      return;
+    }
     const text = quickText || replyText[postId];
     if (!text || !text.trim()) return;
 
@@ -347,6 +377,10 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
   // Create Post Submit
   const handleCreatePostSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!userSession.isLoggedIn) {
+      onRequireAuth();
+      return;
+    }
     if (!postContent.trim()) return;
 
     const newPost: CommunityPost = {
@@ -471,7 +505,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
         <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-none pt-1">
           {/* Add story action pill */}
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={handleOpenCreateModal}
             className="flex flex-col items-center justify-center gap-1.5 shrink-0 group focus:outline-none"
           >
             <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-slate-800 border-2 border-dashed border-amber-500/50 group-hover:border-amber-400 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
@@ -542,7 +576,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
 
           <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
             <button
-              onClick={() => setShowCreateModal(true)}
+              onClick={handleOpenCreateModal}
               className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xl shadow-amber-500/25 hover:shadow-amber-500/40 transition active:scale-95 duration-200"
             >
               <Plus className="w-4 h-4 stroke-[3]" />
@@ -686,7 +720,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
               </div>
             )}
             <button
-              onClick={() => setShowCreateModal(true)}
+              onClick={handleOpenCreateModal}
               className="flex-1 bg-slate-950/80 hover:bg-slate-800/80 border border-slate-700/80 rounded-2xl px-4 py-2.5 text-left text-xs text-slate-400 flex items-center justify-between transition group"
             >
               <span>Share a testimony, prayer request, or scripture revelation...</span>
@@ -705,7 +739,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
                 Be the first to share a praise report or prayer request in this category!
               </p>
               <button
-                onClick={() => setShowCreateModal(true)}
+                onClick={handleOpenCreateModal}
                 className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs"
               >
                 Create New Post
@@ -1141,7 +1175,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
             </div>
 
             <button
-              onClick={() => setShowCreateModal(true)}
+              onClick={handleOpenCreateModal}
               className="w-full py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/20 active:scale-95"
             >
               <Plus className="w-4 h-4 stroke-[3]" />

@@ -452,6 +452,10 @@ export default function App() {
   const [praiseXp, setPraiseXp] = useState(0);
 
   const openProtectedTab = (tab: 'profile' | 'history' | 'create') => {
+    if (!userSession.isLoggedIn) {
+      handleOpenAuthPage('signin');
+      return;
+    }
     setActiveTab(tab);
   };
 
@@ -515,6 +519,10 @@ export default function App() {
   // Category options
 
   const toggleSubscribe = (channelName: string) => {
+    if (!userSession.isLoggedIn) {
+      handleOpenAuthPage('signin');
+      return;
+    }
     setSubscribedChannels(prev => {
       const isSubbed = prev.some(c => c.toLowerCase() === channelName.toLowerCase());
       const newSubbed = isSubbed 
@@ -570,18 +578,30 @@ export default function App() {
   }));
 
   const toggleLike = (videoId: string) => {
+    if (!userSession.isLoggedIn) {
+      handleOpenAuthPage('signin');
+      return;
+    }
     setLikedVideos(prev =>
       prev.includes(videoId) ? prev.filter(id => id !== videoId) : [...prev, videoId]
     );
   };
 
   const toggleSave = (id: string) => {
+    if (!userSession.isLoggedIn) {
+      handleOpenAuthPage('signin');
+      return;
+    }
     setSavedIds(prev =>
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
   };
 
   const handleSendChatMessage = (text: string) => {
+    if (!userSession.isLoggedIn) {
+      handleOpenAuthPage('signin');
+      return;
+    }
     if (!text.trim()) return;
     const msg: ChatMessage = {
       id: `c-${Date.now()}`,
@@ -597,6 +617,10 @@ export default function App() {
   };
 
   const handleToggleReaction = (messageId: string, reactionType: ReactionType) => {
+    if (!userSession.isLoggedIn) {
+      handleOpenAuthPage('signin');
+      return;
+    }
     setChatMessages((prev) =>
       prev.map((msg) => {
         if (msg.id !== messageId) return msg;
@@ -1393,6 +1417,7 @@ export default function App() {
                   });
                 }}
                 onOpenGiving={handleOpenGiving}
+                onRequireAuth={() => handleOpenAuthPage('signin')}
               />
             </div>
           ) : activeTab === 'history' ? (

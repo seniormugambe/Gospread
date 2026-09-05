@@ -362,7 +362,6 @@ class DjangoApiClient {
   }
 
   public async register(payload: {
-    username: string;
     email: string;
     password?: string;
     church_name?: string;
@@ -375,7 +374,7 @@ class DjangoApiClient {
       method: 'POST',
       body: JSON.stringify({
         ...payload,
-        name: payload.name || `${payload.first_name || ''} ${payload.last_name || ''}`.trim() || payload.username,
+        name: payload.name || `${payload.first_name || ''} ${payload.last_name || ''}`.trim() || payload.email.split('@')[0],
       })
     });
 
