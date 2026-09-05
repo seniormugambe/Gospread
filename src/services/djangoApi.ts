@@ -237,7 +237,15 @@ class DjangoApiClient {
 
   // Auth Token Management
   public getAccessToken(): string | null {
-    return localStorage.getItem(JWT_ACCESS_KEY);
+    const accessToken = localStorage.getItem(JWT_ACCESS_KEY);
+    if (accessToken) return accessToken;
+
+    try {
+      const savedSession = JSON.parse(localStorage.getItem('gospread_user_session') || 'null');
+      return typeof savedSession?.token === 'string' ? savedSession.token : null;
+    } catch {
+      return null;
+    }
   }
 
   public getRefreshToken(): string | null {
