@@ -355,6 +355,12 @@ class DjangoApiClient {
         });
       }
 
+      if (response.status === 401 && token && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+        this.clearTokens();
+        localStorage.removeItem('gospread_user_session');
+        throw new Error('Your session has expired. Please sign in again.');
+      }
+
       clearTimeout(timeoutId);
 
       if (response.status === 204) {
