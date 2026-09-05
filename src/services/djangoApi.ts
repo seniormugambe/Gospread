@@ -263,6 +263,29 @@ class DjangoApiClient {
     return localStorage.getItem(CSRF_TOKEN_KEY);
   }
 
+  private async refreshAccessToken(): Promise<string | null> {
+    const refresh = this.getRefreshToken();
+    if (!refresh) return null;
+
+    const response = await fetch(`${this.baseUrl}/auth/token/refresh/`, {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh }),
+    });
+    if (!response.ok) {
+      this.clearTokens();
+      return null;
+    }
+
+    const data = await response.json() as { access?: string; refresh?: string };
+    if (!data.access) {
+      this.clearTokens();
+      return null;
+    }
+    this.setTokens(data.access, data.refresh || refresh);
+    return data.access;
+  }
+
   // Core HTTP Fetcher connecting directly to DRF backend endpoints
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
@@ -296,10 +319,24 @@ class DjangoApiClient {
         signal: controller.signal,
       });
 
-      // A stale JWT must not block public read endpoints. Retry once without
-      // credentials; protected endpoints will still return their original 401.
       const method = options.method?.toUpperCase() || 'GET';
-      if (response.status === 401 && token && ['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      const canRefresh = Boolean(token && this.getRefreshToken())
+        && !cleanEndpoint.startsWith('/auth/token/refresh/')
+        && !cleanEndpoint.startsWith('/auth/logout/');
+      if (response.status === 401 && canRefresh) {
+        const refreshedToken = await this.refreshAccessToken();
+        if (refreshedToken) {
+          response = await fetch(url, {
+            ...options,
+            headers: { ...headers, Authorization: `Bearer ${refreshedToken}` },
+            signal: controller.signal,
+          });
+        }
+      }
+
+      // A stale JWT must not block public read endpoints. Retry once without
+      // credentials; protected endpoints will still return their 401.
+      if (response.status === 401 && ['GET', 'HEAD', 'OPTIONS'].includes(method)) {
         this.clearTokens();
         const anonymousHeaders = { ...headers };
         delete anonymousHeaders.Authorization;
