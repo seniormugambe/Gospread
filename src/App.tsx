@@ -839,25 +839,8 @@ export default function App() {
           />
         </div>
 
-        {/* Right Header: Studio Switcher, Theme Toggle, Sign In / Avatar Menu */}
+        {/* Right Header: Theme Toggle, Sign In / Avatar Menu */}
         <div className="flex items-center space-x-2 sm:space-x-2.5 shrink-0">
-          {/* Creator Studio Switch */}
-          <button
-            onClick={() => {
-              setActiveTab('create');
-              setActiveVideo(null);
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition ${
-              activeTab === 'create'
-                ? 'bg-gradient-to-r from-red-600 to-amber-500 text-white shadow-md font-bold'
-                : 'bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-amber-300 border border-slate-700/80'
-            }`}
-            title="Kingdom Creator Studio (For Ministries & Broadcasters)"
-          >
-            <RadioTower className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Creator Studio</span>
-          </button>
-
           {/* Theme Toggle Button */}
           <button
             onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
@@ -1005,10 +988,10 @@ export default function App() {
                   ],
                 },
                 {
-                  section: 'MINISTRY & SUPPORT',
+                  section: 'MINISTRY & CREATOR',
                   items: [
+                    { id: 'create', label: 'Creator Studio', icon: RadioTower, badge: 'STUDIO', badgeStyle: 'bg-gradient-to-r from-red-600 to-amber-500 text-white font-black' },
                     { id: 'giving', label: 'Kingdom Giving & Offering', icon: DollarSign, badge: 'SUPPORT', badgeStyle: 'bg-emerald-600 text-white font-black' },
-                    { id: 'create', label: 'Register Ministry Channel', icon: UserCheck, badge: 'NEW', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
                   ],
                 },
               ].map((grp) => (
@@ -1045,6 +1028,8 @@ export default function App() {
                           onClick={() => {
                             if (item.id === 'create') {
                               openProtectedTab('create');
+                              setIsPipDocked(false);
+                              setActiveVideo(null);
                             } else if (item.id === 'profile') {
                               openProtectedTab('profile');
                             } else if (item.id === 'auth') {
@@ -1087,14 +1072,7 @@ export default function App() {
                               : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/90 dark:hover:bg-slate-800/80 hover:text-slate-950 dark:hover:text-white'
                           }`}
                         >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <Icon className={`w-4 h-4 shrink-0 transition ${
-                              isActive 
-                                ? 'text-amber-600 dark:text-amber-400' 
-                                : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white'
-                            }`} />
-                            <span className="truncate">{item.label}</span>
-                          </div>
+                          <span className="truncate">{item.label}</span>
                           {item.badge && (
                             <span className={`px-2 py-0.5 rounded text-[9px] shrink-0 ${item.badgeStyle || 'bg-amber-500 text-slate-950 font-extrabold'}`}>
                               {item.badge}
@@ -1197,10 +1175,10 @@ export default function App() {
                         ],
                       },
                       {
-                        section: 'MINISTRY & SUPPORT',
+                        section: 'MINISTRY & CREATOR',
                         items: [
+                          { id: 'create', label: 'Creator Studio', icon: RadioTower, badge: 'STUDIO', badgeStyle: 'bg-gradient-to-r from-red-600 to-amber-500 text-white font-black' },
                           { id: 'giving', label: 'Kingdom Giving & Offering', icon: DollarSign, badge: 'SUPPORT', badgeStyle: 'bg-emerald-600 text-white font-black' },
-                          { id: 'create', label: 'Register Ministry Channel', icon: UserCheck, badge: 'NEW', badgeStyle: 'bg-amber-500 text-slate-950 font-black' },
                         ],
                       },
                     ].map((grp) => (
@@ -1238,6 +1216,8 @@ export default function App() {
                                   setIsSidebarOpen(false);
                                   if (item.id === 'create') {
                                     openProtectedTab('create');
+                                    setIsPipDocked(false);
+                                    setActiveVideo(null);
                                   } else if (item.id === 'profile') {
                                     openProtectedTab('profile');
                                   } else if (item.id === 'auth') {
@@ -1280,14 +1260,7 @@ export default function App() {
                                     : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/90 dark:hover:bg-slate-800/80 hover:text-slate-950 dark:hover:text-white'
                                 }`}
                               >
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <Icon className={`w-4 h-4 shrink-0 transition ${
-                                    isActive 
-                                      ? 'text-amber-600 dark:text-amber-400' 
-                                      : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white'
-                                  }`} />
-                                  <span className="truncate">{item.label}</span>
-                                </div>
+                                <span className="truncate">{item.label}</span>
                                 {item.badge && (
                                   <span className={`px-2 py-0.5 rounded text-[9px] shrink-0 ${item.badgeStyle || 'bg-amber-500 text-slate-950 font-extrabold'}`}>
                                     {item.badge}
@@ -1794,7 +1767,6 @@ export default function App() {
                             : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 active:bg-slate-600'
                         }`}
                       >
-                        <Icon className={`w-4 h-4 sm:w-3.5 sm:h-3.5 ${isSelected ? 'text-slate-950' : 'text-slate-400'}`} />
                         <span>{cat.label}</span>
                         {cat.count !== undefined && cat.count > 0 && (
                           <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-[9px] font-black ${
