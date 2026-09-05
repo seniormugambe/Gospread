@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Clock, Mic, MicOff, Radio, Users } from 'lucide-react';
 import { UserSession } from './AuthModal';
+import { Room } from 'livekit-client';
+import { djangoApi } from '../services/djangoApi';
 
 export interface ActiveAudioSpace {
   title: string;
@@ -8,6 +10,7 @@ export interface ActiveAudioSpace {
   hostName: string;
   ministryName: string;
   startedAt: number;
+  roomName: string;
 }
 
 interface AudioSpaceStudioProps {
@@ -25,6 +28,7 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [error, setError] = useState('');
   const streamRef = useRef<MediaStream | null>(null);
+  const roomRef = useRef<Room | null>(null);
 
   useEffect(() => {
     if (!isLive) return;
@@ -34,6 +38,7 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
 
   useEffect(() => () => {
     streamRef.current?.getTracks().forEach(track => track.stop());
+    roomRef.current?.disconnect();
   }, []);
 
   const startSpace = async () => {
@@ -42,12 +47,17 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
       setError('Add a title before starting the Space.');
       return;
     }
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setError('Microphone access is not available in this browser.');
-      return;
-    }
     try {
-      streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      if (!currentUser?.isLoggedIn) {
+        setError('Sign in before starting a live Audio Space.');
+        return;
+      }
+      const roomName = `audio-space-${crypto.randomUUID()}`;
+      const { server_url: serverUrl, participant_token: token } = await djangoApi.createAudioSpaceToken(roomName, true);
+      const room = new Room();
+      await room.connect(serverUrl, token);
+      await room.localParticipant.setMicrophoneEnabled(true);
+      roomRef.current = room;
       setIsLive(true);
       onSpaceChange?.({
         title: title.trim(),
@@ -55,15 +65,20 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
         hostName: currentUser?.fullName || currentUser?.username || 'Host',
         ministryName,
         startedAt: Date.now(),
+        roomName,
       });
-    } catch {
-      setError('Microphone permission was not granted.');
+    } catch (error) {
+      roomRef.current?.disconnect();
+      roomRef.current = null;
+      setError(error instanceof Error ? error.message : 'Could not connect to the live Audio Space.');
     }
   };
 
   const endSpace = () => {
     streamRef.current?.getTracks().forEach(track => track.stop());
     streamRef.current = null;
+    roomRef.current?.disconnect();
+    roomRef.current = null;
     setIsLive(false);
     setIsMuted(false);
     onSpaceChange?.(null);

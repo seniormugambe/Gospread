@@ -207,6 +207,12 @@ export interface PrayerRequestApi {
   created_at: string;
 }
 
+export interface AudioSpaceTokenResponse {
+  server_url: string;
+  participant_token: string;
+  room_name: string;
+}
+
 class DjangoApiClient {
   private baseUrl: string;
 
@@ -220,6 +226,13 @@ class DjangoApiClient {
 
   public getBaseUrl(): string {
     return this.baseUrl;
+  }
+
+  public async createAudioSpaceToken(roomName: string, canPublish = false): Promise<AudioSpaceTokenResponse> {
+    return this.request<AudioSpaceTokenResponse>('/audio-spaces/token/', {
+      method: 'POST',
+      body: JSON.stringify({ room_name: roomName, can_publish: canPublish }),
+    });
   }
 
   // Auth Token Management

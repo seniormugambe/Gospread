@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     ChangePasswordView, ChurchEventViewSet, ChurchViewSet, CommunityPostViewSet, DonationViewSet, GivingFundViewSet,
-    GospreadTokenView, HealthCheckView, LiveStreamViewSet, LogoutView, MeView,
+    AudioSpaceTokenView, GospreadTokenView, HealthCheckView, LiveStreamViewSet, LogoutView, MeView,
     PrayerRequestViewSet, RandomScriptureView, SavedSermonViewSet, SermonShortViewSet,
     SermonViewSet, SignupView, StreakCheckinView, WatchProgressViewSet, WorshipSongViewSet,
 )
@@ -24,6 +24,7 @@ router.register("progress", WatchProgressViewSet, basename="progress")
 
 urlpatterns = [
     path("health/", HealthCheckView.as_view(), name="health"),
+    path("audio-spaces/token/", AudioSpaceTokenView.as_view(), name="audio-space-token"),
 
     # Primary auth endpoints (canonical)
     path("auth/signup/", SignupView.as_view(), name="signup"),

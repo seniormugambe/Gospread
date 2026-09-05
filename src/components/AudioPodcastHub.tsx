@@ -28,6 +28,7 @@ import { djangoApi } from '../services/djangoApi';
 import { youtubeApi } from '../services/youtubeApi';
 import { GivingTarget } from './GivingModal';
 import { ActiveAudioSpace } from './AudioSpaceStudio';
+import { Room, RoomEvent, RemoteTrack } from 'livekit-client';
 
 interface AudioPodcastHubProps {
   currentTrack?: AudioTrack | null;
@@ -57,8 +58,46 @@ export default function AudioPodcastHub({
   const [audioList, setAudioList] = useState<AudioTrack[]>([]);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [downloadedIds, setDownloadedIds] = useState<string[]>([]);
+  const [isJoiningAudioSpace, setIsJoiningAudioSpace] = useState(false);
+  const [audioSpaceError, setAudioSpaceError] = useState('');
+  const listenerRoomRef = React.useRef<Room | null>(null);
+  const audioElementsRef = React.useRef<HTMLAudioElement[]>([]);
 
   const subCategories = ['All', 'Podcast', '24/7 Gospel Radio', 'Audio Sermon', 'Devotional', 'Praise & Worship'];
+
+  useEffect(() => () => {
+    listenerRoomRef.current?.disconnect();
+    audioElementsRef.current.forEach(element => element.remove());
+  }, []);
+
+  const joinAudioSpace = async () => {
+    if (!activeAudioSpace?.roomName || isJoiningAudioSpace) return;
+    setAudioSpaceError('');
+    setIsJoiningAudioSpace(true);
+    try {
+      const tokenData = await djangoApi.createAudioSpaceToken(activeAudioSpace.roomName);
+      const room = new Room();
+      const playTrack = (track: RemoteTrack) => {
+        const element = track.attach();
+        element.autoplay = true;
+        document.body.appendChild(element);
+        audioElementsRef.current.push(element);
+      };
+      room.on(RoomEvent.TrackSubscribed, (track) => playTrack(track));
+      await room.connect(tokenData.server_url, tokenData.participant_token);
+      room.remoteParticipants.forEach(participant => {
+        participant.trackPublications.forEach(publication => {
+          if (publication.track) playTrack(publication.track);
+        });
+      });
+      listenerRoomRef.current = room;
+      onJoinAudioSpace?.();
+    } catch (error) {
+      setAudioSpaceError(error instanceof Error ? error.message : 'Could not join this Audio Space.');
+    } finally {
+      setIsJoiningAudioSpace(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -113,13 +152,14 @@ export default function AudioPodcastHub({
   return (
     <div className="space-y-6 pb-28">
       {activeAudioSpace && (
-        <button onClick={onJoinAudioSpace} className="w-full rounded-2xl border border-fuchsia-400/40 bg-gradient-to-r from-fuchsia-950/70 via-slate-900 to-slate-900 p-4 text-left shadow-lg shadow-fuchsia-950/20 transition hover:border-fuchsia-300/70">
+        <button onClick={joinAudioSpace} className="w-full rounded-2xl border border-fuchsia-400/40 bg-gradient-to-r from-fuchsia-950/70 via-slate-900 to-slate-900 p-4 text-left shadow-lg shadow-fuchsia-950/20 transition hover:border-fuchsia-300/70">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0"><div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-fuchsia-300"><span className="h-2 w-2 animate-pulse rounded-full bg-fuchsia-400" /> Live Audio Space</div><h2 className="truncate text-sm font-black text-white">{activeAudioSpace.title}</h2><p className="mt-1 truncate text-xs text-slate-400">Hosted by {activeAudioSpace.hostName} · {activeAudioSpace.ministryName}</p></div>
-            <span className="shrink-0 rounded-full bg-fuchsia-500 px-3 py-2 text-xs font-black text-white">Join live</span>
+            <span className="shrink-0 rounded-full bg-fuchsia-500 px-3 py-2 text-xs font-black text-white">{isJoiningAudioSpace ? 'Connecting...' : 'Join live'}</span>
           </div>
         </button>
       )}
+      {audioSpaceError && <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs font-bold text-rose-300">{audioSpaceError}</p>}
       {/* 🚀 FEATURED PODCAST BANNER */}
       {featuredTrack ? (
         <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-amber-950/80 via-slate-900 to-slate-950 border border-amber-500/30 p-6 sm:p-8 shadow-2xl">

@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.db.models import Count, DecimalField, Q, Sum, Value
 from django.db.models.functions import Coalesce
+from django.conf import settings
 from django.utils import timezone
 from django.utils.dateformat import format as date_format
 from rest_framework import generics, permissions, status, viewsets
@@ -8,6 +9,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
+from livekit import api as livekit_api
 from .models import Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund, LiveStream, PaymentGatewayCheckout, PrayerComment, PrayerRequest, Scripture, SavedSermon, Sermon, SermonShort, WatchProgress, WorshipSong
 from .permissions import IsPastorOwnerOrReadOnly
 from .serializers import (
@@ -150,6 +152,28 @@ class HealthCheckView(generics.GenericAPIView):
                 "timestamp": timezone.now(),
             }
         )
+
+
+class AudioSpaceTokenView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        room_name = str(request.data.get("room_name", "")).strip()
+        can_publish = bool(request.data.get("can_publish", False))
+        if not room_name:
+            return Response({"room_name": ["This field is required."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        livekit_url = getattr(settings, "LIVEKIT_URL", "")
+        api_key = getattr(settings, "LIVEKIT_API_KEY", "")
+        api_secret = getattr(settings, "LIVEKIT_API_SECRET", "")
+        if not livekit_url or not api_key or not api_secret:
+            return Response({"detail": "LiveKit is not configured on the backend."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        identity = f"user-{request.user.id}"
+        token = livekit_api.AccessToken(api_key, api_secret).with_identity(identity).with_name(
+            request.user.get_full_name() or request.user.username
+        ).with_grants(livekit_api.VideoGrants(room_join=True, room=room_name, can_publish=can_publish, can_subscribe=True))
+        return Response({"server_url": livekit_url, "participant_token": token.to_jwt(), "room_name": room_name})
 
 
 class ChurchViewSet(viewsets.ModelViewSet):
