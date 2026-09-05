@@ -27,6 +27,7 @@ import { AudioTrack } from '../data/gospelData';
 import { djangoApi } from '../services/djangoApi';
 import { youtubeApi } from '../services/youtubeApi';
 import { GivingTarget } from './GivingModal';
+import { ActiveAudioSpace } from './AudioSpaceStudio';
 
 interface AudioPodcastHubProps {
   currentTrack?: AudioTrack | null;
@@ -36,6 +37,8 @@ interface AudioPodcastHubProps {
   queuedTrackIds: string[];
   onOpenGivingModal: (target: GivingTarget) => void;
   onOpenChannelProfile?: (channelName: string) => void;
+  activeAudioSpace?: ActiveAudioSpace | null;
+  onJoinAudioSpace?: () => void;
 }
 
 export default function AudioPodcastHub({
@@ -45,7 +48,9 @@ export default function AudioPodcastHub({
   onAddToQueue,
   queuedTrackIds,
   onOpenGivingModal,
-  onOpenChannelProfile
+  onOpenChannelProfile,
+  activeAudioSpace,
+  onJoinAudioSpace
 }: AudioPodcastHubProps) {
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -107,6 +112,14 @@ export default function AudioPodcastHub({
 
   return (
     <div className="space-y-6 pb-28">
+      {activeAudioSpace && (
+        <button onClick={onJoinAudioSpace} className="w-full rounded-2xl border border-fuchsia-400/40 bg-gradient-to-r from-fuchsia-950/70 via-slate-900 to-slate-900 p-4 text-left shadow-lg shadow-fuchsia-950/20 transition hover:border-fuchsia-300/70">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0"><div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-fuchsia-300"><span className="h-2 w-2 animate-pulse rounded-full bg-fuchsia-400" /> Live Audio Space</div><h2 className="truncate text-sm font-black text-white">{activeAudioSpace.title}</h2><p className="mt-1 truncate text-xs text-slate-400">Hosted by {activeAudioSpace.hostName} · {activeAudioSpace.ministryName}</p></div>
+            <span className="shrink-0 rounded-full bg-fuchsia-500 px-3 py-2 text-xs font-black text-white">Join live</span>
+          </div>
+        </button>
+      )}
       {/* 🚀 FEATURED PODCAST BANNER */}
       {featuredTrack ? (
         <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-amber-950/80 via-slate-900 to-slate-950 border border-amber-500/30 p-6 sm:p-8 shadow-2xl">

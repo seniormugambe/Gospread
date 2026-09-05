@@ -34,6 +34,7 @@ import { DISCOVER_MINISTRIES } from './DiscoverMinistriesHub';
 import StreamingVideoCard from './StreamingVideoCard';
 import { UserSession } from './AuthModal';
 import { WatchHistoryItem } from './WatchHistoryView';
+import { ActiveAudioSpace } from './AudioSpaceStudio';
 
 interface KingdomHomeFeedProps {
   videoStreams: VideoStream[];
@@ -57,6 +58,8 @@ interface KingdomHomeFeedProps {
   shorts?: VideoStream[];
   watchHistory?: WatchHistoryItem[];
   onRemoveWatchHistory?: (videoId: string) => void;
+  activeAudioSpace?: ActiveAudioSpace | null;
+  onJoinAudioSpace?: () => void;
 }
 
 // Curated scheduled upcoming broadcasts from partner sanctuaries
@@ -129,6 +132,8 @@ export default function KingdomHomeFeed({
   shorts = [],
   watchHistory = [],
   onRemoveWatchHistory = () => {},
+  activeAudioSpace,
+  onJoinAudioSpace = () => {},
 }: KingdomHomeFeedProps) {
   // Mode: Guest vs Returning Logged-in Viewer
   const isActuallyLoggedIn = Boolean(
@@ -231,18 +236,6 @@ export default function KingdomHomeFeed({
   const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date());
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-
-  // Hero Live Stream
-  const heroLiveStream =
-    (viewingMode === 'returning' && yourChurchesLive.length > 0
-      ? yourChurchesLive[0]
-      : liveStreams[0] || safeVideos[0] || LIVE_VIDEO_STREAMS[0]) || LIVE_VIDEO_STREAMS[0];
-
-  const heroViewers = heroLiveStream?.viewersCount
-    ? heroLiveStream.viewersCount >= 1000
-      ? `${(heroLiveStream.viewersCount / 1000).toFixed(1)}K watching`
-      : `${heroLiveStream.viewersCount} watching`
-    : '2.4K watching';
 
   const liveRadioTrack: AudioTrack =
     safeAudio.find((a) => a?.isLiveRadio || a?.category === '24/7 Gospel Radio') ||
@@ -933,6 +926,14 @@ export default function KingdomHomeFeed({
 
   return (
     <div className="space-y-10 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {activeAudioSpace && (
+        <button onClick={onJoinAudioSpace} className="mt-4 w-full rounded-3xl border border-fuchsia-400/40 bg-gradient-to-r from-fuchsia-950/80 via-slate-900 to-slate-900 p-5 text-left shadow-xl shadow-fuchsia-950/20 transition hover:border-fuchsia-300/70">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0"><div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-fuchsia-300"><span className="h-2 w-2 animate-pulse rounded-full bg-fuchsia-400" /> Happening now · Audio Space</div><h2 className="truncate text-lg font-black text-white">{activeAudioSpace.title}</h2><p className="mt-1 truncate text-xs text-slate-400">{activeAudioSpace.topic || 'Live voice conversation'} · Hosted by {activeAudioSpace.hostName}</p></div>
+            <span className="inline-flex shrink-0 items-center justify-center rounded-full bg-fuchsia-500 px-5 py-2.5 text-xs font-black text-white">Join conversation</span>
+          </div>
+        </button>
+      )}
       {/* ========================================================================= */}
       {/* HEADER & VIEW SWITCHER (GUEST VS RETURNING VIEWER)                        */}
       {/* ========================================================================= */}
@@ -997,83 +998,41 @@ export default function KingdomHomeFeed({
       </section>
 
       {/* ========================================================================= */}
-      {/* 🔴 HERO WIDESCREEN SPOTLIGHT                                              */}
+      {/* 🎙️ ACTIVE AUDIO SPACES                                                    */}
       {/* ========================================================================= */}
-      {(selectedFilter === 'All' || selectedFilter === 'Live') && heroLiveStream && (
-        <section className="relative rounded-3xl overflow-hidden bg-slate-950 border border-slate-800/80 shadow-2xl group">
-          <div className="relative aspect-[21/9] sm:aspect-[24/9] md:aspect-[21/8] w-full max-h-[440px] overflow-hidden">
-            <img
-              src={heroLiveStream.thumbnail || ''}
-              alt={heroLiveStream.title || 'Live Stream'}
-              referrerPolicy="no-referrer"
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/40 to-transparent" />
-
-            {/* Top Live Badge */}
-            <div className="absolute top-4 left-4 sm:top-6 sm:left-6 flex items-center gap-2">
-              <span className="px-3 py-1 rounded-md bg-red-600 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-red-600/30">
-                <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-                {viewingMode === 'returning' && yourChurchesLive.length > 0
-                  ? 'YOUR CHURCH IS LIVE'
-                  : 'LIVE NOW'}
-              </span>
-              {heroLiveStream.seriesName && (
-                <span className="px-2.5 py-1 rounded-md bg-black/60 backdrop-blur-md text-amber-300 text-xs font-semibold">
-                  {heroLiveStream.seriesName}
-                </span>
-              )}
-            </div>
-
-            {/* Bottom Meta */}
-            <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
-              <div className="max-w-2xl space-y-2">
-                <div
-                  onClick={() => onOpenChannelModal(heroLiveStream.churchOrMinistry)}
-                  className="flex items-center gap-2 cursor-pointer group/min hover:text-amber-400 transition"
-                >
-                  <img
-                    src={heroLiveStream.channelAvatar || ''}
-                    alt={heroLiveStream.churchOrMinistry || 'Sanctuary'}
-                    className="w-8 h-8 rounded-full object-cover ring-2 ring-amber-400/60"
-                  />
-                  <span className="text-sm font-bold text-amber-300 group-hover/min:text-amber-200 flex items-center gap-1">
-                    {heroLiveStream.churchOrMinistry}
-                    <CheckCircle2 className="w-4 h-4 text-amber-400 fill-amber-400/20" />
-                  </span>
-                </div>
-
-                <h1
-                  onClick={() => onSelectVideo(heroLiveStream)}
-                  className="text-xl sm:text-2xl md:text-3xl font-black text-white font-serif tracking-tight leading-snug cursor-pointer hover:text-amber-200 transition"
-                >
-                  {decodeHtml(heroLiveStream.title || 'Live Worship Broadcast')}
-                </h1>
-
-                <div className="flex items-center gap-3 text-xs text-slate-300">
-                  <span className="flex items-center gap-1 font-semibold text-emerald-400">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Verified Sanctuary
-                  </span>
-                  <span>•</span>
-                  <span className="text-amber-300 font-mono font-bold">{heroViewers}</span>
-                </div>
+      {(selectedFilter === 'All' || selectedFilter === 'Live') && (
+        <section className="rounded-3xl border border-fuchsia-500/20 bg-slate-950/55 px-4 py-5 sm:px-6 shadow-xl shadow-fuchsia-950/10">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-fuchsia-400" />
+                <h2 className="text-base font-black text-white sm:text-lg">Audio Spaces</h2>
+                {activeAudioSpace && <span className="rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-[10px] font-black uppercase text-fuchsia-300">Live now</span>}
               </div>
-
-              {/* Action Button */}
-              <div className="flex items-center gap-3 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => onSelectVideo(heroLiveStream)}
-                  className="px-6 py-3 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-sm transition flex items-center gap-2 shadow-xl shadow-red-600/30 hover:scale-[1.02] active:scale-95"
-                >
-                  <Play className="w-4 h-4 fill-white" />
-                  <span>WATCH SERVICE</span>
-                </button>
-              </div>
+              <p className="mt-1 text-xs text-slate-400">Live voice conversations from ministries and believers</p>
             </div>
+            <Headphones className="h-5 w-5 shrink-0 text-fuchsia-300" />
           </div>
+
+          {activeAudioSpace ? (
+            <div className="flex gap-5 overflow-x-auto pb-1 scrollbar-none">
+              <button onClick={onJoinAudioSpace} className="group flex min-w-[116px] flex-col items-center gap-2 text-center">
+                <span className="relative rounded-full bg-gradient-to-br from-fuchsia-400 via-rose-500 to-amber-400 p-[3px] shadow-lg shadow-fuchsia-500/25 transition group-hover:scale-105">
+                  <span className="absolute -right-1 top-2 h-3 w-3 rounded-full border-2 border-slate-950 bg-emerald-400" />
+                  <span className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-900 text-xl font-black text-fuchsia-200 ring-4 ring-fuchsia-400/15">
+                    {(activeAudioSpace.hostName || 'A').slice(0, 1).toUpperCase()}
+                  </span>
+                </span>
+                <span className="max-w-[116px] truncate text-xs font-black text-white group-hover:text-fuchsia-300">{activeAudioSpace.hostName}</span>
+                <span className="max-w-[116px] truncate text-[10px] text-slate-400">{activeAudioSpace.title}</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-800 px-4 py-4 text-xs text-slate-500">
+              <Headphones className="h-5 w-5 text-slate-600" />
+              <span>No Audio Spaces are live right now. Start a conversation from Creator Studio.</span>
+            </div>
+          )}
         </section>
       )}
 

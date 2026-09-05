@@ -83,13 +83,15 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream, ChurchLocation, SocialLink, registerChurchProfile } from '../data/gospelData';
+import { djangoApi } from '../services/djangoApi';
 import { UserSession } from './AuthModal';
 import LiveControlRoom from './LiveControlRoom';
 import LiveRecordingVODModal, { RecordedStreamData } from './LiveRecordingVODModal';
 import KingdomStudioSections from './KingdomStudioSections';
+import AudioSpaceStudio, { ActiveAudioSpace } from './AudioSpaceStudio';
 
 export type CreatorCategory = 'Church' | 'Artiste' | 'Creator' | 'Radio';
-export type StudioAction = 'choose' | 'upload' | 'live' | 'schedule' | 'live_control_room' | 'dashboard' | 'content' | 'analytics' | 'community' | 'giving' | 'settings';
+export type StudioAction = 'choose' | 'upload' | 'live' | 'audio_space' | 'schedule' | 'live_control_room' | 'dashboard' | 'content' | 'analytics' | 'community' | 'giving' | 'settings';
 export type UploadStep = 'select' | 'uploading' | 'processing' | 'details' | 'thumbnail' | 'visibility' | 'publish';
 export type UploadMode = 'device' | 'url' | 'youtube';
 export type LiveBroadcastType = 'Sunday Service' | 'Bible Study' | 'Prayer' | 'Worship' | 'Conference' | 'Other';
@@ -183,6 +185,8 @@ export interface CreatePageProps {
   initialUploadSource?: UploadMode;
   onPublishSuccess: (newStream: VideoStream) => void;
   onCancel: () => void;
+  activeAudioSpace?: ActiveAudioSpace | null;
+  onAudioSpaceChange?: (space: ActiveAudioSpace | null) => void;
   theme?: 'light' | 'dark';
 }
 
@@ -282,6 +286,7 @@ export default function CreatePage({
   initialUploadSource = 'device',
   onPublishSuccess, 
   onCancel,
+  onAudioSpaceChange,
   theme = 'dark'
 }: CreatePageProps) {
   const isLight = theme === 'light';
@@ -343,13 +348,13 @@ export default function CreatePage({
   const [copiedKey, setCopiedKey] = useState(false);
 
   // Active Ministry / Account Details
-  const ministryName = currentUser?.ministryName || currentUser?.churchName || 'Grace City Cathedral';
-  const ownerName = currentUser?.fullName || 'Senior Pastor David Lawson';
-  const avatarUrl = currentUser?.avatarUrl || currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80';
+  const ministryName = currentUser?.ministryName || currentUser?.churchName || 'Your Ministry';
+  const ownerName = currentUser?.fullName || currentUser?.username || 'Account Owner';
+  const avatarUrl = currentUser?.avatarUrl || currentUser?.avatar || '';
 
   // Common Fields
-  const [contactEmail, setContactEmail] = useState(currentUser?.email || 'broadcast@gracecity.org');
-  const [phoneNumber, setPhoneNumber] = useState('+1 (800) 555-7700');
+  const [contactEmail, setContactEmail] = useState(currentUser?.email || '');
+  const [phoneNumber, setPhoneNumber] = useState('');
 
   // -------------------------------------------------------------
   // 📤 1. UPLOAD VIDEO MULTI-STEP WORKFLOW STATE
@@ -368,7 +373,7 @@ export default function CreatePage({
   const [uploadProgressPercent, setUploadProgressPercent] = useState(0);
   const [uploadedBytes, setUploadedBytes] = useState(0);
   const [totalBytes, setTotalBytes] = useState(1.8 * 1024 * 1024 * 1024); // default ~1.8 GB
-  const [uploadSpeed, setUploadSpeed] = useState('18.4 MB/s');
+  const [uploadSpeed, setUploadSpeed] = useState('');
   const [isUploadPaused, setIsUploadPaused] = useState(false);
 
   // Video processing stages state
@@ -376,29 +381,25 @@ export default function CreatePage({
   const [processingStepIndex, setProcessingStepIndex] = useState(0);
 
   // Video Details form state (Step 4)
-  const [uploadTitle, setUploadTitle] = useState('Sunday Worship Service — Walking by Faith');
-  const [uploadDescription, setUploadDescription] = useState('Join us for today\'s worship service uncovering biblical revelation, powerful intercession, and how faith anchors the believer in all seasons.');
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadDescription, setUploadDescription] = useState('');
   const [uploadSpeaker, setUploadSpeaker] = useState(ownerName);
   const [uploadMinistry, setUploadMinistry] = useState(ministryName);
   const [uploadCategory, setUploadCategory] = useState<'Sermons' | 'Worship & Praise' | 'Bible Study' | 'Gospel Music' | 'Youth & Family' | 'Healing & Miracles'>('Sermons');
-  const [tagsInput, setTagsInput] = useState('faith, prayer, worship, sunday-service, grace');
-  const [uploadScripture, setUploadScripture] = useState('Isaiah 40:31');
-  const [keyTakeaways, setKeyTakeaways] = useState<string[]>([
-    'Trust God during difficult seasons and rely on His sovereign timing.',
-    'Renew your faith daily through intentional scripture prayer and fellowship.',
-    'Wait upon the Lord and your strength will be miraculously renewed.'
-  ]);
+  const [tagsInput, setTagsInput] = useState('');
+  const [uploadScripture, setUploadScripture] = useState('');
+  const [keyTakeaways, setKeyTakeaways] = useState<string[]>([]);
   const [newTakeawayInput, setNewTakeawayInput] = useState('');
   
   // 🖼️ Step 5: Thumbnail Studio State
-  const [uploadThumbnail, setUploadThumbnail] = useState('https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80');
+  const [uploadThumbnail, setUploadThumbnail] = useState('');
   const [thumbnailMode, setThumbnailMode] = useState<'ai' | 'frames' | 'upload'>('ai');
   const [selectedFrameIndex, setSelectedFrameIndex] = useState(0);
   const [selectedAiPresetId, setSelectedAiPresetId] = useState('cathedral_gold');
-  const [aiOverlayTitle, setAiOverlayTitle] = useState('WALKING BY FAITH');
-  const [aiOverlaySpeaker, setAiOverlaySpeaker] = useState('Pastor John');
-  const [aiOverlayMinistry, setAiOverlayMinistry] = useState('Grace City Cathedral');
-  const [aiOverlayVerse, setAiOverlayVerse] = useState('ISAIAH 40:31');
+  const [aiOverlayTitle, setAiOverlayTitle] = useState('');
+  const [aiOverlaySpeaker, setAiOverlaySpeaker] = useState(ownerName);
+  const [aiOverlayMinistry, setAiOverlayMinistry] = useState(ministryName);
+  const [aiOverlayVerse, setAiOverlayVerse] = useState('');
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [aiAppliedSuccess, setAiAppliedSuccess] = useState(false);
   const [customThumbnailInput, setCustomThumbnailInput] = useState('');
@@ -426,12 +427,12 @@ export default function CreatePage({
   const [liveSetupStep, setLiveSetupStep] = useState<'setup' | 'credentials'>('setup');
   
   // What are you broadcasting? options: 'Sunday Service' | 'Bible Study' | 'Prayer' | 'Worship' | 'Conference' | 'Other'
-  const [broadcastType, setBroadcastType] = useState<LiveBroadcastType>('Sunday Service');
-  const [liveTitle, setLiveTitle] = useState('Sunday Morning Celebration Service & Prophetic Worship');
-  const [liveDescription, setLiveDescription] = useState('Join our live church congregation now for an anointed atmosphere of worship, intercession, and the revelatory Word.');
-  const [liveCategory, setLiveCategory] = useState<string>('Live Worship');
+  const [broadcastType, setBroadcastType] = useState<LiveBroadcastType>('Other');
+  const [liveTitle, setLiveTitle] = useState('');
+  const [liveDescription, setLiveDescription] = useState('');
+  const [liveCategory, setLiveCategory] = useState<string>('');
   const [liveSpeaker, setLiveSpeaker] = useState(ownerName);
-  const [liveScripture, setLiveScripture] = useState('Isaiah 40:29-31');
+  const [liveScripture, setLiveScripture] = useState('');
 
   // Gospread Generated Live-Stream Credentials (RTMPS & Stream Key)
   const [rtmpServerUrl, setRtmpServerUrl] = useState('rtmps://live.gospread.com/live');
@@ -454,7 +455,7 @@ export default function CreatePage({
   const [enableGivingOverlay, setEnableGivingOverlay] = useState(true);
 
   // 📅 3. SCHEDULE BROADCAST STATE (Future release)
-  const [scheduleTitle, setScheduleTitle] = useState('Midweek Word & Power Encounter');
+  const [scheduleTitle, setScheduleTitle] = useState('');
   const [scheduleSpeaker, setScheduleSpeaker] = useState(ownerName);
   const [scheduleDate, setScheduleDate] = useState(() => {
     const d = new Date();
@@ -464,8 +465,8 @@ export default function CreatePage({
   const [scheduleTime, setScheduleTime] = useState('19:00');
   const [scheduleTimezone, setScheduleTimezone] = useState('EST (UTC-5)');
   const [scheduleType, setScheduleType] = useState<'Live Broadcast Premiere' | 'Prerecorded Video Premiere' | 'Prayer Summit'>('Live Broadcast Premiere');
-  const [scheduleScripture, setScheduleScripture] = useState('Romans 8:28');
-  const [scheduleDescription, setScheduleDescription] = useState('Set your reminder! Join believers worldwide for this scheduled Kingdom broadcast and communion.');
+  const [scheduleScripture, setScheduleScripture] = useState('');
+  const [scheduleDescription, setScheduleDescription] = useState('');
   const [notifySubscribers, setNotifySubscribers] = useState(true);
 
   // 🎛️ STUDIO COCKPIT & QUICK ACTION STATE
@@ -474,104 +475,33 @@ export default function CreatePage({
   const [copiedOverviewRtmp, setCopiedOverviewRtmp] = useState(false);
   const [copiedOverviewKey, setCopiedOverviewKey] = useState(false);
   const [overviewShowKey, setOverviewShowKey] = useState(false);
-  const [overviewSimulatedSignal, setOverviewSimulatedSignal] = useState(true);
+  const [overviewSimulatedSignal, setOverviewSimulatedSignal] = useState(false);
   const [scheduledPremiereReminded, setScheduledPremiereReminded] = useState(false);
 
   // 💳 GIVING & PAYOUT ACCOUNTS STATE
-  const [payoutAccounts, setPayoutAccounts] = useState<PayoutAccountItem[]>([
-    {
-      id: 'payout-1',
-      label: 'Main Tithes & Offerings',
-      type: 'Direct Bank Wire',
-      currency: 'USD ($)',
-      accountHolder: ministryName,
-      bankOrProvider: 'Kingdom Sanctuary Trust',
-      accountNumber: '•••• 8829',
-      routingOrSwift: 'WFBIUS6S',
-      isPrimary: true
-    },
-    {
-      id: 'payout-2',
-      label: 'Global Missions & Media Outreach',
-      type: 'Stripe Connect',
-      currency: 'USD ($)',
-      accountHolder: `${ministryName} Missions`,
-      bankOrProvider: 'Stripe Connect',
-      accountNumber: 'acct_1KingdomMissions',
-      routingOrSwift: 'STRIPE_GLOBAL',
-      isPrimary: false
-    }
-  ]);
+  const [payoutAccounts, setPayoutAccounts] = useState<PayoutAccountItem[]>([]);
 
   // 🌐 SOCIAL MEDIA CHANNELS STATE
-  const [socialRows, setSocialRows] = useState<SocialPlatformRow[]>([
-    {
-      id: 'soc-youtube',
-      platform: 'youtube',
-      name: 'YouTube',
-      prefix: 'youtube.com/@',
-      placeholder: 'channel handle',
-      username: ministryName.toLowerCase().replace(/[^a-z0-9]/g, '')
-    },
-    {
-      id: 'soc-instagram',
-      platform: 'instagram',
-      name: 'Instagram',
-      prefix: 'instagram.com/',
-      placeholder: 'your username',
-      username: ministryName.toLowerCase().replace(/[^a-z0-9]/g, '')
-    },
-    {
-      id: 'soc-website',
-      platform: 'website',
-      name: 'Official Ministry Website',
-      prefix: 'https://',
-      placeholder: 'www.gracechurch.org',
-      username: `www.${ministryName.toLowerCase().replace(/[^a-z0-9]/g, '')}.org`
-    }
-  ]);
+  const [socialRows, setSocialRows] = useState<SocialPlatformRow[]>([]);
 
   // ⛪ CHURCH CAMPUSES / LOCATIONS
-  const [enableCampuses, setEnableCampuses] = useState(true);
-  const [churchCampuses, setChurchCampuses] = useState<ChurchCampusItem[]>([
-    {
-      id: 'camp-main',
-      campusName: `${ministryName} Main Sanctuary`,
-      campusType: 'Main Sanctuary',
-      address: '777 Grace Boulevard, Suite 100',
-      city: 'Atlanta',
-      stateOrRegion: 'GA',
-      country: 'United States',
-      zipCode: '30303',
-      serviceTimes: 'Sundays: 9:00 AM & 11:30 AM EST • Midweek: Weds 7:00 PM',
-      leadPastor: ownerName,
-      phone: phoneNumber,
-      email: contactEmail,
-      googleMapsUrl: `https://maps.google.com/?q=${encodeURIComponent(ministryName + ' Atlanta GA')}`,
-      isMain: true
-    }
-  ]);
+  const [enableCampuses, setEnableCampuses] = useState(false);
+  const [churchCampuses, setChurchCampuses] = useState<ChurchCampusItem[]>([]);
 
   // Prayer Wall Items
-  const [prayerRequests, setPrayerRequests] = useState<PrayerRequest[]>([
-    {
-      id: 'p-1',
-      name: 'Sister Mary (London)',
-      request: 'Praying for complete healing for my mother during upcoming surgery.',
-      time: '10 mins ago',
-      prayedCount: 14,
-      status: 'Prayed'
-    },
-    {
-      id: 'p-2',
-      name: 'Brother Emmanuel (Nairobi)',
-      request: 'Seeking guidance and favor for gospel mission outreach this weekend.',
-      time: '25 mins ago',
-      prayedCount: 8,
-      status: 'Pending'
-    }
-  ]);
+  const [prayerRequests, setPrayerRequests] = useState<PrayerRequest[]>([]);
   const [newPrayerInput, setNewPrayerInput] = useState('');
+  const [latestSermon, setLatestSermon] = useState<VideoStream | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    djangoApi.getVideos(undefined, false).then(videos => {
+      if (active) setLatestSermon(videos[0] || null);
+    }).catch(() => {
+      if (active) setLatestSermon(null);
+    });
+    return () => { active = false; };
+  }, []);
 
   // Keep state synchronized with logged in user session
   useEffect(() => {
@@ -581,7 +511,7 @@ export default function CreatePage({
       setScheduleSpeaker(currentUser.fullName);
     }
     if (currentUser?.ministryName || currentUser?.churchName) {
-      setUploadMinistry(currentUser.ministryName || currentUser.churchName || 'Grace City Cathedral');
+      setUploadMinistry(currentUser.ministryName || currentUser.churchName || 'Your Ministry');
     }
   }, [currentUser]);
 
@@ -780,23 +710,6 @@ export default function CreatePage({
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
-  };
-
-  // Quick Mock File Selection for testing/demonstration
-  const handleMockFileSelect = (fileName: string, sizeGb: number) => {
-    const bytes = sizeGb * 1024 * 1024 * 1024;
-    setSelectedFile({
-      name: fileName,
-      sizeFormatted: `${sizeGb.toFixed(1)} GB`,
-      sizeBytes: bytes,
-      type: 'video/mp4'
-    });
-    setTotalBytes(bytes);
-    setUploadedBytes(0);
-    setUploadProgressPercent(0);
-    setProcessingPercent(0);
-    setProcessingStepIndex(0);
-    setUploadStep('uploading');
   };
 
   // Add Key Takeaway
@@ -1057,6 +970,14 @@ export default function CreatePage({
     );
   }
 
+  if (studioAction === 'audio_space') {
+    return (
+      <div className={`creator-studio-portal max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
+        <AudioSpaceStudio currentUser={currentUser} ministryName={ministryName} onBack={() => setStudioAction('choose')} onSpaceChange={onAudioSpaceChange} />
+      </div>
+    );
+  }
+
   return (
     <div className={`creator-studio-portal max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 space-y-6 ${
       isLight ? 'creator-studio-light' : 'creator-studio-dark'
@@ -1107,22 +1028,22 @@ export default function CreatePage({
               <div className="flex items-center gap-3 pt-1 flex-wrap text-[11px]">
                 <div className="flex items-center gap-1 text-slate-300 font-medium">
                   <Users className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="font-bold text-white">18.4K</span> Saints
+                  <span className="font-bold text-white">0</span> Saints
                 </div>
                 <span className="text-slate-700">•</span>
                 <div className="flex items-center gap-1 text-slate-300 font-medium">
                   <Film className="w-3.5 h-3.5 text-sky-400" />
-                  <span className="font-bold text-white">142</span> Sermons & VODs
+                  <span className="font-bold text-white">0</span> Sermons & VODs
                 </div>
                 <span className="text-slate-700">•</span>
                 <div className="flex items-center gap-1 text-slate-300 font-medium">
                   <Compass className="w-3.5 h-3.5 text-purple-400" />
-                  <span className="font-bold text-white">98.2K</span> Watch Hours
+                  <span className="font-bold text-white">0</span> Watch Hours
                 </div>
                 <span className="text-slate-700">•</span>
                 <div className="flex items-center gap-1 text-slate-300 font-medium">
                   <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="font-bold text-emerald-400">$14,850</span> Seed Balance
+                  <span className="font-bold text-emerald-400">$0</span> Seed Balance
                 </div>
               </div>
             </div>
@@ -1140,6 +1061,14 @@ export default function CreatePage({
               <span className="w-2 h-2 rounded-full bg-white animate-ping" />
               <RadioTower className="w-3.5 h-3.5" />
               <span>Go Live</span>
+            </button>
+
+            <button
+              onClick={() => setStudioAction('audio_space')}
+              className="px-3.5 py-2 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-black text-xs flex items-center gap-1.5 shadow-lg shadow-fuchsia-600/20 transition active:scale-95 cursor-pointer"
+            >
+              <Mic className="w-3.5 h-3.5" />
+              <span>Audio Space</span>
             </button>
 
             <button
@@ -1179,11 +1108,11 @@ export default function CreatePage({
             {[
               { id: 'overview', label: 'Overview', icon: RadioTower },
               { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-              { id: 'content', label: 'Content', count: '142', icon: Film },
+              { id: 'content', label: 'Content', count: String(latestSermon ? 1 : 0), icon: Film },
               { id: 'live_hub', label: 'Live Hub', badge: 'LIVE', icon: Video },
               { id: 'schedule_hub', label: 'Schedule', icon: Calendar },
               { id: 'analytics', label: 'Analytics', icon: Compass },
-              { id: 'community', label: 'Community', count: '348', icon: MessageSquare },
+              { id: 'community', label: 'Community', count: String(prayerRequests.length), icon: MessageSquare },
               { id: 'giving', label: 'Giving & Partners', icon: DollarSign },
               { id: 'settings', label: 'Ministry Settings', icon: Settings },
             ].map((item) => {
@@ -1274,6 +1203,17 @@ export default function CreatePage({
                       <p className="font-bold">Go Live Broadcast</p>
                       <p className="text-[10px] text-slate-400">Stream live Sunday service</p>
                     </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsCreateMenuOpen(false);
+                      setStudioAction('audio_space');
+                    }}
+                    className="w-full px-3 py-2 rounded-xl hover:bg-slate-800 text-left text-xs font-bold text-slate-200 hover:text-white flex items-center gap-2.5 transition cursor-pointer"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center"><Mic className="w-4 h-4" /></div>
+                    <div><p className="font-bold">Start Audio Space</p><p className="text-[10px] text-slate-400">Host a voice-first room</p></div>
                   </button>
 
                   <button
@@ -1395,7 +1335,7 @@ export default function CreatePage({
           </div>
 
           {/* Three Big Hero Action Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
             
             {/* OPTION 1: 📤 UPLOAD VIDEO */}
             <motion.button
@@ -1492,7 +1432,39 @@ export default function CreatePage({
               </div>
             </motion.button>
 
-            {/* OPTION 3: 📅 SCHEDULE */}
+            {/* OPTION 3: 🎙️ AUDIO SPACE */}
+            <motion.button
+              whileHover={{ scale: 1.015, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setStudioAction('audio_space')}
+              className="p-6 rounded-3xl bg-gradient-to-b from-[#1c1c1c] via-[#161616] to-[#101010] border border-slate-800 hover:border-fuchsia-500/60 transition-all text-left group shadow-xl flex flex-col justify-between h-full relative overflow-hidden cursor-pointer"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center group-hover:bg-fuchsia-500 group-hover:text-white transition-colors shadow-lg">
+                    <Mic className="w-6 h-6" />
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full bg-fuchsia-500/10 text-fuchsia-300 border border-fuchsia-500/20 text-[10px] font-bold uppercase tracking-wider">
+                    Voice-first
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className="text-lg font-black text-white group-hover:text-fuchsia-300 transition-colors flex items-center gap-2">
+                    <span>🎙️ Audio Space</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Host a live voice conversation for prayer, Bible study, Q&amp;A, or ministry updates.
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
+                  <div className="text-[11px] text-slate-400 flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" /><span>Browser microphone host controls</span></div>
+                  <div className="text-[11px] text-slate-400 flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" /><span>Listeners and co-hosts when connected</span></div>
+                </div>
+              </div>
+              <div className="mt-6 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs font-bold text-fuchsia-400 group-hover:text-fuchsia-300"><span>Start Audio Space</span><ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" /></div>
+            </motion.button>
+
+            {/* OPTION 4: 📅 SCHEDULE */}
             <motion.button
               whileHover={{ scale: 1.015, y: -2 }}
               whileTap={{ scale: 0.98 }}
@@ -1680,10 +1652,10 @@ export default function CreatePage({
                 <span className="font-bold">Congregation Reach</span>
                 <Eye className="w-4 h-4 text-amber-400" />
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-white">92,450</p>
+              <p className="text-2xl sm:text-3xl font-black text-white">0</p>
               <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-bold">
                 <TrendingUp className="w-3.5 h-3.5" />
-                <span>+14.2% this week</span>
+                <span>No reach data loaded</span>
               </div>
             </div>
 
@@ -1692,10 +1664,10 @@ export default function CreatePage({
                 <span className="font-bold">Broadcast Watch Hours</span>
                 <Compass className="w-4 h-4 text-sky-400" />
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-white">14,820</p>
+              <p className="text-2xl sm:text-3xl font-black text-white">0</p>
               <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-bold">
                 <TrendingUp className="w-3.5 h-3.5" />
-                <span>+22.5% vs last month</span>
+                <span>No watch data loaded</span>
               </div>
             </div>
 
@@ -1704,9 +1676,9 @@ export default function CreatePage({
                 <span className="font-bold">Kingdom Seed Balance</span>
                 <DollarSign className="w-4 h-4 text-emerald-400" />
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-emerald-400">$14,850</p>
+              <p className="text-2xl sm:text-3xl font-black text-emerald-400">$0</p>
               <div className="flex items-center gap-1 text-[11px] text-slate-400">
-                <span>1,420 Active Partners</span>
+                <span>No giving data loaded</span>
               </div>
             </div>
 
@@ -1715,7 +1687,7 @@ export default function CreatePage({
                 <span className="font-bold">Intercession Altar</span>
                 <Heart className="w-4 h-4 text-rose-400" />
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-rose-400">348</p>
+              <p className="text-2xl sm:text-3xl font-black text-rose-400">{prayerRequests.length}</p>
               <div className="flex items-center gap-1 text-[11px] text-slate-400">
                 <span>Prayers standing in agreement</span>
               </div>
@@ -1744,44 +1716,31 @@ export default function CreatePage({
                 </button>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-slate-900/80 p-4 rounded-2xl border border-slate-800">
-                <div className="relative shrink-0 w-full sm:w-44 aspect-video rounded-xl overflow-hidden bg-slate-950">
-                  <img
-                    src="https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=600&q=80"
-                    alt="Walking in Supernatural Revelation"
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-mono text-white">
-                    1:12:45
-                  </span>
-                  <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 font-black text-[9px] uppercase tracking-wider">
-                    4K UHD
-                  </span>
-                </div>
-
-                <div className="space-y-1.5 min-w-0">
-                  <h4 className="text-sm font-bold text-white line-clamp-2">
-                    Walking in Supernatural Revelation & Divine Grace
-                  </h4>
-                  <p className="text-xs text-slate-400">
-                    Ephesians 1:17 • Published Aug 30, 2026
-                  </p>
-                  <div className="flex items-center gap-3 pt-1 text-xs">
-                    <span className="text-white font-bold">12,480 <span className="text-slate-500 font-normal">views</span></span>
-                    <span className="text-emerald-400 font-bold">1,240 <span className="text-slate-500 font-normal">likes</span></span>
-                    <span className="text-amber-400 font-bold">318 <span className="text-slate-500 font-normal">Amens</span></span>
+              {latestSermon ? (
+                <>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-slate-900/80 p-4 rounded-2xl border border-slate-800">
+                    <div className="relative shrink-0 w-full sm:w-44 aspect-video rounded-xl overflow-hidden bg-slate-950">
+                      {latestSermon.thumbnail && <img src={latestSermon.thumbnail} alt={latestSermon.title} referrerPolicy="no-referrer" className="w-full h-full object-cover" />}
+                      {latestSermon.duration && <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-mono text-white">{latestSermon.duration}</span>}
+                    </div>
+                    <div className="space-y-1.5 min-w-0">
+                      <h4 className="text-sm font-bold text-white line-clamp-2">{latestSermon.title}</h4>
+                      <p className="text-xs text-slate-400">{latestSermon.bibleVerse || latestSermon.category} • Published {latestSermon.date}</p>
+                      <div className="flex items-center gap-3 pt-1 text-xs">
+                        <span className="text-white font-bold">{latestSermon.viewsText || '0 views'}</span>
+                      </div>
+                    </div>
                   </div>
+                  <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                    <span>Published content from Django</span>
+                    <span className="text-emerald-400 font-bold flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" />Live data</span>
+                  </div>
+                </>
+              ) : (
+                <div className="p-8 text-center rounded-2xl bg-slate-900/80 border border-slate-800 text-sm text-slate-400">
+                  No published sermons are available for this ministry yet.
                 </div>
-              </div>
-
-              <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
-                <span>Transcoded in 4K, 1080p60, 720p HLS</span>
-                <span className="text-emerald-400 font-bold flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  100% Monetization Active
-                </span>
-              </div>
+              )}
             </div>
 
             {/* Spotlight 2: Live Congregation Prayer Altar Stream */}
@@ -1837,44 +1796,6 @@ export default function CreatePage({
 
           </div>
 
-          {/* UPCOMING SCHEDULED BROADCAST TIMELINE */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-blue-950/20 to-slate-900 border border-blue-500/20 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] font-bold uppercase">
-                  Upcoming Service Premiere
-                </span>
-                <span className="text-xs text-slate-400 font-mono">In 2 days, 14 hours</span>
-              </div>
-              <h3 className="text-sm sm:text-base font-black text-white">
-                First Sunday Anointing Service — Covenant of Preservation
-              </h3>
-              <p className="text-xs text-slate-400">
-                Sunday, Sept 6, 2026 • 9:00 AM EAT • Ministering: Senior Pastor David Lawson
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2.5 self-end sm:self-auto shrink-0">
-              <button
-                onClick={() => setScheduledPremiereReminded(!scheduledPremiereReminded)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                  scheduledPremiereReminded
-                    ? 'bg-emerald-500 text-slate-950 font-black'
-                    : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-                }`}
-              >
-                <Bell className="w-3.5 h-3.5" />
-                <span>{scheduledPremiereReminded ? 'Notification Set' : 'Set Reminder'}</span>
-              </button>
-
-              <button
-                onClick={() => setStudioAction('schedule')}
-                className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition cursor-pointer"
-              >
-                Manage Schedule
-              </button>
-            </div>
-          </div>
 
         </motion.div>
       )}
@@ -2079,29 +2000,6 @@ export default function CreatePage({
                     </div>
                   </div>
 
-                  {/* Sample Files Quick Test Pill (For quick evaluation) */}
-                  <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-xs text-slate-400">
-                      <Info className="w-4 h-4 text-amber-400 shrink-0" />
-                      <span>Testing without a large video file on hand?</span>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => handleMockFileSelect('Gospel Service — Walking by Faith.mp4', 1.8)}
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <span>Load 1.8 GB Demo Sermon</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleMockFileSelect('Youth Praise Night 2026.mp4', 2.4)}
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer"
-                      >
-                        <span>Load 2.4 GB Worship Video</span>
-                      </button>
-                    </div>
-                  </div>
                 </>
               )}
 

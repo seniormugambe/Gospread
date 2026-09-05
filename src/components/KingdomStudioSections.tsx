@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   BarChart3,
   Film,
@@ -50,6 +50,7 @@ import { motion } from 'motion/react';
 import { UserSession } from './AuthModal';
 import { ChurchLocation, SocialLink } from '../data/gospelData';
 import { RecordedStreamData } from './LiveRecordingVODModal';
+import { djangoApi } from '../services/djangoApi';
 
 interface KingdomStudioSectionsProps {
   currentUser?: UserSession;
@@ -104,8 +105,72 @@ export default function KingdomStudioSections({
 }: KingdomStudioSectionsProps) {
   const isLight = theme === 'light';
 
-  // Sample Kingdom Content Library Data
-  const sampleVideos = [
+  const [sampleVideos, setSampleVideos] = useState<any[]>([]);
+  const [sampleShorts, setSampleShorts] = useState<any[]>([]);
+  const [sampleDrafts] = useState<any[]>([]);
+  const [sampleScheduled, setSampleScheduled] = useState<any[]>([]);
+  const [sampleLiveRecordings] = useState<RecordedStreamData[]>([]);
+  const [sampleComments, setSampleComments] = useState<any[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    const loadStudioContent = async () => {
+      const [videos, shorts, streams, posts] = await Promise.all([
+        djangoApi.getVideos(undefined, false),
+        djangoApi.getShorts(),
+        djangoApi.getVideos(),
+        djangoApi.getCommunityPosts()
+      ]);
+      if (!active) return;
+
+      setSampleVideos(videos.map(video => ({
+        ...video,
+        visibility: 'Public',
+        views: video.viewsText || '0',
+        likes: video.likesCount || '0',
+        comments: '0',
+        scripture: video.bibleVerse || '',
+      })));
+      setSampleShorts(shorts.map(short => ({
+        ...short,
+        views: short.viewsText || '0',
+        likes: short.likesCount || '0',
+        shares: '0',
+      })));
+      setSampleScheduled(streams.filter(stream => stream.isLive === false && stream.date !== 'Recent').map(stream => ({
+        ...stream,
+        preacher: stream.speakerOrArtist,
+        status: 'Scheduled',
+      })));
+      setSampleComments(posts.flatMap(post => post.comments.map(comment => ({
+        id: String(comment.id),
+        user: comment.author_name,
+        avatar: comment.author_avatar,
+        videoTitle: post.title,
+        comment: comment.content,
+        time: new Date(comment.created_at).toLocaleDateString(),
+        likes: comment.amens_count,
+        replied: false,
+        replyText: '',
+      }))));
+    };
+    loadStudioContent().catch(() => {
+      if (active) {
+        setSampleVideos([]);
+        setSampleShorts([]);
+        setSampleScheduled([]);
+        setSampleComments([]);
+      }
+    });
+    return () => { active = false; };
+  }, []);
+
+  /*
+   * Content is loaded from Django above. These arrays intentionally start empty
+   * so an unavailable backend cannot present fabricated ministry activity.
+   */
+  /*
+  const legacySampleVideos = [
     {
       id: 'v-1',
       title: 'Walking in Supernatural Revelation & Divine Grace',
@@ -205,7 +270,7 @@ export default function KingdomStudioSections({
   ];
 
   // Sample Live Streams and Recorded VODs
-  const sampleLiveRecordings: RecordedStreamData[] = [
+  const legacySampleLiveRecordings: RecordedStreamData[] = [
     {
       title: 'Sunday Celebration Service — Walking by Faith & Not by Sight',
       description: 'Full unedited Sunday congregation broadcast with worship team, prophetic message, and altar call.',
@@ -236,10 +301,12 @@ export default function KingdomStudioSections({
     }
   ];
 
+  */
+
   // Comments state
   const [commentReplyInput, setCommentReplyInput] = useState<{ [id: string]: string }>({});
   const [commentFilter, setCommentFilter] = useState<'all' | 'unreplied' | 'prayers'>('all');
-  const [sampleComments, setSampleComments] = useState([
+  /* const legacySampleComments = [
     {
       id: 'cm-1',
       user: 'Sister Deborah A.',
@@ -262,7 +329,7 @@ export default function KingdomStudioSections({
       replied: true,
       replyText: 'We are lifting her before the altar of God right now Brother Samuel! By His stripes she is healed.'
     }
-  ]);
+  ]; */
 
   const [copiedKey, setCopiedKey] = useState(false);
   const handleCopyKey = (text: string) => {
@@ -308,10 +375,10 @@ export default function KingdomStudioSections({
                 <span className="font-bold">Total Congregation Views</span>
                 <Eye className="w-4 h-4 text-amber-400" />
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-white">248,500</p>
+              <p className="text-2xl sm:text-3xl font-black text-white">{sampleVideos.reduce((total, video) => total + Number(video.viewsText?.replace(/[^0-9]/g, '') || 0), 0).toLocaleString()}</p>
               <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-bold">
                 <TrendingUp className="w-3.5 h-3.5" />
-                <span>+24.5% this month</span>
+                <span>Live data</span>
               </div>
             </div>
 
@@ -320,7 +387,7 @@ export default function KingdomStudioSections({
                 <span className="font-bold">Broadcast Watch Hours</span>
                 <Compass className="w-4 h-4 text-sky-400" />
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-white">14,280 hrs</p>
+              <p className="text-2xl sm:text-3xl font-black text-white">0 hrs</p>
               <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-bold">
                 <TrendingUp className="w-3.5 h-3.5" />
                 <span>+18.2% vs last week</span>
@@ -332,7 +399,7 @@ export default function KingdomStudioSections({
                 <span className="font-bold">Saints & Partners</span>
                 <Users className="w-4 h-4 text-amber-400" />
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-white">18,450</p>
+              <p className="text-2xl sm:text-3xl font-black text-white">{sampleComments.length}</p>
               <div className="flex items-center gap-1 text-[11px] text-amber-400 font-bold">
                 <Plus className="w-3.5 h-3.5" />
                 <span>820 new this week</span>
@@ -344,8 +411,8 @@ export default function KingdomStudioSections({
                 <span className="font-bold">Seed Gifts & Giving</span>
                 <DollarSign className="w-4 h-4 text-emerald-400" />
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-emerald-400">$14,850</p>
-              <span className="text-[10px] text-slate-400">0% platform fee on tithes</span>
+              <p className="text-2xl sm:text-3xl font-black text-emerald-400">$0</p>
+              <span className="text-[10px] text-slate-400">No donation summary loaded</span>
             </div>
           </div>
 
@@ -406,43 +473,21 @@ export default function KingdomStudioSections({
                 </span>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800/80">
-                <div className="relative shrink-0 w-full sm:w-44 aspect-video rounded-xl overflow-hidden bg-slate-950">
-                  <img
-                    src={sampleVideos[0].thumbnail}
-                    alt={sampleVideos[0].title}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-mono text-white">
-                    {sampleVideos[0].duration}
-                  </span>
-                  <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 text-[9px] font-black uppercase">
-                    4K
-                  </span>
-                </div>
-
-                <div className="space-y-1.5 min-w-0">
-                  <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-2">{sampleVideos[0].title}</h4>
-                  <p className="text-[11px] text-slate-400">
-                    Published {sampleVideos[0].date} • {sampleVideos[0].scripture}
-                  </p>
-                  <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-800 text-xs">
-                    <div>
-                      <span className="text-[10px] text-slate-400">Views</span>
-                      <p className="font-bold text-white">{sampleVideos[0].views}</p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400">Likes</span>
-                      <p className="font-bold text-emerald-400">{sampleVideos[0].likes}</p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400">Amens</span>
-                      <p className="font-bold text-amber-400">{sampleVideos[0].comments}</p>
-                    </div>
+              {sampleVideos[0] ? (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800/80">
+                  <div className="relative shrink-0 w-full sm:w-44 aspect-video rounded-xl overflow-hidden bg-slate-950">
+                    {sampleVideos[0].thumbnail && <img src={sampleVideos[0].thumbnail} alt={sampleVideos[0].title} referrerPolicy="no-referrer" className="w-full h-full object-cover" />}
+                    {sampleVideos[0].duration && <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-mono text-white">{sampleVideos[0].duration}</span>}
+                  </div>
+                  <div className="space-y-1.5 min-w-0">
+                    <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-2">{sampleVideos[0].title}</h4>
+                    <p className="text-[11px] text-slate-400">Published {sampleVideos[0].date} • {sampleVideos[0].scripture || sampleVideos[0].category}</p>
+                    <div className="pt-1 border-t border-slate-800 text-xs"><span className="text-[10px] text-slate-400">Views</span><p className="font-bold text-white">{sampleVideos[0].views}</p></div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="p-6 text-center rounded-2xl bg-slate-900/80 border border-slate-800 text-xs text-slate-400">No published content available.</div>
+              )}
 
               <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
                 <span>Transcoding: 4K UHD, 1080p, 720p HLS</span>
@@ -453,7 +498,7 @@ export default function KingdomStudioSections({
                   }}
                   className="text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 cursor-pointer"
                 >
-                  <span>View All 142 Videos</span>
+                  <span>View All {sampleVideos.length} Videos</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -466,7 +511,7 @@ export default function KingdomStudioSections({
                   <Globe2 className="w-4 h-4 text-sky-400" />
                   <span>Global Congregation Reach</span>
                 </h3>
-                <span className="text-xs text-slate-400">34 Nations</span>
+                <span className="text-xs text-slate-400">Live data</span>
               </div>
 
               <div className="space-y-3 pt-1">
@@ -809,7 +854,7 @@ export default function KingdomStudioSections({
                       <Globe className="w-3.5 h-3.5 text-amber-400" />
                       Primary RTMP Server
                     </span>
-                    <span className="text-[10px] text-emerald-400 font-bold">1080p60 Ingest</span>
+                    <span className="text-[10px] text-emerald-400 font-bold">Awaiting signal</span>
                   </div>
                   <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-mono text-amber-400">
                     <span className="truncate">rtmps://live.gospread.com/live</span>
@@ -1036,18 +1081,18 @@ export default function KingdomStudioSections({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-1.5 shadow-sm">
               <span className="text-[11px] text-slate-400 font-bold">Congregation Retention Rate</span>
-              <p className="text-2xl font-black text-white">68.4%</p>
-              <span className="text-[10px] text-emerald-400 font-bold">+5.2% vs church average</span>
+              <p className="text-2xl font-black text-white">0%</p>
+              <span className="text-[10px] text-slate-400 font-bold">No analytics loaded</span>
             </div>
             <div className="p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-1.5 shadow-sm">
               <span className="text-[11px] text-slate-400 font-bold">Average Live Duration</span>
-              <p className="text-2xl font-black text-white">42 mins</p>
+              <p className="text-2xl font-black text-white">0 mins</p>
               <span className="text-[10px] text-amber-400 font-bold">High engagement on altar calls</span>
             </div>
             <div className="p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-1.5 shadow-sm">
               <span className="text-[11px] text-slate-400 font-bold">Peak Concurrent Saints</span>
-              <p className="text-2xl font-black text-white">1,840</p>
-              <span className="text-[10px] text-emerald-400 font-bold">+310 worshippers online</span>
+              <p className="text-2xl font-black text-white">0</p>
+              <span className="text-[10px] text-slate-400 font-bold">No live audience data</span>
             </div>
           </div>
 
@@ -1060,19 +1105,19 @@ export default function KingdomStudioSections({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
               <div className="p-4 bg-[#0f0f0f] rounded-2xl border border-slate-800">
                 <span className="text-[10px] text-slate-400 font-bold uppercase">Altar Calls Answered</span>
-                <p className="text-xl font-black text-emerald-400 mt-1">184</p>
+                <p className="text-xl font-black text-emerald-400 mt-1">0</p>
               </div>
               <div className="p-4 bg-[#0f0f0f] rounded-2xl border border-slate-800">
                 <span className="text-[10px] text-slate-400 font-bold uppercase">Prayers Lifted</span>
-                <p className="text-xl font-black text-amber-400 mt-1">412</p>
+                <p className="text-xl font-black text-amber-400 mt-1">0</p>
               </div>
               <div className="p-4 bg-[#0f0f0f] rounded-2xl border border-slate-800">
                 <span className="text-[10px] text-slate-400 font-bold uppercase">Verses Highlighted</span>
-                <p className="text-xl font-black text-blue-400 mt-1">1,240</p>
+                <p className="text-xl font-black text-blue-400 mt-1">0</p>
               </div>
               <div className="p-4 bg-[#0f0f0f] rounded-2xl border border-slate-800">
                 <span className="text-[10px] text-slate-400 font-bold uppercase">Amen Reactions</span>
-                <p className="text-xl font-black text-rose-400 mt-1">14.8K</p>
+                <p className="text-xl font-black text-rose-400 mt-1">0</p>
               </div>
             </div>
           </div>

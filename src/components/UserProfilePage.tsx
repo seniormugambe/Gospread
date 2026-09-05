@@ -33,7 +33,8 @@ import {
   Compass
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { LIVE_VIDEO_STREAMS, AUDIO_TRACKS, VideoStream, AudioTrack } from '../data/gospelData';
+import { VideoStream, AudioTrack } from '../services/djangoApi';
+import { djangoApi } from '../services/djangoApi';
 import { GivingTarget } from './GivingModal';
 import { UserSession } from './AuthModal';
 
@@ -192,9 +193,60 @@ export default function UserProfilePage({
     } catch { return true; }
   });
 
-  // Saved Media Items
-  const savedVideos = LIVE_VIDEO_STREAMS.filter((v) => savedIds.includes(v.id));
-  const savedAudios = AUDIO_TRACKS.filter((a) => savedIds.includes(a.id));
+  // Saved media is account data, not bundled content.
+  const [savedVideos, setSavedVideos] = useState<VideoStream[]>([]);
+  const [savedAudios, setSavedAudios] = useState<AudioTrack[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    if (!currentUser?.isLoggedIn) {
+      setSavedVideos([]);
+      setSavedAudios([]);
+      return;
+    }
+
+    djangoApi.getSavedSermons().then(saved => {
+      if (!active) return;
+      const sermons = saved
+        .map(item => item.sermon_detail)
+        .filter(Boolean);
+      setSavedVideos(sermons.filter((sermon: any) => sermon.kind !== 'audio').map((sermon: any) => ({
+        id: String(sermon.id),
+        title: sermon.title,
+        speakerOrArtist: sermon.speaker,
+        churchOrMinistry: sermon.church_name || '',
+        channelAvatar: sermon.thumbnail_url || '',
+        subscribersCount: '',
+        likesCount: String(sermon.view_count || 0),
+        category: sermon.category || 'Sermon',
+        isLive: false,
+        viewsText: `${sermon.view_count || 0} views`,
+        duration: sermon.duration_seconds ? `${Math.floor(sermon.duration_seconds / 60)}:${String(sermon.duration_seconds % 60).padStart(2, '0')}` : undefined,
+        thumbnail: sermon.thumbnail_url || '',
+        description: sermon.description || '',
+        date: sermon.published_at ? new Date(sermon.published_at).toLocaleDateString() : '',
+        videoUrl: sermon.media_url,
+      })));
+      setSavedAudios(sermons.filter((sermon: any) => sermon.kind === 'audio').map((sermon: any) => ({
+        id: String(sermon.id),
+        title: sermon.title,
+        artistOrPreacher: sermon.speaker,
+        albumOrSeries: sermon.church_name || '',
+        channelAvatar: sermon.thumbnail_url || '',
+        category: 'Audio Sermon',
+        coverUrl: sermon.thumbnail_url || '',
+        duration: sermon.duration_seconds ? `${Math.floor(sermon.duration_seconds / 60)}:${String(sermon.duration_seconds % 60).padStart(2, '0')}` : '',
+        audioUrl: sermon.media_url,
+      })));
+    }).catch(() => {
+      if (active) {
+        setSavedVideos([]);
+        setSavedAudios([]);
+      }
+    });
+
+    return () => { active = false; };
+  }, [currentUser?.isLoggedIn]);
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();

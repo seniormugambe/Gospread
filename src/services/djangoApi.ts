@@ -1,11 +1,6 @@
 // Production-ready Django REST Framework / Django Ninja API Client Service
 // Connected directly to Django 5.x / DRF endpoints with JWT Authentication (SimpleJWT)
-import { 
-  GRACE_SHORTS, 
-  LIVE_VIDEO_STREAMS, 
-  AUDIO_TRACKS, 
-  CHURCH_LOCATIONS 
-} from '../data/gospelData';
+import { CHURCH_LOCATIONS } from '../data/gospelData';
 
 export interface ChurchCampusLocation {
   id?: string;
@@ -488,9 +483,6 @@ class DjangoApiClient {
     }
 
     let finalVideos = videoList;
-    if (finalVideos.length === 0) {
-      finalVideos = [...LIVE_VIDEO_STREAMS];
-    }
 
     if (category && category.toLowerCase() !== 'all') {
       const cat = category.toLowerCase();
@@ -554,27 +546,10 @@ class DjangoApiClient {
         }));
       }
     } catch {
-      // Fall through to fallback
+      return [];
     }
 
-    return GRACE_SHORTS.map((s) => ({
-      id: s.id,
-      title: s.title,
-      speakerOrArtist: s.speaker,
-      churchOrMinistry: s.church,
-      channelAvatar: s.avatar,
-      subscribersCount: 'Verified',
-      likesCount: s.likes,
-      category: 'Sermon',
-      isLive: false,
-      viewersCount: s.amensCount * 12,
-      viewsText: `${s.likes} likes`,
-      duration: s.duration,
-      thumbnail: s.thumbnail,
-      description: s.tags.join(' '),
-      date: 'Today',
-      videoUrl: s.videoUrl,
-    }));
+    return [];
   }
 
   // === 4. AUDIO & PODCASTS ===
@@ -601,10 +576,7 @@ class DjangoApiClient {
       }));
     }
 
-    if (category && category.toLowerCase() !== 'all') {
-      return AUDIO_TRACKS.filter(t => t.category.toLowerCase().includes(category.toLowerCase()));
-    }
-    return AUDIO_TRACKS;
+    return [];
   }
 
   // === 5. CHURCH DIRECTORY & REGISTRATION ===

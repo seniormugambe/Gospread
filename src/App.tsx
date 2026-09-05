@@ -84,6 +84,7 @@ import PictureInPictureWindow from './components/PictureInPictureWindow';
 import LiveViewerTrendSparkline from './components/LiveViewerTrendSparkline';
 import AudioPodcastPlayer from './components/AudioPodcastPlayer';
 import AudioPodcastHub from './components/AudioPodcastHub';
+import { ActiveAudioSpace } from './components/AudioSpaceStudio';
 import KingdomHomeFeed from './components/KingdomHomeFeed';
 import StreamingVideoCard from './components/StreamingVideoCard';
 import { SearchEngineOverlay } from './components/SearchEngineOverlay';
@@ -132,6 +133,7 @@ export default function App() {
   }, [theme]);
 
   const [activeTab, setActiveTab] = useState<'platform' | 'generated' | 'create' | 'profile' | 'history' | 'discover' | 'community' | 'auth'>('platform');
+  const [activeAudioSpace, setActiveAudioSpace] = useState<ActiveAudioSpace | null>(null);
   const [initialAuthMode, setInitialAuthMode] = useState<'signin' | 'signup'>('signin');
 
   const handleOpenAuthPage = (mode: 'signin' | 'signup' = 'signin') => {
@@ -1485,6 +1487,8 @@ export default function App() {
                 initialUploadSource={initialUploadSource}
                 onPublishSuccess={handlePublishSuccess}
                 onCancel={() => setActiveTab('platform')}
+                activeAudioSpace={activeAudioSpace}
+                onAudioSpaceChange={setActiveAudioSpace}
                 theme={theme}
               />
             </div>
@@ -1812,6 +1816,8 @@ export default function App() {
                   queuedTrackIds={audioQueue.map((t) => t.id)}
                   onOpenGivingModal={handleOpenGiving}
                   onOpenChannelProfile={(channel) => setSelectedChannelModal(channel)}
+                  activeAudioSpace={activeAudioSpace}
+                  onJoinAudioSpace={() => setSelectedCategory('Podcasts')}
                 />
               )}
 
@@ -1936,6 +1942,8 @@ export default function App() {
                   shorts={shorts}
                   watchHistory={watchHistory}
                   onRemoveWatchHistory={removeFromWatchHistory}
+                  activeAudioSpace={activeAudioSpace}
+                  onJoinAudioSpace={() => setSelectedCategory('Podcasts')}
                 />
               )}
 
