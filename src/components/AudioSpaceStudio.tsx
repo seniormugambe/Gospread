@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Clock, Mic, MicOff, Radio, Users } from 'lucide-react';
+import { ArrowLeft, Check, Clock, Mic, MicOff, Radio, Share2, Users } from 'lucide-react';
 import { UserSession } from './AuthModal';
-import { Room } from 'livekit-client';
+import { Room, RoomEvent } from 'livekit-client';
 import { djangoApi } from '../services/djangoApi';
 
 export interface ActiveAudioSpace {
@@ -27,7 +27,7 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
   const [isMuted, setIsMuted] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [error, setError] = useState('');
-  const streamRef = useRef<MediaStream | null>(null);
+  const [inviteCopied, setInviteCopied] = useState(false);
   const roomRef = useRef<Room | null>(null);
 
   useEffect(() => {
@@ -37,7 +37,6 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
   }, [isLive]);
 
   useEffect(() => () => {
-    streamRef.current?.getTracks().forEach(track => track.stop());
     if (currentUser?.isLoggedIn && roomRef.current?.name) {
       void djangoApi.endAudioSpace(roomRef.current.name);
     }
@@ -64,9 +63,19 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
         ministry_name: ministryName,
       });
       const room = new Room();
-      await room.connect(serverUrl, token);
-      await room.localParticipant.setMicrophoneEnabled(true);
       roomRef.current = room;
+      room.on(RoomEvent.Disconnected, () => {
+        if (roomRef.current !== room) return;
+        roomRef.current = null;
+        setIsLive(false);
+        setIsMuted(false);
+        onSpaceChange?.(null);
+      });
+      await room.connect(serverUrl, token);
+      if (room.state !== 'connected') {
+        throw new Error('LiveKit disconnected before the microphone could be published.');
+      }
+      await room.localParticipant.setMicrophoneEnabled(true);
       setIsLive(true);
       onSpaceChange?.({
         title: spaceTitle,
@@ -85,8 +94,6 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
 
   const endSpace = () => {
     const roomName = roomRef.current?.name;
-    streamRef.current?.getTracks().forEach(track => track.stop());
-    streamRef.current = null;
     roomRef.current?.disconnect();
     roomRef.current = null;
     if (roomName) void djangoApi.endAudioSpace(roomName);
@@ -97,8 +104,38 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
 
   const toggleMute = () => {
     const nextMuted = !isMuted;
-    streamRef.current?.getAudioTracks().forEach(track => { track.enabled = !nextMuted; });
+    const room = roomRef.current;
+    if (room?.state === 'connected') {
+      void room.localParticipant.setMicrophoneEnabled(!nextMuted);
+    }
     setIsMuted(nextMuted);
+  };
+
+  const inviteListeners = async () => {
+    const roomName = roomRef.current?.name;
+    if (!roomName) return;
+    const inviteUrl = new URL(window.location.href);
+    inviteUrl.searchParams.set('audio_space', roomName);
+    const shareData = { title: title.trim() || 'Live Gospread Audio Space', text: topic.trim() || 'Join this live Audio Space on Gospread', url: inviteUrl.toString() };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(inviteUrl.toString());
+        setInviteCopied(true);
+        window.setTimeout(() => setInviteCopied(false), 2000);
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      try {
+        await navigator.clipboard.writeText(inviteUrl.toString());
+        setInviteCopied(true);
+        window.setTimeout(() => setInviteCopied(false), 2000);
+      } catch {
+        setError('Could not create an invite link.');
+      }
+    }
   };
 
   const formatTime = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
@@ -151,6 +188,7 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
           </div>
           <div className="flex justify-center gap-3">
             <button onClick={toggleMute} className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900 px-5 py-3 text-xs font-bold text-white hover:bg-slate-800">{isMuted ? <MicOff className="w-4 h-4 text-rose-400" /> : <Mic className="w-4 h-4 text-emerald-400" />}{isMuted ? 'Unmute' : 'Mute microphone'}</button>
+            <button onClick={inviteListeners} className="flex items-center gap-2 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-5 py-3 text-xs font-bold text-fuchsia-200 hover:bg-fuchsia-500/25"><>{inviteCopied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}</>{inviteCopied ? 'Link copied' : 'Invite listeners'}</button>
             <button onClick={endSpace} className="rounded-full bg-rose-600 px-5 py-3 text-xs font-black text-white hover:bg-rose-500">End Space</button>
           </div>
         </div>

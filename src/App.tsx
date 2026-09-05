@@ -175,7 +175,8 @@ export default function App() {
       try {
         const spaces = await djangoApi.getActiveAudioSpaces();
         if (!active) return;
-        const space = spaces[0];
+        const requestedRoomName = new URLSearchParams(window.location.search).get('audio_space');
+        const space = spaces.find(item => item.room_name === requestedRoomName) || spaces[0];
         setActiveAudioSpace(space ? {
           title: space.title,
           topic: space.topic,
@@ -190,6 +191,9 @@ export default function App() {
     };
 
     void syncActiveAudioSpace();
+    if (new URLSearchParams(window.location.search).has('audio_space')) {
+      setSelectedCategory('Podcasts');
+    }
     const interval = window.setInterval(syncActiveAudioSpace, 10000);
     return () => {
       active = false;
