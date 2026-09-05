@@ -143,6 +143,16 @@ export default function App() {
   });
 
   useEffect(() => {
+    const audioSpaceChannel = typeof window !== 'undefined' && 'BroadcastChannel' in window
+      ? new BroadcastChannel('gospread_audio_space')
+      : null;
+
+    if (audioSpaceChannel) {
+      audioSpaceChannel.onmessage = (event: MessageEvent<ActiveAudioSpace | null>) => {
+        setActiveAudioSpace(event.data || null);
+      };
+    }
+
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key !== 'gospread_active_audio_space') return;
       try {
@@ -155,6 +165,7 @@ export default function App() {
     window.addEventListener('storage', handleStorageChange);
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      audioSpaceChannel?.close();
     };
   }, []);
 
@@ -163,6 +174,11 @@ export default function App() {
     try {
       if (space) localStorage.setItem('gospread_active_audio_space', JSON.stringify(space));
       else localStorage.removeItem('gospread_active_audio_space');
+      if ('BroadcastChannel' in window) {
+        const audioSpaceChannel = new BroadcastChannel('gospread_audio_space');
+        audioSpaceChannel.postMessage(space);
+        audioSpaceChannel.close();
+      }
     } catch (error) {
       console.error(error);
     }
