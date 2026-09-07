@@ -93,8 +93,7 @@ export default function SimpleAuthCard({
     try {
       if (mode === 'signin') {
         const res = await djangoApi.login({
-          email: email.includes('@') ? email : undefined,
-          username: !email.includes('@') ? email : undefined,
+          email: email.trim().toLowerCase(),
           password
         });
 
@@ -182,11 +181,22 @@ export default function SimpleAuthCard({
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '';
-      setErrorMessage(
-        message === 'No active account found with the given credentials'
-          ? 'We could not sign you in with that email and password.'
-          : message || 'Authentication encountered an error. Please try again.'
-      );
+      // Map known backend messages to user-friendly text
+      if (
+        message.toLowerCase().includes('no active account') ||
+        message.toLowerCase().includes('invalid credentials') ||
+        message.toLowerCase().includes('unable to log in')
+      ) {
+        setErrorMessage('That email and password combination is not recognised. Check your details and try again.');
+      } else if (message.toLowerCase().includes('password')) {
+        setErrorMessage(message); // surface password validation errors directly (too short, too common, etc.)
+      } else if (message.toLowerCase().includes('email')) {
+        setErrorMessage(message);
+      } else if (message) {
+        setErrorMessage(message);
+      } else {
+        setErrorMessage('Something went wrong. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }

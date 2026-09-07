@@ -455,12 +455,12 @@ class DjangoApiClient {
   }
 
   // === 1. AUTHENTICATION & USER PROFILE ===
-  public async login(credentials: { username?: string; email?: string; password?: string }): Promise<DjangoAuthResponse> {
+  public async login(credentials: { email: string; password?: string }): Promise<DjangoAuthResponse> {
     const payload = {
-      email: (credentials.email || '').trim().toLowerCase(),
+      email: credentials.email.trim().toLowerCase(),
       password: credentials.password,
     };
-    const res = await this.request<DjangoAuthResponse>('/auth/login/', {
+    const res = await this.request<DjangoAuthResponse>('/auth/token/', {
       method: 'POST',
       body: JSON.stringify(payload)
     });
@@ -481,7 +481,7 @@ class DjangoApiClient {
     role?: string;
     church_id?: number;
   }): Promise<DjangoAuthResponse> {
-    const res = await this.request<DjangoAuthResponse>('/auth/register/', {
+    const res = await this.request<DjangoAuthResponse>('/auth/signup/', {
       method: 'POST',
       body: JSON.stringify({
         ...payload,
