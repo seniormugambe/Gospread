@@ -94,16 +94,7 @@ export default function KingdomHomeFeed({
   // Simplified Category Filters: All | Live | Sermons | Worship | Shorts | Podcasts | Ministries
   const [selectedFilter, setSelectedFilter] = useState<'All' | 'Live' | 'Sermons' | 'Worship' | 'Shorts' | 'Podcasts' | 'Ministries'>('All');
 
-  // Reminders for upcoming church services
-  const [reminders, setReminders] = useState<Record<string, boolean>>({});
   const [showAllNetworkLive, setShowAllNetworkLive] = useState(false);
-
-  const toggleReminder = (serviceId: string) => {
-    setReminders((prev) => ({
-      ...prev,
-      [serviceId]: !prev[serviceId]
-    }));
-  };
 
   const safeVideos = videoStreams && videoStreams.length > 0 ? videoStreams : [];
   const safeAudio = audioQueue && audioQueue.length > 0 ? audioQueue : [];
