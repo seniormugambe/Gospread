@@ -38,10 +38,12 @@ export default function LiveBroadcastRoom({ currentUser, title, description, spe
   const [isCameraEnabled, setIsCameraEnabled] = useState(mode === 'studio');
   const [error, setError] = useState('');
 
+  // Only start the timer once connected so elapsed time reflects actual broadcast time
   useEffect(() => {
+    if (!isConnected) return;
     const timer = window.setInterval(() => setElapsedSeconds(value => value + 1), 1000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [isConnected]);
 
   const attachLocalVideo = () => {
     const publication = Array.from(roomRef.current?.localParticipant.videoTrackPublications.values() || [])[0];
@@ -49,17 +51,24 @@ export default function LiveBroadcastRoom({ currentUser, title, description, spe
     if (track && videoRef.current) track.attach(videoRef.current);
   };
 
+  // Capture mutable props in a ref so the effect doesn't re-run when they change
+  const propsRef = useRef({ currentUser, title, description, speaker, category, scripture, mode });
   useEffect(() => {
-    if (mode !== 'quick') return;
+    propsRef.current = { currentUser, title, description, speaker, category, scripture, mode };
+  });
+
+  useEffect(() => {
+    if (propsRef.current.mode !== 'quick') return;
     let active = true;
     const startRoom = async () => {
+      const { currentUser: user, title: t, description: d, category: c, scripture: s, speaker: sp } = propsRef.current;
       try {
-        if (!currentUser?.isLoggedIn) throw new Error('Sign in before starting a Quick Live broadcast.');
+        if (!user?.isLoggedIn) throw new Error('Sign in before starting a Quick Live broadcast.');
         const roomName = `video-live-${crypto.randomUUID()}`;
         const tokenData = await djangoApi.createAudioSpaceToken(roomName, true, {
-          title,
-          topic: description,
-          ministry_name: currentUser.ministryName || currentUser.churchName || 'Gospread Ministry',
+          title: t,
+          topic: d,
+          ministry_name: user.ministryName || user.churchName || 'Gospread Ministry',
         });
         if (!active) return;
         const room = new Room();
@@ -89,7 +98,8 @@ export default function LiveBroadcastRoom({ currentUser, title, description, spe
       roomRef.current?.disconnect();
       roomRef.current = null;
     };
-  }, [category, currentUser, description, mode, scripture, speaker, title]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount — props are accessed via ref
 
   const endBroadcast = () => {
     const roomName = roomRef.current?.name;

@@ -86,6 +86,7 @@ import { VideoStream, ChurchLocation, SocialLink, registerChurchProfile } from '
 import { djangoApi } from '../services/djangoApi';
 import { UserSession } from './AuthModal';
 import LiveBroadcastRoom from './LiveBroadcastRoom';
+import LiveControlRoom from './LiveControlRoom';
 import LiveRecordingVODModal, { RecordedStreamData } from './LiveRecordingVODModal';
 import KingdomStudioSections from './KingdomStudioSections';
 import AudioSpaceStudio, { ActiveAudioSpace } from './AudioSpaceStudio';
@@ -995,19 +996,51 @@ export default function CreatePage({
 
   // 🔴 LIVE CONTROL ROOM MODE (FULL-SCREEN PRODUCTION SUITE)
   if (studioAction === 'live_control_room') {
+    // Quick Live: WebRTC camera+mic broadcast via LiveKit
+    if (liveMode === 'quick') {
+      return (
+        <div className="w-full min-h-screen bg-[#0a0a0a]">
+          <LiveBroadcastRoom
+              currentUser={currentUser}
+              title={liveTitle || `Sunday Worship Celebration — ${ministryName}`}
+              description={liveDescription}
+              category={selectedCategory}
+              speaker={liveSpeaker || ownerName}
+              scripture={liveScripture || 'Isaiah 40:31'}
+              mode="quick"
+              onEnd={handleEndLiveStream}
+              onBack={() => setStudioAction('live')}
+          />
+          {activeVODModalData && (
+            <LiveRecordingVODModal
+              currentUser={currentUser}
+              recordedData={activeVODModalData}
+              onPublishVOD={handlePublishRecordedVOD}
+              onSaveDraft={handleSaveVODDraft}
+              onClose={() => setActiveVODModalData(null)}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // Studio Live: Full production control room (OBS/vMix encoder feeds)
     return (
-      <div className="w-full min-h-screen bg-[#0a0a0a]">
-        <LiveBroadcastRoom
+      <div className="w-full min-h-screen bg-[#0a0a0a] px-3 py-5 sm:px-6">
+        <div className="mx-auto max-w-7xl">
+          <LiveControlRoom
             currentUser={currentUser}
-            title={liveTitle || `Sunday Worship Celebration — ${ministryName}`}
-            description={liveDescription}
+            broadcastTitle={liveTitle || `Sunday Worship Celebration — ${ministryName}`}
+            broadcastType={broadcastType}
             category={selectedCategory}
             speaker={liveSpeaker || ownerName}
             scripture={liveScripture || 'Isaiah 40:31'}
-            mode={liveMode}
-            onEnd={handleEndLiveStream}
-            onBack={() => setStudioAction('live')}
-        />
+            streamKey={liveStreamKey}
+            rtmpUrl={rtmpServerUrl}
+            onEndStream={handleEndLiveStream}
+            onBackToStudio={() => setStudioAction('live')}
+          />
+        </div>
         {activeVODModalData && (
           <LiveRecordingVODModal
             currentUser={currentUser}

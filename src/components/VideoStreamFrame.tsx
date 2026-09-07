@@ -94,6 +94,23 @@ export default function VideoStreamFrame({
   // Stats for Nerds / Telemetry Bar
   const [showTelemetryBar, setShowTelemetryBar] = useState(false);
 
+  // Video progress state (percentage 0-100)
+  const [progressPercent, setProgressPercent] = useState(0);
+
+  // Simulate progress advancing while playing
+  useEffect(() => {
+    if (!isPlaying) return;
+    const interval = window.setInterval(() => {
+      setProgressPercent(prev => (prev >= 100 ? 0 : prev + 0.05));
+    }, 500);
+    return () => window.clearInterval(interval);
+  }, [isPlaying]);
+
+  // Reset progress when video changes
+  useEffect(() => {
+    setProgressPercent(0);
+  }, [video.id]);
+
   // Ambient Mode State & Dynamic Color Extraction
   const [isAmbientMode, setIsAmbientMode] = useState(true);
   const [ambientGlowLevel, setAmbientGlowLevel] = useState<'vibrant' | 'subtle' | 'soft'>('vibrant');
@@ -916,8 +933,16 @@ export default function VideoStreamFrame({
         {/* Bottom Control Bar */}
         <div className="space-y-2 pointer-events-auto">
           {/* Progress Bar */}
-          <div className="w-full bg-slate-800/80 h-1 rounded-full overflow-hidden cursor-pointer">
-            <div className="bg-amber-500 h-full w-3/5" />
+          <div
+            className="w-full bg-slate-800/80 h-1 rounded-full overflow-hidden cursor-pointer"
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const clickX = e.clientX - rect.left;
+              const newPercent = Math.max(0, Math.min(100, (clickX / rect.width) * 100));
+              setProgressPercent(newPercent);
+            }}
+          >
+            <div className="bg-amber-500 h-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
           </div>
 
           <div className="flex items-center justify-between text-white text-xs">

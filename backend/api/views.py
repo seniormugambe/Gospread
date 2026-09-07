@@ -158,6 +158,8 @@ class AudioSpaceTokenView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        import asyncio
+
         room_name = str(request.data.get("room_name", "")).strip()
         can_publish = bool(request.data.get("can_publish", False))
         if not room_name:
@@ -181,6 +183,22 @@ class AudioSpaceTokenView(generics.GenericAPIView):
                     "is_live": True,
                 },
             )
+
+            # Explicitly create the room on the LiveKit server so clients can join.
+            # LiveKit Cloud does not auto-create rooms from client tokens alone.
+            async def _create_room():
+                async with livekit_api.LiveKitAPI(livekit_url, api_key, api_secret) as lk:
+                    await lk.room.create_room(
+                        livekit_api.CreateRoomRequest(name=room_name, empty_timeout=300, max_participants=500)
+                    )
+
+            try:
+                asyncio.run(_create_room())
+            except Exception as exc:
+                return Response(
+                    {"detail": f"Could not create LiveKit room: {exc}"},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
 
         identity = f"user-{request.user.id}"
         token = livekit_api.AccessToken(api_key, api_secret).with_identity(identity).with_name(
