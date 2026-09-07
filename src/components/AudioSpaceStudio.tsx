@@ -36,12 +36,17 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
     return () => window.clearInterval(timer);
   }, [isLive]);
 
+  const currentUserRef = useRef(currentUser);
+  useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
+
   useEffect(() => () => {
-    if (currentUser?.isLoggedIn && roomRef.current?.name) {
+    // Cleanup on unmount — use ref so we capture the latest value
+    if (currentUserRef.current?.isLoggedIn && roomRef.current?.name) {
       void djangoApi.endAudioSpace(roomRef.current.name);
     }
     roomRef.current?.disconnect();
-  }, [currentUser?.isLoggedIn]);
+    roomRef.current = null;
+  }, []);
 
   const startSpace = async () => {
     setError('');

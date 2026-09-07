@@ -67,32 +67,68 @@ export default function AudioPodcastHub({
 
   useEffect(() => () => {
     listenerRoomRef.current?.disconnect();
-    audioElementsRef.current.forEach(element => element.remove());
+    listenerRoomRef.current = null;
+    audioElementsRef.current.forEach(el => el.remove());
+    audioElementsRef.current = [];
   }, []);
+
+  const leaveAudioSpace = () => {
+    // Disconnect any existing room and clean up attached audio elements
+    if (listenerRoomRef.current) {
+      listenerRoomRef.current.disconnect();
+      listenerRoomRef.current = null;
+    }
+    audioElementsRef.current.forEach(el => el.remove());
+    audioElementsRef.current = [];
+  };
 
   const joinAudioSpace = async () => {
     if (!activeAudioSpace?.roomName || isJoiningAudioSpace) return;
+
+    // If already connected to this same room, do nothing
+    if (listenerRoomRef.current?.state === 'connected' && listenerRoomRef.current?.name === activeAudioSpace.roomName) return;
+
+    // Disconnect any previous room before starting a new connection
+    leaveAudioSpace();
+
     setAudioSpaceError('');
     setIsJoiningAudioSpace(true);
     try {
       const tokenData = await djangoApi.createAudioSpaceToken(activeAudioSpace.roomName);
       const room = new Room();
+
       const playTrack = (track: RemoteTrack) => {
         const element = track.attach();
         element.autoplay = true;
         document.body.appendChild(element);
         audioElementsRef.current.push(element);
       };
+
       room.on(RoomEvent.TrackSubscribed, (track) => playTrack(track));
+
+      room.on(RoomEvent.Disconnected, () => {
+        // Only clean up if this is still the active room
+        if (listenerRoomRef.current === room) {
+          listenerRoomRef.current = null;
+          audioElementsRef.current.forEach(el => el.remove());
+          audioElementsRef.current = [];
+        }
+      });
+
       await room.connect(tokenData.server_url, tokenData.participant_token);
+
+      // Play any tracks already being published when we joined
       room.remoteParticipants.forEach(participant => {
         participant.trackPublications.forEach(publication => {
           if (publication.track) playTrack(publication.track);
         });
       });
+
       listenerRoomRef.current = room;
       onJoinAudioSpace?.();
     } catch (error) {
+      // Clean up the failed room attempt
+      leaveAudioSpace();
       setAudioSpaceError(error instanceof Error ? error.message : 'Could not join this Audio Space.');
     } finally {
       setIsJoiningAudioSpace(false);
