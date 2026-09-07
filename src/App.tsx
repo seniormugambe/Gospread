@@ -2030,9 +2030,7 @@ export default function App() {
                   subscribedChannels={subscribedChannels}
                   onToggleFollow={toggleSubscribe}
                   onOpenChannelModal={(ch) => setSelectedChannelModal(ch)}
-                  onOpenGivingModal={handleOpenGiving}
                   onOpenDailyPromise={() => setShowPromiseModal(true)}
-                  onOpenDailyStreak={() => setShowStreakModal(true)}
                   onOpenPrayerModal={() => setPrayerModalOpen(true)}
                   onNavigateTab={(tab) => {
                     setActiveTab(tab);
