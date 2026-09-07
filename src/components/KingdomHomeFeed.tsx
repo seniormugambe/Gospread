@@ -25,7 +25,8 @@ import {
   Clock,
   Heart,
   History,
-  RotateCcw
+  RotateCcw,
+  Plus
 } from 'lucide-react';
 import { VideoStream, AudioTrack, LIVE_VIDEO_STREAMS, GRACE_SHORTS, AUDIO_TRACKS } from '../data/gospelData';
 import { decodeHtml } from '../lib/utils';
@@ -1001,38 +1002,44 @@ export default function KingdomHomeFeed({
       {/* 🎙️ ACTIVE AUDIO SPACES                                                    */}
       {/* ========================================================================= */}
       {(selectedFilter === 'All' || selectedFilter === 'Live') && (
-        <section className="rounded-3xl border border-fuchsia-500/20 bg-slate-950/55 px-4 py-5 sm:px-6 shadow-xl shadow-fuchsia-950/10">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-fuchsia-400" />
-                <h2 className="text-base font-black text-white sm:text-lg">Audio Spaces</h2>
-                {activeAudioSpace && <span className="rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-[10px] font-black uppercase text-fuchsia-300">Live now</span>}
-              </div>
-              <p className="mt-1 text-xs text-slate-400">Live voice conversations from ministries and believers</p>
-            </div>
-            <Headphones className="h-5 w-5 shrink-0 text-fuchsia-300" />
+        <section className="-mx-1 overflow-hidden px-1 py-2 sm:px-2">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-black text-slate-900 dark:text-white">Audio Space</h2>
+            {activeAudioSpace && <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-rose-500"><span className="h-2 w-2 animate-pulse rounded-full bg-rose-500" /> Live now</span>}
           </div>
 
-          {activeAudioSpace ? (
-            <div className="flex gap-5 overflow-x-auto pb-1 scrollbar-none">
-              <button onClick={onJoinAudioSpace} className="group flex min-w-[116px] flex-col items-center gap-2 text-center">
-                <span className="relative rounded-full bg-gradient-to-br from-fuchsia-400 via-rose-500 to-amber-400 p-[3px] shadow-lg shadow-fuchsia-500/25 transition group-hover:scale-105">
-                  <span className="absolute -right-1 top-2 h-3 w-3 rounded-full border-2 border-slate-950 bg-emerald-400" />
-                  <span className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-900 text-xl font-black text-fuchsia-200 ring-4 ring-fuchsia-400/15">
-                    {(activeAudioSpace.hostName || 'A').slice(0, 1).toUpperCase()}
-                  </span>
+          <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-none sm:gap-7">
+            <button type="button" onClick={() => onNavigateTab('create')} className="group flex min-w-[92px] flex-col items-center gap-2 text-center">
+              <span className="relative rounded-full bg-gradient-to-tr from-orange-400 via-rose-500 to-fuchsia-600 p-[3px] shadow-sm transition duration-200 group-hover:scale-105">
+                <span className="flex h-[86px] w-[86px] items-center justify-center overflow-hidden rounded-full border-4 border-white bg-slate-100 dark:border-slate-950 dark:bg-slate-800">
+                  {userSession?.avatarUrl || userSession?.avatar ? <img src={userSession.avatarUrl || userSession.avatar} alt="" className="h-full w-full object-cover" /> : <span className="text-2xl font-black text-slate-400">{(userSession?.fullName || 'You').slice(0, 1).toUpperCase()}</span>}
                 </span>
-                <span className="max-w-[116px] truncate text-xs font-black text-white group-hover:text-fuchsia-300">{activeAudioSpace.hostName}</span>
-                <span className="max-w-[116px] truncate text-[10px] text-slate-400">{activeAudioSpace.title}</span>
+                <span className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-blue-500 text-white shadow-sm dark:border-slate-950"><Plus className="h-4 w-4" strokeWidth={3} /></span>
+              </span>
+              <span className="max-w-[92px] truncate text-xs font-bold text-slate-900 dark:text-white">Your story</span>
+            </button>
+
+            {activeAudioSpace && (
+              <button type="button" onClick={onJoinAudioSpace} className="group flex min-w-[92px] flex-col items-center gap-2 text-center">
+                <span className="relative rounded-full bg-gradient-to-tr from-orange-400 via-rose-500 to-fuchsia-600 p-[3px] shadow-sm transition duration-200 group-hover:scale-105">
+                  <span className="flex h-[86px] w-[86px] items-center justify-center overflow-hidden rounded-full border-4 border-white bg-slate-100 dark:border-slate-950 dark:bg-slate-800">
+                    <img src={DISCOVER_MINISTRIES[0].avatar} alt="" className="h-full w-full object-cover" />
+                  </span>
+                  <span className="absolute right-0 top-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-400 dark:border-slate-950" />
+                </span>
+                <span className="max-w-[92px] truncate text-xs font-bold text-slate-900 dark:text-white">{activeAudioSpace.hostName}</span>
               </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-800 px-4 py-4 text-xs text-slate-500">
-              <Headphones className="h-5 w-5 text-slate-600" />
-              <span>No Audio Spaces are live right now. Start a conversation from Creator Studio.</span>
-            </div>
-          )}
+            )}
+
+            {DISCOVER_MINISTRIES.slice(0, activeAudioSpace ? 3 : 4).map((ministry) => (
+              <button type="button" key={ministry.id} onClick={() => onOpenChannelModal(ministry.name)} className="group flex min-w-[92px] flex-col items-center gap-2 text-center">
+                <span className="rounded-full bg-gradient-to-tr from-orange-400 via-rose-500 to-fuchsia-600 p-[3px] shadow-sm transition duration-200 group-hover:scale-105">
+                  <span className="flex h-[86px] w-[86px] items-center justify-center overflow-hidden rounded-full border-4 border-white bg-slate-100 dark:border-slate-950 dark:bg-slate-800"><img src={ministry.avatar} alt="" className="h-full w-full object-cover" /></span>
+                </span>
+                <span className="max-w-[92px] truncate text-xs font-bold text-slate-900 dark:text-white">{ministry.name.split(' ')[0].toLowerCase()}</span>
+              </button>
+            ))}
+          </div>
         </section>
       )}
 
