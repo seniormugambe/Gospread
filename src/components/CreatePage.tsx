@@ -591,6 +591,10 @@ export default function CreatePage({
     }, 600);
   };
 
+  const openYouTubeLiveControlRoom = () => {
+    window.open('https://studio.youtube.com/', '_blank', 'noopener,noreferrer');
+  };
+
   const handleCopyStreamKey = () => {
     setCopiedKey(true);
     setTimeout(() => setCopiedKey(false), 2000);
@@ -992,6 +996,14 @@ export default function CreatePage({
   }
 
   if (studioAction === 'audio_space') {
+    return (
+      <div className={`creator-studio-portal max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
+        <AudioSpaceStudio currentUser={currentUser} ministryName={ministryName} onBack={() => setStudioAction('choose')} onSpaceChange={onAudioSpaceChange} />
+      </div>
+    );
+  }
+
+  if (studioAction === 'live') {
     return (
       <div className={`creator-studio-portal max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
         <AudioSpaceStudio currentUser={currentUser} ministryName={ministryName} onBack={() => setStudioAction('choose')} onSpaceChange={onAudioSpaceChange} />
@@ -3582,7 +3594,7 @@ export default function CreatePage({
             </button>
             <span className="px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold uppercase flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
-              {liveSetupStep === 'setup' ? 'Live Broadcast Setup' : 'Live Stream Ingest Active'}
+              {liveSetupStep === 'setup' ? 'Live Broadcast Setup' : 'YouTube Live Handoff'}
             </span>
           </div>
 
@@ -3605,7 +3617,7 @@ export default function CreatePage({
                       START A LIVE BROADCAST
                     </h2>
                     <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                      Configure your gospel service broadcast. Gospread will generate dedicated RTMP/RTMPS stream credentials for OBS Studio, vMix, and hardware encoders.
+                      Configure your gospel service broadcast, then continue in YouTube Live Control Room. YouTube handles channel authorization, camera access, and stream credentials.
                     </p>
                   </div>
                   <div className="px-3 py-1.5 rounded-2xl bg-slate-900 border border-slate-800 text-[11px] text-amber-300 font-bold self-start sm:self-auto flex items-center gap-1.5">
@@ -3816,12 +3828,12 @@ export default function CreatePage({
                     {isGeneratingCredentials ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Generating Live Stream Ingest...</span>
+                        <span>Preparing YouTube handoff...</span>
                       </>
                     ) : (
                       <>
                         <Sparkles className="w-4 h-4 text-amber-300" />
-                        <span>Start Live Setup</span>
+                        <span>Continue to YouTube Live</span>
                         <ArrowRight className="w-4 h-4" />
                       </>
                     )}
@@ -3833,7 +3845,7 @@ export default function CreatePage({
           )}
 
           {/* ═══════════════════════════════════════════════════════════════
-              VIEW B: YOUR LIVE STREAM (GOSPREAD GENERATES RTMP CREDENTIALS)
+              VIEW B: YOUTUBE LIVE CONTROL ROOM HANDOFF
              ═══════════════════════════════════════════════════════════════ */}
           {liveSetupStep === 'credentials' && (
             <motion.div
@@ -3849,18 +3861,18 @@ export default function CreatePage({
                     <div className="flex items-center gap-2.5">
                       <div className="w-3 h-3 rounded-full bg-red-500 animate-ping" />
                       <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase">
-                        YOUR LIVE STREAM
+                        YOUTUBE LIVE CONTROL ROOM
                       </h2>
                     </div>
                     <p className="text-xs sm:text-sm text-slate-400">
-                      Gospread has provisioned your dedicated live stream ingest. Copy these credentials into your broadcasting software (OBS, Streamlabs, vMix, Wirecast).
+                      Gospread cannot create a YouTube broadcast with a Data API key alone. Open YouTube Studio to authorize your channel and start the real video broadcast.
                     </p>
                   </div>
 
                   <div className="flex items-center gap-2 self-start sm:self-auto">
                     <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-mono font-bold flex items-center gap-1.5">
                       <Wifi className="w-3.5 h-3.5 animate-pulse text-emerald-400" />
-                      <span>Ingest Ready</span>
+                      <span>YouTube required</span>
                     </span>
                     <button
                       type="button"
@@ -4101,7 +4113,7 @@ export default function CreatePage({
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 border-t border-slate-800/80">
                   <div className="flex items-center gap-2 text-xs text-slate-400">
                     <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                    <span>Once your software encoder is streaming, Gospread will instantly distribute the live feed worldwide.</span>
+                    <span>YouTube owns the live video session. Return to Gospread after starting it to share the live link.</span>
                   </div>
 
                   <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -4115,11 +4127,11 @@ export default function CreatePage({
 
                     <button
                       type="button"
-                      onClick={() => handleGoLiveSubmit()}
+                      onClick={openYouTubeLiveControlRoom}
                       className="flex-1 sm:flex-none px-8 py-3.5 rounded-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-red-600/30 transition cursor-pointer"
                     >
                       <RadioTower className="w-4 h-4" />
-                      <span>Start Broadcasting to Gospread</span>
+                      <span>Open YouTube Live Control Room</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>
