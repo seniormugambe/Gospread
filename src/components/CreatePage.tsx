@@ -1026,14 +1026,6 @@ export default function CreatePage({
     );
   }
 
-  if (studioAction === 'live') {
-    return (
-      <div className={`creator-studio-portal max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
-        <AudioSpaceStudio currentUser={currentUser} ministryName={ministryName} onBack={() => setStudioAction('choose')} onSpaceChange={onAudioSpaceChange} />
-      </div>
-    );
-  }
-
   return (
     <div className={`creator-studio-portal max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 space-y-6 ${
       isLight ? 'creator-studio-light' : 'creator-studio-dark'
