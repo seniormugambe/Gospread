@@ -426,6 +426,7 @@ export default function CreatePage({
   // 🔴 2. GO LIVE STATE (Broadcast live service/event)
   // Step in Go Live flow: 'setup' | 'credentials'
   const [liveSetupStep, setLiveSetupStep] = useState<'setup' | 'credentials'>('setup');
+  const [liveMode, setLiveMode] = useState<'quick' | 'studio'>('quick');
   
   // What are you broadcasting? options: 'Sunday Service' | 'Bible Study' | 'Prayer' | 'Worship' | 'Conference' | 'Other'
   const [broadcastType, setBroadcastType] = useState<LiveBroadcastType>('Other');
@@ -587,15 +588,17 @@ export default function CreatePage({
   // Handler to progress from Setup Form to Gospread Generated Live Credentials
   const handleStartLiveSetup = (e: FormEvent) => {
     e.preventDefault();
-    setIsGeneratingCredentials(true);
-    setTimeout(() => {
-      setIsGeneratingCredentials(false);
-      setLiveSetupStep('credentials');
-    }, 600);
+    void startCameraPreview();
+    setLiveSetupStep('credentials');
   };
 
-  const openYouTubeLiveControlRoom = () => {
-    window.open('https://studio.youtube.com/', '_blank', 'noopener,noreferrer');
+  const handleStartQuickLive = (e: FormEvent) => {
+    e.preventDefault();
+    if (!cameraPreviewStream) {
+      void startCameraPreview();
+      return;
+    }
+    setStudioAction('live_control_room');
   };
 
   const startCameraPreview = async () => {
@@ -609,8 +612,9 @@ export default function CreatePage({
       }
     } catch (error) {
       setCameraPreviewError(error instanceof DOMException && error.name === 'NotAllowedError'
-        ? 'Camera and microphone access was denied. Allow access in your browser to preview your phone camera.'
-        : 'This device could not open a camera preview. You can still continue in YouTube Live.');
+        ? 'Camera and microphone access was denied. Allow access in your browser to preview your camera.'
+        : 'This device could not open a camera preview. You can continue with your Studio encoder.'
+      );
     }
   };
 
@@ -3592,7 +3596,48 @@ export default function CreatePage({
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
-          {/* Sub-header Navigation */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button type="button" onClick={() => setLiveMode('quick')} className={`rounded-3xl border p-5 text-left transition ${liveMode === 'quick' ? 'border-sky-400 bg-sky-500/10 ring-2 ring-sky-400/20' : 'border-slate-800 bg-[#181818] hover:border-slate-700'}`}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-sky-500/15 text-sky-300 flex items-center justify-center"><Video className="w-5 h-5" /></div>
+                <div><h2 className="text-sm font-black text-white">Quick Live</h2><p className="text-[11px] text-slate-400">Use this device camera and microphone</p></div>
+              </div>
+            </button>
+            <button type="button" onClick={() => { setLiveMode('studio'); setLiveSetupStep('setup'); }} className={`rounded-3xl border p-5 text-left transition ${liveMode === 'studio' ? 'border-red-400 bg-red-500/10 ring-2 ring-red-400/20' : 'border-slate-800 bg-[#181818] hover:border-slate-700'}`}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-red-500/15 text-red-300 flex items-center justify-center"><Radio className="w-5 h-5" /></div>
+                <div><h2 className="text-sm font-black text-white">Studio Live</h2><p className="text-[11px] text-slate-400">Connect OBS, vMix, or a hardware encoder</p></div>
+              </div>
+            </button>
+          </div>
+
+          {liveMode === 'quick' && (
+            <form onSubmit={handleStartQuickLive} className="bg-[#181818] border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+              <div className="flex items-start justify-between gap-4 border-b border-slate-800 pb-4">
+                <div><h2 className="text-xl sm:text-2xl font-black text-white">START QUICK LIVE</h2><p className="text-xs sm:text-sm text-slate-400 mt-1">Stream directly from your phone or computer with no encoder setup.</p></div>
+                <span className="px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-[10px] font-bold text-sky-300">WEBRTC</span>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,360px)] rounded-3xl border border-sky-500/20 bg-sky-950/10 p-4 sm:p-5">
+                <div className="flex flex-col justify-center gap-3">
+                  <h3 className="text-sm font-black text-white">Camera and microphone</h3>
+                  <p className="text-xs leading-relaxed text-slate-400">Allow browser access, check your framing, then start your live session.</p>
+                  <button type="button" onClick={startCameraPreview} className="w-fit inline-flex items-center gap-2 rounded-full bg-sky-500 px-4 py-2.5 text-xs font-black text-slate-950 hover:bg-sky-400 transition"><Video className="w-4 h-4" />{cameraPreviewStream ? 'Restart camera preview' : 'Enable camera and mic'}</button>
+                  {cameraPreviewStream && <span className="text-[11px] font-bold text-emerald-300">Camera and microphone ready</span>}
+                  {cameraPreviewError && <p className="text-xs font-bold text-rose-300">{cameraPreviewError}</p>}
+                </div>
+                <div className="relative aspect-video overflow-hidden rounded-2xl border border-slate-700 bg-slate-950">{cameraPreviewStream ? <video ref={cameraPreviewRef} autoPlay muted playsInline className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center px-5 text-center text-xs font-bold text-slate-500">Your camera preview will appear here</div>}</div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2"><label className="block text-xs font-bold text-slate-200 mb-1.5">Live title <span className="text-red-400">*</span></label><input required value={liveTitle} onChange={(e) => setLiveTitle(e.target.value)} placeholder="Prayer, worship, or service title" maxLength={100} className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-sky-400 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none" /></div>
+                <div><label className="block text-xs font-bold text-slate-200 mb-1.5">Category</label><select value={liveCategory || 'Live Worship'} onChange={(e) => setLiveCategory(e.target.value)} className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-sky-400 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none"><option>Live Worship</option><option>Prayer & Intercession</option><option>Bible Study</option><option>Sunday Service</option><option>Christian Living</option></select></div>
+                <div><label className="block text-xs font-bold text-slate-200 mb-1.5">Speaker / host</label><input value={liveSpeaker} onChange={(e) => setLiveSpeaker(e.target.value)} className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-sky-400 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none" /></div>
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-slate-800"><button type="button" onClick={() => setStudioAction('choose')} className="px-5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">Cancel</button><button type="submit" className="px-7 py-3.5 rounded-full bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-sky-500/20 transition"><Radio className="w-4 h-4" /><span>{cameraPreviewStream ? 'Start Quick Live' : 'Enable Camera to Continue'}</span><ArrowRight className="w-4 h-4" /></button></div>
+            </form>
+          )}
+
+          {liveMode === 'studio' && (
+          <>
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <button
               onClick={() => {
@@ -3609,7 +3654,7 @@ export default function CreatePage({
             </button>
             <span className="px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold uppercase flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
-              {liveSetupStep === 'setup' ? 'Live Broadcast Setup' : 'YouTube Live Handoff'}
+              {liveSetupStep === 'setup' ? 'Live Broadcast Setup' : 'Gospread Studio Connection'}
             </span>
           </div>
 
@@ -3632,7 +3677,7 @@ export default function CreatePage({
                       START A LIVE BROADCAST
                     </h2>
                     <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                      Configure your gospel service broadcast, then continue in YouTube Live Control Room. YouTube handles channel authorization, camera access, and stream credentials.
+                      Configure your gospel service broadcast and preview your camera here. Gospread receives the live feed and manages the viewer experience in-app.
                     </p>
                   </div>
                   <div className="px-3 py-1.5 rounded-2xl bg-slate-900 border border-slate-800 text-[11px] text-amber-300 font-bold self-start sm:self-auto flex items-center gap-1.5">
@@ -3648,7 +3693,7 @@ export default function CreatePage({
                       <h3 className="text-sm font-black text-white">Phone camera preview</h3>
                     </div>
                     <p className="max-w-xl text-xs leading-relaxed text-slate-400">
-                      Check your camera and microphone before opening YouTube. This preview stays in your browser; YouTube will publish the actual video broadcast after you authorize your channel.
+                      Check your camera and microphone before connecting your encoder. Your broadcast is managed from Gospread's Live Control Room.
                     </p>
                     <div className="flex flex-wrap items-center gap-3">
                       <button
@@ -3874,12 +3919,12 @@ export default function CreatePage({
                     {isGeneratingCredentials ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Preparing YouTube handoff...</span>
+                        <span>Opening camera...</span>
                       </>
                     ) : (
                       <>
                         <Sparkles className="w-4 h-4 text-amber-300" />
-                        <span>Continue to YouTube Live</span>
+                        <span>Start Video Preview</span>
                         <ArrowRight className="w-4 h-4" />
                       </>
                     )}
@@ -3891,7 +3936,7 @@ export default function CreatePage({
           )}
 
           {/* ═══════════════════════════════════════════════════════════════
-              VIEW B: YOUTUBE LIVE CONTROL ROOM HANDOFF
+              VIEW B: VIDEO BROADCAST PREVIEW
              ═══════════════════════════════════════════════════════════════ */}
           {liveSetupStep === 'credentials' && (
             <motion.div
@@ -3907,18 +3952,18 @@ export default function CreatePage({
                     <div className="flex items-center gap-2.5">
                       <div className="w-3 h-3 rounded-full bg-red-500 animate-ping" />
                       <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase">
-                        YOUTUBE LIVE CONTROL ROOM
+                        VIDEO BROADCAST PREVIEW
                       </h2>
                     </div>
                     <p className="text-xs sm:text-sm text-slate-400">
-                      Gospread cannot create a YouTube broadcast with a Data API key alone. Open YouTube Studio to authorize your channel and start the real video broadcast.
+                      Your camera preview and broadcast controls stay in Gospread. Connect your encoder below, then open the Gospread Live Control Room.
                     </p>
                   </div>
 
                   <div className="flex items-center gap-2 self-start sm:self-auto">
                     <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-mono font-bold flex items-center gap-1.5">
                       <Wifi className="w-3.5 h-3.5 animate-pulse text-emerald-400" />
-                      <span>YouTube required</span>
+                      <span>Gospread ingest ready</span>
                     </span>
                     <button
                       type="button"
@@ -4159,7 +4204,7 @@ export default function CreatePage({
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 border-t border-slate-800/80">
                   <div className="flex items-center gap-2 text-xs text-slate-400">
                     <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                    <span>YouTube owns the live video session. Return to Gospread after starting it to share the live link.</span>
+                    <span>Start your encoder, then manage the broadcast entirely in Gospread.</span>
                   </div>
 
                   <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -4173,11 +4218,11 @@ export default function CreatePage({
 
                     <button
                       type="button"
-                      onClick={openYouTubeLiveControlRoom}
+                      onClick={() => setStudioAction('live_control_room')}
                       className="flex-1 sm:flex-none px-8 py-3.5 rounded-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-red-600/30 transition cursor-pointer"
                     >
                       <RadioTower className="w-4 h-4" />
-                      <span>Open YouTube Live Control Room</span>
+                      <span>Open Gospread Control Room</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>
@@ -4187,6 +4232,8 @@ export default function CreatePage({
             </motion.div>
           )}
 
+          </>
+          )}
         </motion.div>
       )}
 
