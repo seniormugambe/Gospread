@@ -8,13 +8,11 @@ import {
   CheckCircle2,
   UserPlus,
   UserCheck,
-  Building2,
   BookOpen,
   Music,
   Headphones,
   ChevronRight,
   Sparkles,
-  Volume2,
   Clapperboard,
   Podcast,
   Users,
@@ -23,15 +21,10 @@ import {
   BellRing,
   Calendar,
   Clock,
-  Heart,
-  History,
   RotateCcw,
   Plus
 } from 'lucide-react';
-import { VideoStream, AudioTrack, LIVE_VIDEO_STREAMS, GRACE_SHORTS, AUDIO_TRACKS } from '../data/gospelData';
-import { decodeHtml } from '../lib/utils';
-import { GivingTarget } from './GivingModal';
-import { DISCOVER_MINISTRIES } from './DiscoverMinistriesHub';
+import { VideoStream, AudioTrack } from '../data/gospelData';
 import StreamingVideoCard from './StreamingVideoCard';
 import { UserSession } from './AuthModal';
 import { WatchHistoryItem } from './WatchHistoryView';
@@ -47,9 +40,7 @@ interface KingdomHomeFeedProps {
   subscribedChannels: string[];
   onToggleFollow: (channelName: string) => void;
   onOpenChannelModal: (channelName: string) => void;
-  onOpenGivingModal?: (target?: GivingTarget) => void;
   onOpenDailyPromise?: () => void;
-  onOpenDailyStreak?: () => void;
   onOpenPrayerModal?: () => void;
   onNavigateTab: (tab: 'platform' | 'discover' | 'community' | 'profile' | 'create' | 'history') => void;
   followerCounts: Record<string, number>;
@@ -62,58 +53,6 @@ interface KingdomHomeFeedProps {
   activeAudioSpace?: ActiveAudioSpace | null;
   onJoinAudioSpace?: () => void;
 }
-
-// Curated scheduled upcoming broadcasts from partner sanctuaries
-const UPCOMING_CHURCH_SERVICES = [
-  {
-    id: 'up-1',
-    churchName: 'Grace City Cathedral',
-    churchAvatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
-    title: 'Mid-Week Communion & Prophetic Impartation',
-    speaker: 'Senior Pastor David Williams',
-    scheduledTime: 'Tonight • 7:30 PM EST',
-    tag: 'Holy Communion',
-    countdown: 'In 3h 15m',
-    attendees: 1840,
-    thumbnail: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 'up-2',
-    churchName: 'Elevation Praise Center',
-    churchAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
-    title: 'Night of Supernatural Worship & Intercession',
-    speaker: 'Pastor Steven Furtick',
-    scheduledTime: 'Friday • 8:00 PM EST',
-    tag: 'Worship Encounter',
-    countdown: 'In 2 days',
-    attendees: 2410,
-    thumbnail: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 'up-3',
-    churchName: 'Kingdom Chapel',
-    churchAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
-    title: 'Prophetic Encounter & Supernatural Anointing Service',
-    speaker: 'Bishop Emmanuel K.',
-    scheduledTime: 'Sunday • 9:00 AM EST',
-    tag: 'Flagship Service',
-    countdown: 'This Sunday',
-    attendees: 1120,
-    thumbnail: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 'up-4',
-    churchName: 'New Life Church',
-    churchAvatar: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=300&q=80',
-    title: 'Deliverance & Miracle Revival Altar',
-    speaker: 'Pastor Michael Evans',
-    scheduledTime: 'Sunday • 11:15 AM EST',
-    tag: 'Miracle Service',
-    countdown: 'This Sunday',
-    attendees: 1530,
-    thumbnail: 'https://images.unsplash.com/photo-1507692049790-de58290a4334?auto=format&fit=crop&w=800&q=80'
-  }
-];
 
 export default function KingdomHomeFeed({
   videoStreams = [],
@@ -166,38 +105,29 @@ export default function KingdomHomeFeed({
     }));
   };
 
-  const safeVideos = videoStreams && videoStreams.length > 0 ? videoStreams : LIVE_VIDEO_STREAMS;
-  const safeAudio = audioQueue && audioQueue.length > 0 ? audioQueue : AUDIO_TRACKS;
+  const safeVideos = videoStreams && videoStreams.length > 0 ? videoStreams : [];
+  const safeAudio = audioQueue && audioQueue.length > 0 ? audioQueue : [];
 
   // Categorized video streams
   const liveStreams = safeVideos.filter((v) => Boolean(v && v.isLive));
-  const fallbackSermons = LIVE_VIDEO_STREAMS.filter((v) => !v.isLive && v.category === 'Sermon');
   const sermonVideos = safeVideos.filter((v) => v && !v.isLive && v.category === 'Sermon');
-  const effectiveSermons = sermonVideos.length > 0 ? sermonVideos : fallbackSermons;
+  const effectiveSermons = sermonVideos;
 
-  const fallbackWorship = LIVE_VIDEO_STREAMS.filter(
-    (v) => !v.isLive && (v.category === 'Live Worship' || v.category === 'Choir Special' || v.category === 'Gospel Music')
-  );
   const worshipVideos = safeVideos.filter(
     (v) => v && !v.isLive && (v.category === 'Live Worship' || v.category === 'Choir Special' || v.category === 'Gospel Music')
   );
-  const effectiveWorship = worshipVideos.length > 0 ? worshipVideos : fallbackWorship;
+  const effectiveWorship = worshipVideos;
 
   // Returning user's followed churches live streams
-  const effectiveSubscribed =
-    subscribedChannels && subscribedChannels.length > 0
-      ? subscribedChannels
-      : ['Grace City Cathedral', 'Elevation Praise Center', 'New Life Church'];
-
   const yourChurchesLive = liveStreams.filter((v) =>
-    v && effectiveSubscribed.some(
+    v && subscribedChannels.some(
       (ch) =>
         (v.churchOrMinistry && v.churchOrMinistry.toLowerCase().includes(ch.toLowerCase())) ||
         (v.speakerOrArtist && v.speakerOrArtist.toLowerCase().includes(ch.toLowerCase()))
     )
   );
 
-  // Continue Watching items with resume progress bars
+  // Continue Watching items from real watch history only
   const continueWatchingItems =
     watchHistory && watchHistory.length > 0
       ? watchHistory
@@ -211,38 +141,15 @@ export default function KingdomHomeFeed({
               remainingText: ['18 min left', '34 min left', '8 min left', '45 min left'][i % 4]
             };
           })
-      : [
-          {
-            video: effectiveSermons[0] || LIVE_VIDEO_STREAMS[1] || LIVE_VIDEO_STREAMS[0],
-            progressPercent: 68,
-            remainingText: '18 min left'
-          },
-          {
-            video: effectiveSermons[1] || LIVE_VIDEO_STREAMS[2] || LIVE_VIDEO_STREAMS[0],
-            progressPercent: 42,
-            remainingText: '34 min left'
-          },
-          {
-            video: effectiveWorship[0] || LIVE_VIDEO_STREAMS[3] || LIVE_VIDEO_STREAMS[0],
-            progressPercent: 85,
-            remainingText: '6 min left'
-          },
-          {
-            video: effectiveSermons[2] || LIVE_VIDEO_STREAMS[4] || LIVE_VIDEO_STREAMS[0],
-            progressPercent: 25,
-            remainingText: '40 min left'
-          }
-        ];
+      : [];
 
   const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date());
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
-  const liveRadioTrack: AudioTrack =
+  const liveRadioTrack: AudioTrack | undefined =
     safeAudio.find((a) => a?.isLiveRadio || a?.category === '24/7 Gospel Radio') ||
-    safeAudio[0] ||
-    AUDIO_TRACKS.find((a) => a?.isLiveRadio) ||
-    AUDIO_TRACKS[0];
+    safeAudio[0];
 
   const filterTabs: Array<{
     id: 'All' | 'Live' | 'Sermons' | 'Worship' | 'Shorts' | 'Podcasts' | 'Ministries';
@@ -400,104 +307,18 @@ export default function KingdomHomeFeed({
           <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
             <Calendar className="w-4 h-4" />
           </span>
-          <div>
-            <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              <span>📅 Upcoming From Your Churches</span>
-              <span className="text-[11px] font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full">
-                Scheduled Services
-              </span>
-            </h2>
-          </div>
+          <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight flex items-center gap-2">
+            <span>📅 Upcoming Services</span>
+            <span className="text-[11px] font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full">
+              Scheduled
+            </span>
+          </h2>
         </div>
-        <span className="text-xs text-slate-400 hidden sm:inline">
-          Communion altars, prayer vigils &amp; Sunday flagship broadcasts
-        </span>
       </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {UPCOMING_CHURCH_SERVICES.map((service) => {
-          const isReminded = Boolean(reminders[service.id]);
-          return (
-            <div
-              key={service.id}
-              className="group relative rounded-2xl bg-slate-900 border border-slate-800 hover:border-amber-500/40 overflow-hidden shadow-lg flex flex-col justify-between transition-all"
-            >
-              {/* Thumbnail Header */}
-              <div className="relative aspect-video overflow-hidden bg-slate-950">
-                <img
-                  src={service.thumbnail}
-                  alt={service.title}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-
-                {/* Top Tags */}
-                <div className="absolute top-2.5 left-2.5">
-                  <span className="px-2 py-0.5 rounded-md bg-amber-500/90 text-slate-950 font-black text-[10px] uppercase tracking-wider shadow">
-                    {service.tag}
-                  </span>
-                </div>
-                <div className="absolute top-2.5 right-2.5">
-                  <span className="px-2 py-0.5 rounded-md bg-black/80 backdrop-blur-md border border-white/10 text-[10px] font-mono font-bold text-amber-300">
-                    {service.countdown}
-                  </span>
-                </div>
-
-                {/* Bottom Church Avatar Overlay */}
-                <div className="absolute bottom-2 left-2.5 right-2.5 flex items-center gap-2">
-                  <img
-                    src={service.churchAvatar}
-                    alt={service.churchName}
-                    className="w-6 h-6 rounded-full object-cover ring-1 ring-amber-400 shrink-0"
-                  />
-                  <span className="text-xs font-bold text-white truncate drop-shadow">
-                    {service.churchName}
-                  </span>
-                </div>
-              </div>
-
-              {/* Service Meta Details */}
-              <div className="p-3.5 space-y-2.5 flex-1 flex flex-col justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-400">
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>{service.scheduledTime}</span>
-                  </div>
-                  <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-2 leading-snug group-hover:text-amber-200 transition">
-                    {service.title}
-                  </h4>
-                  <p className="text-[11px] text-slate-400 truncate">{service.speaker}</p>
-                </div>
-
-                {/* Set Reminder Button */}
-                <div className="pt-2 border-t border-slate-800/80">
-                  <button
-                    type="button"
-                    onClick={() => toggleReminder(service.id)}
-                    className={`w-full py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-                      isReminded
-                        ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40 shadow-sm'
-                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-                    }`}
-                  >
-                    {isReminded ? (
-                      <>
-                        <BellRing className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                        <span>Reminder Set</span>
-                      </>
-                    ) : (
-                      <>
-                        <Bell className="w-3.5 h-3.5 text-slate-400" />
-                        <span>Remind Me ({service.attendees})</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      <div className="rounded-2xl bg-slate-900/60 border border-slate-800/80 p-6 text-center space-y-1">
+        <Calendar className="w-6 h-6 text-indigo-400/40 mx-auto" />
+        <p className="text-sm font-bold text-white">No upcoming services scheduled.</p>
+        <p className="text-xs text-slate-400">Follow churches to see their upcoming broadcast schedule here.</p>
       </div>
     </section>
   );
@@ -590,93 +411,82 @@ export default function KingdomHomeFeed({
   );
 
   // 4. SHORTS (SHARED CONTINUITY LAYER)
-  const renderShortsSection = () => (
-    <section id="section-shorts" className="space-y-4">
-      <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-        <div className="flex items-center gap-2.5">
-          <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
-            <Zap className="w-4 h-4 fill-amber-400" />
-          </span>
-          <div>
+  const renderShortsSection = () => {
+    const displayShorts = shorts && shorts.length > 0 ? shorts.slice(0, 8) : [];
+    if (displayShorts.length === 0) return (
+      <section id="section-shorts" className="space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+          <div className="flex items-center gap-2.5">
+            <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+              <Zap className="w-4 h-4 fill-amber-400" />
+            </span>
             <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight flex items-center gap-2">
               <span>⚡ GOSPREAD SHORTS</span>
-              <span className="text-[11px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">
-                60s Rhema
-              </span>
             </h2>
           </div>
         </div>
-
-        <button
-          type="button"
-          onClick={() => onOpenShorts()}
-          className="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1.5 transition px-3 py-1.5 rounded-xl bg-amber-400/10 border border-amber-400/20 hover:bg-amber-400/20"
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Watch All Shorts</span>
-          <ChevronRight className="w-3.5 h-3.5" />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4.5">
-        {GRACE_SHORTS.slice(0, 8).map((short) => (
-          <div
-            key={short.id}
-            onClick={() => onOpenShorts(short.id)}
-            className="group cursor-pointer relative aspect-[9/14] sm:aspect-[9/15] rounded-2xl overflow-hidden bg-slate-950 border border-slate-800/90 hover:border-amber-400/60 shadow-xl transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between p-3"
-          >
-            {/* Background Poster */}
-            <img
-              src={short.thumbnail}
-              alt={short.title}
-              referrerPolicy="no-referrer"
-              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            />
-
-            {/* Dark Gradient Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-black/60 group-hover:via-slate-950/30 transition-colors" />
-
-            {/* Top Bar: Tag & Duration */}
-            <div className="relative z-10 flex items-center justify-between gap-1">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/90 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow">
-                <Zap className="w-2.5 h-2.5 fill-slate-950" />
-                Short
-              </span>
-              <span className="px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md border border-white/10 text-[10px] font-mono font-bold text-white shadow">
-                {short.duration}
-              </span>
-            </div>
-
-            {/* Hover Play Button */}
-            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
-              <div className="w-12 h-12 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center shadow-xl shadow-amber-400/30 transform scale-75 group-hover:scale-100 transition-transform duration-300">
-                <Play className="w-5 h-5 fill-slate-950 translate-x-0.5" />
-              </div>
-            </div>
-
-            {/* Bottom Meta */}
-            <div className="relative z-10 space-y-1.5 pt-4">
-              <div className="flex items-center gap-1.5">
-                <img
-                  src={short.avatar}
-                  alt={short.speaker}
-                  className="w-5 h-5 rounded-full object-cover ring-1 ring-amber-400/60 shrink-0"
-                />
-                <p className="text-[11px] font-bold text-amber-300 truncate">{short.speaker}</p>
-              </div>
-              <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-2 leading-snug group-hover:text-amber-200 transition-colors">
-                {short.title}
-              </h4>
-              <div className="flex items-center justify-between text-[10px] text-slate-300 pt-0.5 font-medium">
-                <span className="text-slate-400 truncate max-w-[110px]">{short.church}</span>
-                <span className="text-amber-300/90 font-semibold">{short.likes}</span>
-              </div>
+        <div className="rounded-2xl bg-slate-900/60 border border-slate-800/80 p-6 text-center space-y-1">
+          <Zap className="w-6 h-6 text-amber-400/40 mx-auto" />
+          <p className="text-sm font-bold text-white">No shorts uploaded yet.</p>
+          <p className="text-xs text-slate-400">Short clips from ministries will appear here once uploaded.</p>
+        </div>
+      </section>
+    );
+    return (
+      <section id="section-shorts" className="space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+          <div className="flex items-center gap-2.5">
+            <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+              <Zap className="w-4 h-4 fill-amber-400" />
+            </span>
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                <span>⚡ GOSPREAD SHORTS</span>
+                <span className="text-[11px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">
+                  60s Rhema
+                </span>
+              </h2>
             </div>
           </div>
-        ))}
-      </div>
-    </section>
-  );
+          <button
+            type="button"
+            onClick={() => onOpenShorts?.()}
+            className="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1.5 transition px-3 py-1.5 rounded-xl bg-amber-400/10 border border-amber-400/20 hover:bg-amber-400/20"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Watch All Shorts</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5">
+          {displayShorts.map((short) => (
+            <div
+              key={short.id}
+              onClick={() => onOpenShorts?.(short.id)}
+              className="group cursor-pointer relative aspect-[9/14] rounded-2xl overflow-hidden bg-slate-950 border border-slate-800/90 hover:border-amber-400/60 shadow-xl transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between p-3"
+            >
+              <img src={short.thumbnail} alt={short.title} referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-black/60" />
+              <div className="relative z-10 flex items-center justify-between gap-1">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/90 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow"><Zap className="w-2.5 h-2.5 fill-slate-950" />Short</span>
+                <span className="px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md border border-white/10 text-[10px] font-mono font-bold text-white">{short.duration}</span>
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+                <div className="w-12 h-12 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center shadow-xl">
+                  <Play className="w-5 h-5 fill-slate-950 translate-x-0.5" />
+                </div>
+              </div>
+              <div className="relative z-10 space-y-1.5 pt-4">
+                <p className="text-[11px] font-bold text-amber-300 truncate">{short.speakerOrArtist}</p>
+                <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-2 leading-snug group-hover:text-amber-200 transition-colors">{short.title}</h4>
+                <p className="text-[10px] text-slate-400 truncate">{short.churchOrMinistry}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  };
 
   // 5. SERMONS (SHARED)
   const renderSermonsSection = () => (
