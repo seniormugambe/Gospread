@@ -445,6 +445,9 @@ export default function CreatePage({
   const [copiedServer, setCopiedServer] = useState(false);
   const [copiedStreamKey, setCopiedStreamKey] = useState(false);
   const [isGeneratingCredentials, setIsGeneratingCredentials] = useState(false);
+  const cameraPreviewRef = useRef<HTMLVideoElement>(null);
+  const [cameraPreviewStream, setCameraPreviewStream] = useState<MediaStream | null>(null);
+  const [cameraPreviewError, setCameraPreviewError] = useState('');
 
   // Encoder Guide Tab: 'obs' | 'streamlabs' | 'vmix' | 'wirecast' | 'hardware'
   const [activeEncoderTab, setActiveEncoderTab] = useState<'obs' | 'streamlabs' | 'vmix' | 'wirecast' | 'hardware'>('obs');
@@ -594,6 +597,26 @@ export default function CreatePage({
   const openYouTubeLiveControlRoom = () => {
     window.open('https://studio.youtube.com/', '_blank', 'noopener,noreferrer');
   };
+
+  const startCameraPreview = async () => {
+    setCameraPreviewError('');
+    try {
+      cameraPreviewStream?.getTracks().forEach(track => track.stop());
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      setCameraPreviewStream(stream);
+      if (cameraPreviewRef.current) {
+        cameraPreviewRef.current.srcObject = stream;
+      }
+    } catch (error) {
+      setCameraPreviewError(error instanceof DOMException && error.name === 'NotAllowedError'
+        ? 'Camera and microphone access was denied. Allow access in your browser to preview your phone camera.'
+        : 'This device could not open a camera preview. You can still continue in YouTube Live.');
+    }
+  };
+
+  useEffect(() => () => {
+    cameraPreviewStream?.getTracks().forEach(track => track.stop());
+  }, [cameraPreviewStream]);
 
   const handleCopyStreamKey = () => {
     setCopiedKey(true);
@@ -3623,6 +3646,37 @@ export default function CreatePage({
                   <div className="px-3 py-1.5 rounded-2xl bg-slate-900 border border-slate-800 text-[11px] text-amber-300 font-bold self-start sm:self-auto flex items-center gap-1.5">
                     <RadioTower className="w-3.5 h-3.5 text-red-400" />
                     <span>{ministryName}</span>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,360px)] rounded-3xl border border-sky-500/20 bg-sky-950/10 p-4 sm:p-5">
+                  <div className="flex flex-col justify-center gap-3">
+                    <div className="flex items-center gap-2 text-sky-300">
+                      <Video className="h-5 w-5" />
+                      <h3 className="text-sm font-black text-white">Phone camera preview</h3>
+                    </div>
+                    <p className="max-w-xl text-xs leading-relaxed text-slate-400">
+                      Check your camera and microphone before opening YouTube. This preview stays in your browser; YouTube will publish the actual video broadcast after you authorize your channel.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={startCameraPreview}
+                        className="inline-flex items-center gap-2 rounded-full bg-sky-500 px-4 py-2.5 text-xs font-black text-slate-950 transition hover:bg-sky-400"
+                      >
+                        <Video className="h-4 w-4" />
+                        {cameraPreviewStream ? 'Restart camera preview' : 'Enable camera preview'}
+                      </button>
+                      {cameraPreviewStream && <span className="text-[11px] font-bold text-emerald-300">Camera and microphone ready</span>}
+                    </div>
+                    {cameraPreviewError && <p className="text-xs font-bold text-rose-300">{cameraPreviewError}</p>}
+                  </div>
+                  <div className="relative aspect-video overflow-hidden rounded-2xl border border-slate-700 bg-slate-950">
+                    {cameraPreviewStream ? (
+                      <video ref={cameraPreviewRef} autoPlay muted playsInline className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center px-5 text-center text-xs font-bold text-slate-500">Your camera preview will appear here</div>
+                    )}
                   </div>
                 </div>
 
