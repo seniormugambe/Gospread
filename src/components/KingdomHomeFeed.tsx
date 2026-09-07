@@ -25,6 +25,7 @@ import {
   Plus
 } from 'lucide-react';
 import { VideoStream, AudioTrack } from '../data/gospelData';
+import { decodeHtml } from '../lib/utils';
 import StreamingVideoCard from './StreamingVideoCard';
 import { UserSession } from './AuthModal';
 import { WatchHistoryItem } from './WatchHistoryView';
