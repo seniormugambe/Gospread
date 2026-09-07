@@ -448,7 +448,7 @@ class DjangoApiClient {
   // === 1. AUTHENTICATION & USER PROFILE ===
   public async login(credentials: { username?: string; email?: string; password?: string }): Promise<DjangoAuthResponse> {
     const payload = {
-      email: (credentials.email || credentials.username || '').trim().toLowerCase(),
+      email: (credentials.email || '').trim().toLowerCase(),
       password: credentials.password,
     };
     const res = await this.request<DjangoAuthResponse>('/auth/login/', {

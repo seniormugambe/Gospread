@@ -151,7 +151,7 @@ export default function SimpleAuthCard({
           return;
         }
 
-          const res = await djangoApi.register(payload);
+        const res = await djangoApi.register(payload);
 
         const newUser: UserSession = {
             id: res.user.id,
@@ -180,24 +180,21 @@ export default function SimpleAuthCard({
           if (onNavigateHome) onNavigateHome();
         }, 600);
       }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Authentication encountered an error. Please try again.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
+      setErrorMessage(
+        message === 'No active account found with the given credentials'
+          ? 'We could not sign you in with that email and password.'
+          : message || 'Authentication encountered an error. Please try again.'
+      );
     } finally {
       setIsLoading(false);
     }
   };
-
   // Social login requires a configured OAuth callback; do not create a local session.
   const handleSocialLogin = (provider: 'Google' | 'Apple') => {
     setErrorMessage(null);
     setSuccessMessage(`${provider} login will be available after OAuth is configured.`);
-  };
-
-  // Fast Demo Login
-  const handleQuickDemoLogin = () => {
-    setEmail('grace.believer@gospread.org');
-    setPassword('Faith2026!');
-    setFullName('Grace Believer');
   };
 
   // If already logged in, show simple user card
@@ -384,6 +381,8 @@ export default function SimpleAuthCard({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="e-mail address"
+              autoComplete="email"
+              required
             className="w-full bg-transparent outline-none text-slate-800 dark:text-white placeholder:text-sky-900/60 dark:placeholder:text-sky-200/60 text-base font-normal"
           />
         </div>
@@ -398,6 +397,8 @@ export default function SimpleAuthCard({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="password"
+                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                required
                 className="w-full bg-transparent outline-none text-slate-800 dark:text-white placeholder:text-sky-900/60 dark:placeholder:text-sky-200/60 text-base font-normal"
               />
               <button
@@ -503,16 +504,6 @@ export default function SimpleAuthCard({
             </button>
           </div>
 
-          {/* Discreet One-click demo test credentials helper */}
-          <div className="mt-5 text-center">
-            <button
-              type="button"
-              onClick={handleQuickDemoLogin}
-              className="text-xs text-sky-800/70 dark:text-sky-300/70 hover:text-sky-950 dark:hover:text-white transition underline cursor-pointer"
-            >
-              Fill demo credentials
-            </button>
-          </div>
         </div>
       )}
     </motion.div>
