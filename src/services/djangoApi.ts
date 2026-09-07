@@ -125,6 +125,14 @@ export const DJANGO_API_BASE_URL = import.meta.env.VITE_DJANGO_API_URL || 'https
 const JWT_ACCESS_KEY = 'gospread_django_jwt_access';
 const JWT_REFRESH_KEY = 'gospread_django_jwt_refresh';
 const CSRF_TOKEN_KEY = 'gospread_django_csrftoken';
+const PUBLIC_READ_ENDPOINTS = new Set([
+  '/audio-spaces/',
+  '/churches/',
+  '/sermons/',
+  '/streams/',
+  '/shorts/',
+  '/worship-songs/',
+]);
 
 export interface DjangoApiError {
   detail?: string;
@@ -321,6 +329,8 @@ class DjangoApiClient {
     const url = `${this.baseUrl}${cleanEndpoint}`;
     const token = this.getAccessToken();
     const csrfToken = this.getCsrfToken();
+    const method = options.method?.toUpperCase() || 'GET';
+    const isPublicRead = PUBLIC_READ_ENDPOINTS.has(cleanEndpoint) && ['GET', 'HEAD', 'OPTIONS'].includes(method);
 
     const headers: Record<string, string> = {
       'Accept': 'application/json',
@@ -330,7 +340,7 @@ class DjangoApiClient {
       headers['Content-Type'] = 'application/json';
     }
 
-    if (token) {
+    if (token && !isPublicRead) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
@@ -348,7 +358,6 @@ class DjangoApiClient {
         signal: controller.signal,
       });
 
-      const method = options.method?.toUpperCase() || 'GET';
       const canRefresh = Boolean(token && this.getRefreshToken())
         && !cleanEndpoint.startsWith('/auth/token/refresh/')
         && !cleanEndpoint.startsWith('/auth/logout/');
