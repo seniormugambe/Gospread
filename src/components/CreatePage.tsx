@@ -85,7 +85,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream, ChurchLocation, SocialLink, registerChurchProfile } from '../data/gospelData';
 import { djangoApi } from '../services/djangoApi';
 import { UserSession } from './AuthModal';
-import LiveControlRoom from './LiveControlRoom';
+import LiveBroadcastRoom from './LiveBroadcastRoom';
 import LiveRecordingVODModal, { RecordedStreamData } from './LiveRecordingVODModal';
 import KingdomStudioSections from './KingdomStudioSections';
 import AudioSpaceStudio, { ActiveAudioSpace } from './AudioSpaceStudio';
@@ -997,17 +997,16 @@ export default function CreatePage({
   if (studioAction === 'live_control_room') {
     return (
       <div className="w-full min-h-screen bg-[#0a0a0a]">
-        <LiveControlRoom
-          currentUser={currentUser}
-          broadcastTitle={liveTitle || `Sunday Worship Celebration — ${ministryName}`}
-          broadcastType={broadcastType}
-          category={selectedCategory}
-          speaker={liveSpeaker || ownerName}
-          scripture={liveScripture || 'Isaiah 40:31'}
-          streamKey={liveStreamKey}
-          rtmpUrl={rtmpServerUrl}
-          onEndStream={handleEndLiveStream}
-          onBackToStudio={() => setStudioAction('choose')}
+        <LiveBroadcastRoom
+            currentUser={currentUser}
+            title={liveTitle || `Sunday Worship Celebration — ${ministryName}`}
+            description={liveDescription}
+            category={selectedCategory}
+            speaker={liveSpeaker || ownerName}
+            scripture={liveScripture || 'Isaiah 40:31'}
+            mode={liveMode}
+            onEnd={handleEndLiveStream}
+            onBack={() => setStudioAction('live')}
         />
         {activeVODModalData && (
           <LiveRecordingVODModal
