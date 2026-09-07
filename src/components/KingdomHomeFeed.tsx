@@ -1023,22 +1023,13 @@ export default function KingdomHomeFeed({
               <button type="button" onClick={onJoinAudioSpace} className="group flex min-w-[92px] flex-col items-center gap-2 text-center">
                 <span className="relative rounded-full bg-gradient-to-tr from-orange-400 via-rose-500 to-fuchsia-600 p-[3px] shadow-sm transition duration-200 group-hover:scale-105">
                   <span className="flex h-[86px] w-[86px] items-center justify-center overflow-hidden rounded-full border-4 border-white bg-slate-100 dark:border-slate-950 dark:bg-slate-800">
-                    <img src={DISCOVER_MINISTRIES[0].avatar} alt="" className="h-full w-full object-cover" />
+                    <span className="text-2xl font-black text-slate-400">{activeAudioSpace.hostName.slice(0, 1).toUpperCase()}</span>
                   </span>
                   <span className="absolute right-0 top-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-400 dark:border-slate-950" />
                 </span>
                 <span className="max-w-[92px] truncate text-xs font-bold text-slate-900 dark:text-white">{activeAudioSpace.hostName}</span>
               </button>
             )}
-
-            {DISCOVER_MINISTRIES.slice(0, activeAudioSpace ? 3 : 4).map((ministry) => (
-              <button type="button" key={ministry.id} onClick={() => onOpenChannelModal(ministry.name)} className="group flex min-w-[92px] flex-col items-center gap-2 text-center">
-                <span className="rounded-full bg-gradient-to-tr from-orange-400 via-rose-500 to-fuchsia-600 p-[3px] shadow-sm transition duration-200 group-hover:scale-105">
-                  <span className="flex h-[86px] w-[86px] items-center justify-center overflow-hidden rounded-full border-4 border-white bg-slate-100 dark:border-slate-950 dark:bg-slate-800"><img src={ministry.avatar} alt="" className="h-full w-full object-cover" /></span>
-                </span>
-                <span className="max-w-[92px] truncate text-xs font-bold text-slate-900 dark:text-white">{ministry.name.split(' ')[0].toLowerCase()}</span>
-              </button>
-            ))}
           </div>
         </section>
       )}
