@@ -236,7 +236,8 @@ export const LIVE_VIDEO_STREAMS: VideoStream[] = [
     description: 'When the winds contrary threaten your peace, fix your spiritual eyes upon the Christ of Glory. Discover how faith subdues natural laws.',
     bibleVerse: 'Romans 8:31 — "If God be for us, who can be against us?"',
     date: '3 days ago',
-    seriesName: 'Kingdom Dominion Masterclass'
+    seriesName: 'Kingdom Dominion Masterclass',
+    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-church-interior-with-pews-and-sunlight-41585-large.mp4'
   },
   {
     id: 'stream-gcc-sermon-2',

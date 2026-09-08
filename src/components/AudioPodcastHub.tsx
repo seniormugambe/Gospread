@@ -40,6 +40,8 @@ interface AudioPodcastHubProps {
   onOpenChannelProfile?: (channelName: string) => void;
   activeAudioSpace?: ActiveAudioSpace | null;
   onJoinAudioSpace?: () => void;
+  autoJoinAudioSpace?: boolean;
+  onAutoJoinHandled?: () => void;
 }
 
 export default function AudioPodcastHub({
@@ -51,7 +53,9 @@ export default function AudioPodcastHub({
   onOpenGivingModal,
   onOpenChannelProfile,
   activeAudioSpace,
-  onJoinAudioSpace
+  onJoinAudioSpace,
+  autoJoinAudioSpace = false,
+  onAutoJoinHandled,
 }: AudioPodcastHubProps) {
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -71,6 +75,16 @@ export default function AudioPodcastHub({
     audioElementsRef.current.forEach(el => el.remove());
     audioElementsRef.current = [];
   }, []);
+
+  // Auto-join when navigated here via "Join conversation" from home/feed
+  useEffect(() => {
+    if (autoJoinAudioSpace && activeAudioSpace?.roomName) {
+      onAutoJoinHandled?.();
+      void joinAudioSpace();
+    }
+    // joinAudioSpace is stable (defined below) — intentionally omitting it
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoJoinAudioSpace, activeAudioSpace?.roomName]);
 
   const leaveAudioSpace = () => {
     // Disconnect any existing room and clean up attached audio elements

@@ -14,12 +14,8 @@ import {
   Activity, 
   Volume2, 
   VolumeX, 
-  Maximize2, 
-  Minimize2, 
   CheckCircle2, 
-  AlertTriangle, 
   Plus, 
-  Sliders, 
   Share2, 
   ShieldCheck, 
   DollarSign, 
@@ -27,7 +23,10 @@ import {
   Eye, 
   RefreshCw,
   Award,
-  BookOpen
+  BookOpen,
+  Youtube,
+  ExternalLink,
+  AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserSession } from './AuthModal';
@@ -79,6 +78,7 @@ interface LiveControlRoomProps {
   scripture: string;
   streamKey: string;
   rtmpUrl: string;
+  youtubeVideoId?: string;
   onEndStream: (recordedData: {
     title: string;
     description: string;
@@ -105,11 +105,11 @@ export default function LiveControlRoom({
   scripture,
   streamKey,
   rtmpUrl,
+  youtubeVideoId,
   onEndStream,
   onBackToStudio
 }: LiveControlRoomProps) {
-  // Live Timer State (Counting up)
-  const [elapsedSeconds, setElapsedSeconds] = useState(2540); // ~42 mins
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [worshipperCount, setWorshipperCount] = useState(247);
   const [peakWorshippers, setPeakWorshippers] = useState(289);
   const [isMuted, setIsMuted] = useState(false);
@@ -417,37 +417,83 @@ export default function LiveControlRoom({
           {/* Live Video Monitor Frame */}
           <div className="relative aspect-video w-full rounded-3xl overflow-hidden bg-black border-2 border-slate-800 shadow-2xl flex items-center justify-center group">
             
-            {/* Background Simulated Live Video Feed */}
-            <img
-              src="https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1400&q=80"
-              alt="Live Pulpit Sanctuary"
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/50" />
+            {/* YouTube Live embed or waiting state */}
+            {youtubeVideoId ? (
+              <iframe
+                key={youtubeVideoId}
+                src={`https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&rel=0&modestbranding=1`}
+                title={broadcastTitle || 'Live Broadcast'}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="absolute inset-0 h-full w-full"
+              />
+            ) : (
+              <>
+                <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-6 text-center">
+                  <Youtube className="h-12 w-12 text-red-500/60" />
+                  <div>
+                    <h3 className="text-sm font-black text-white">Waiting for YouTube Live feed</h3>
+                    <p className="mt-1 text-xs text-slate-400 max-w-sm">
+                      Start streaming from OBS/vMix to YouTube, then enter your YouTube Live URL in
+                      the broadcast setup to see it here.
+                    </p>
+                  </div>
+                  <a
+                    href="https://studio.youtube.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 rounded-full bg-red-600 px-4 py-2 text-xs font-black text-white hover:bg-red-500 transition"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Open YouTube Studio
+                  </a>
+                </div>
+                <div className="absolute inset-0 bg-[#0a0a0a]" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center z-10">
+                  <Youtube className="h-12 w-12 text-red-500/60" />
+                  <div>
+                    <h3 className="text-sm font-black text-white">Waiting for YouTube Live feed</h3>
+                    <p className="mt-1 text-xs text-slate-400 max-w-sm">
+                      Start streaming from OBS/vMix to YouTube, then enter your YouTube Live URL in
+                      the broadcast setup to see it here.
+                    </p>
+                  </div>
+                  <a
+                    href="https://studio.youtube.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 rounded-full bg-red-600 px-4 py-2 text-xs font-black text-white hover:bg-red-500 transition"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Open YouTube Studio
+                  </a>
+                </div>
+              </>
+            )}
 
             {/* Top Live Video HUD Overlay */}
-            <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none">
-              <div className="flex items-center gap-2 pointer-events-auto">
-                <span className="px-3 py-1 rounded-full bg-red-600 text-white font-black text-xs flex items-center gap-1.5 shadow-lg shadow-red-600/40">
-                  <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-                  <span>LIVE FEED</span>
-                </span>
-                <span className="px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-slate-700 text-white font-mono text-[11px]">
-                  {formatElapsed(elapsedSeconds)}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2 pointer-events-auto">
-                <button
-                  type="button"
-                  onClick={() => setIsMuted(!isMuted)}
-                  className="p-2 rounded-xl bg-black/70 hover:bg-black/90 border border-slate-700 text-white transition"
-                  title={isMuted ? 'Unmute preview' : 'Mute preview'}
+            {youtubeVideoId && (
+              <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none z-20">
+                <div className="flex items-center gap-2 pointer-events-auto">
+                  <span className="px-3 py-1 rounded-full bg-red-600 text-white font-black text-xs flex items-center gap-1.5 shadow-lg shadow-red-600/40">
+                    <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                    <span>LIVE FEED</span>
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-slate-700 text-white font-mono text-[11px]">
+                    {formatElapsed(elapsedSeconds)}
+                  </span>
+                </div>
+                <a
+                  href={`https://studio.youtube.com`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/70 border border-slate-700 text-[10px] font-bold text-slate-300 hover:text-white transition pointer-events-auto"
                 >
-                  {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4" />}
-                </button>
+                  <ExternalLink className="w-3 h-3" />
+                  Studio
+                </a>
               </div>
-            </div>
+            )}
 
             {/* LOWER THIRD ON-SCREEN OVERLAY (Real-time Broadcast Lower Third) */}
             <AnimatePresence>

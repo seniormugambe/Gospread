@@ -203,6 +203,11 @@ export default function App() {
 
   const handleAudioSpaceChange = (space: ActiveAudioSpace | null) => {
     setActiveAudioSpace(space);
+    // Navigate the host to the Podcasts tab so they can see their live space
+    if (space) {
+      setSelectedCategory('Podcasts');
+      setActiveTab('platform');
+    }
     try {
       if (space) localStorage.setItem('gospread_active_audio_space', JSON.stringify(space));
       else localStorage.removeItem('gospread_active_audio_space');
@@ -451,7 +456,7 @@ export default function App() {
     });
   };
 
-  const [likedVideos, setLikedVideos] = useState<string[]>([]);
+  const [autoJoinAudioSpace, setAutoJoinAudioSpace] = useState(false);
   
   // Video player controls state
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
@@ -1923,7 +1928,12 @@ export default function App() {
                   onOpenGivingModal={handleOpenGiving}
                   onOpenChannelProfile={(channel) => setSelectedChannelModal(channel)}
                   activeAudioSpace={activeAudioSpace}
-                  onJoinAudioSpace={() => setSelectedCategory('Podcasts')}
+                  autoJoinAudioSpace={autoJoinAudioSpace}
+                  onAutoJoinHandled={() => setAutoJoinAudioSpace(false)}
+                  onJoinAudioSpace={() => {
+                    setSelectedCategory('Podcasts');
+                    setAutoJoinAudioSpace(true);
+                  }}
                 />
               )}
 
@@ -2047,7 +2057,10 @@ export default function App() {
                   watchHistory={watchHistory}
                   onRemoveWatchHistory={removeFromWatchHistory}
                   activeAudioSpace={activeAudioSpace}
-                  onJoinAudioSpace={() => setSelectedCategory('Podcasts')}
+                  onJoinAudioSpace={() => {
+                    setSelectedCategory('Podcasts');
+                    setAutoJoinAudioSpace(true);
+                  }}}
                 />
               )}
 
@@ -2293,27 +2306,34 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Fullscreen Artwork Modal */}
+      {/* Fullscreen player */}
       <AnimatePresence>
-        {isFullscreen && (
+        {isFullscreen && activeVideo && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/95 p-4 flex flex-col items-center justify-center"
+            className="fixed inset-0 z-50 bg-black p-4 flex flex-col items-center justify-center"
           >
             <button
               onClick={() => setIsFullscreen(false)}
-              className="absolute top-6 right-6 px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold"
+              className="absolute top-6 right-6 px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold z-10"
             >
               Close
             </button>
-            <img
-              src={youtubeGospelImg}
-              alt="Full view"
-              referrerPolicy="no-referrer"
-              className="max-w-full max-h-[90vh] object-contain rounded-xl"
-            />
+            <div className="w-full max-w-6xl">
+              <VideoStreamFrame
+                video={activeVideo}
+                isPlaying={isVideoPlaying}
+                onTogglePlay={() => setIsVideoPlaying(!isVideoPlaying)}
+                isMuted={isVideoMuted}
+                onToggleMute={() => setIsVideoMuted(!isVideoMuted)}
+                onOpenGivingModal={handleOpenGiving}
+                onOpenFullscreen={() => setIsFullscreen(false)}
+                onOpenChannelProfile={(channel) => setSelectedChannelModal(channel)}
+                onDownloadVideo={handleOpenDownloadModal}
+              />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

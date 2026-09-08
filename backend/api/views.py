@@ -155,7 +155,7 @@ class HealthCheckView(generics.GenericAPIView):
 
 
 class AudioSpaceTokenView(generics.GenericAPIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]  # Hosts need auth (checked below); listeners can join as guest
 
     def post(self, request):
         import asyncio
@@ -164,6 +164,10 @@ class AudioSpaceTokenView(generics.GenericAPIView):
         can_publish = bool(request.data.get("can_publish", False))
         if not room_name:
             return Response({"room_name": ["This field is required."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Only authenticated users can host (publish)
+        if can_publish and not request.user.is_authenticated:
+            return Response({"detail": "Sign in to start an Audio Space."}, status=status.HTTP_401_UNAUTHORIZED)
 
         livekit_url = getattr(settings, "LIVEKIT_URL", "")
         api_key = getattr(settings, "LIVEKIT_API_KEY", "")
@@ -200,9 +204,17 @@ class AudioSpaceTokenView(generics.GenericAPIView):
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
 
-        identity = f"user-{request.user.id}"
+        # Use authenticated identity if available, otherwise assign a guest identity
+        if request.user.is_authenticated:
+            identity = f"user-{request.user.id}"
+            display_name = request.user.get_full_name() or request.user.username
+        else:
+            import uuid
+            identity = f"guest-{uuid.uuid4().hex[:8]}"
+            display_name = "Listener"
+
         token = livekit_api.AccessToken(api_key, api_secret).with_identity(identity).with_name(
-            request.user.get_full_name() or request.user.username
+            display_name
         ).with_grants(livekit_api.VideoGrants(room_join=True, room=room_name, can_publish=can_publish, can_subscribe=True))
         return Response({"server_url": livekit_url, "participant_token": token.to_jwt(), "room_name": room_name})
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Play,
   Pause,
@@ -35,6 +35,8 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream } from '../data/gospelData';
 import { GivingTarget } from './GivingModal';
+import StreamMediaPlayer, { StreamMediaPlayerHandle } from './StreamMediaPlayer';
+import { formatMediaTime, resolvePlaybackSource } from '../utils/videoPlayback';
 
 interface VideoStreamFrameProps {
   video: VideoStream;
@@ -94,21 +96,40 @@ export default function VideoStreamFrame({
   // Stats for Nerds / Telemetry Bar
   const [showTelemetryBar, setShowTelemetryBar] = useState(false);
 
+  const playback = useMemo(
+    () => resolvePlaybackSource(video),
+    [video.id, video.videoUrl, video.streamUrl]
+  );
+  const hasRealPlayback = playback.kind !== 'none';
+  const mediaPlayerRef = useRef<StreamMediaPlayerHandle>(null);
+
   // Video progress state (percentage 0-100)
   const [progressPercent, setProgressPercent] = useState(0);
+  const [currentSec, setCurrentSec] = useState(0);
+  const [durationSec, setDurationSec] = useState(0);
 
-  // Simulate progress advancing while playing
+  const handleMediaTimeUpdate = useCallback((current: number, duration: number) => {
+    setCurrentSec(current);
+    setDurationSec(duration);
+    if (duration > 0) {
+      setProgressPercent(Math.min(100, (current / duration) * 100));
+    }
+  }, []);
+
+  // Simulated progress only when no real media URL is available
   useEffect(() => {
-    if (!isPlaying) return;
+    if (hasRealPlayback || !isPlaying) return;
     const interval = window.setInterval(() => {
       setProgressPercent(prev => (prev >= 100 ? 0 : prev + 0.05));
     }, 500);
     return () => window.clearInterval(interval);
-  }, [isPlaying]);
+  }, [hasRealPlayback, isPlaying]);
 
   // Reset progress when video changes
   useEffect(() => {
     setProgressPercent(0);
+    setCurrentSec(0);
+    setDurationSec(0);
   }, [video.id]);
 
   // Ambient Mode State & Dynamic Color Extraction
@@ -120,7 +141,9 @@ export default function VideoStreamFrame({
     accent: 'rgba(251, 191, 36, 0.45)',
   });
 
-  // Determine active frame image URL
+  const scriptureDisplay = video.bibleVerse || 'John 14:27 — "Peace I leave with you; my peace I give you."';
+
+  // Determine active frame image URL (thumbnail fallback & ambient sampling)
   const activeFrameSrc =
     activeCamAngle === 'cam2'
       ? 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1200&q=80'
@@ -315,6 +338,21 @@ export default function VideoStreamFrame({
 
       {/* Main Video Frame Container */}
       <div className="relative aspect-video rounded-3xl overflow-hidden bg-black border border-slate-800/90 shadow-2xl group select-none z-10">
+      {/* Real media layer (YouTube iframe or HTML5 video) */}
+      {hasRealPlayback && (
+        <StreamMediaPlayer
+          ref={mediaPlayerRef}
+          playback={playback}
+          videoId={video.id}
+          isPlaying={isPlaying}
+          isMuted={isMuted}
+          playbackSpeed={playbackSpeed}
+          playbackMode={playbackMode}
+          poster={video.thumbnail}
+          onTimeUpdate={handleMediaTimeUpdate}
+        />
+      )}
+
       {/* Active Camera Video Preview OR Anointed Audio Mode Canvas */}
       {playbackMode === 'audio' ? (
         <div className="w-full h-full bg-gradient-to-b from-slate-900 via-slate-950 to-black flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
@@ -359,7 +397,7 @@ export default function VideoStreamFrame({
             ))}
           </div>
         </div>
-      ) : (
+      ) : !hasRealPlayback ? (
         <img
           src={activeFrameSrc}
           alt={video.title}
@@ -368,7 +406,7 @@ export default function VideoStreamFrame({
             aspectRatio === 'Zoom' ? 'scale-110' : ''
           }`}
         />
-      )}
+      ) : null}
 
       {/* Floating Amen Reaction Effects */}
       <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden">
@@ -412,12 +450,12 @@ export default function VideoStreamFrame({
             <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-1">
               <BookOpen className="w-3 h-3" /> Live Scripture Banner
             </span>
-            <span className="text-[10px] font-mono text-slate-300 font-bold bg-slate-900 px-1.5 py-0.5 rounded">
-              John 14:27
+            <span className="text-[10px] font-mono text-slate-300 font-bold bg-slate-900 px-1.5 py-0.5 rounded truncate max-w-[140px]">
+              {scriptureDisplay.split('—')[0]?.split('-')[0]?.trim() || 'Scripture'}
             </span>
           </div>
-          <p className="text-xs font-serif italic text-slate-100 leading-snug">
-            "Peace I leave with you; my peace I give you. I do not give to you as the world gives. Do not let your hearts be troubled."
+          <p className="text-xs font-serif italic text-slate-100 leading-snug line-clamp-2">
+            {scriptureDisplay.includes('—') ? scriptureDisplay.split('—').slice(1).join('—').trim() : scriptureDisplay}
           </p>
         </motion.div>
       )}
@@ -818,14 +856,16 @@ export default function VideoStreamFrame({
               </span>
             )}
 
-            <button
-              onClick={() => setShowCamSelector(!showCamSelector)}
-              className="px-2.5 py-1 rounded-full bg-slate-900/80 hover:bg-slate-800 text-amber-300 border border-amber-500/30 text-[10px] font-bold transition flex items-center gap-1"
-            >
-              <Camera className="w-3 h-3 text-amber-400" />
-              <span>Cam: {activeCamAngle.toUpperCase()}</span>
-              <ChevronDown className="w-3 h-3" />
-            </button>
+            {!hasRealPlayback && (
+              <button
+                onClick={() => setShowCamSelector(!showCamSelector)}
+                className="px-2.5 py-1 rounded-full bg-slate-900/80 hover:bg-slate-800 text-amber-300 border border-amber-500/30 text-[10px] font-bold transition flex items-center gap-1"
+              >
+                <Camera className="w-3 h-3 text-amber-400" />
+                <span>Cam: {activeCamAngle.toUpperCase()}</span>
+                <ChevronDown className="w-3 h-3" />
+              </button>
+            )}
 
             {/* Seamless Mode Switch: Never force viewer to choose between Video and Audio */}
             <div className="flex items-center bg-black/70 backdrop-blur-md rounded-full p-0.5 border border-slate-700/80 shadow-md">
@@ -940,6 +980,9 @@ export default function VideoStreamFrame({
               const clickX = e.clientX - rect.left;
               const newPercent = Math.max(0, Math.min(100, (clickX / rect.width) * 100));
               setProgressPercent(newPercent);
+              if (hasRealPlayback && durationSec > 0) {
+                mediaPlayerRef.current?.seek(newPercent, durationSec);
+              }
             }}
           >
             <div className="bg-amber-500 h-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
@@ -954,7 +997,13 @@ export default function VideoStreamFrame({
                 {isMuted ? <VolumeX className="w-4 h-4 text-red-500" /> : <Volume2 className="w-4 h-4" />}
               </button>
               <span className="text-[11px] font-mono text-slate-300">
-                {video.isLive ? '01:24:10 / LIVE' : video.duration}
+                {hasRealPlayback && durationSec > 0
+                  ? video.isLive
+                    ? `${formatMediaTime(currentSec)} / LIVE`
+                    : `${formatMediaTime(currentSec)} / ${formatMediaTime(durationSec)}`
+                  : video.isLive
+                    ? '01:24:10 / LIVE'
+                    : video.duration || '0:00'}
               </span>
 
               {/* Playback Speed Control Pill & Popover Menu */}

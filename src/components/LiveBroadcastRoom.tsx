@@ -1,8 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, CameraOff, Clock, Mic, MicOff, Radio, Square, Wifi, WifiOff } from 'lucide-react';
-import { Room, RoomEvent } from 'livekit-client';
+import {
+  Clock,
+  ExternalLink,
+  Radio,
+  Square,
+  Wifi,
+  WifiOff,
+  Youtube,
+  Copy,
+  Check,
+  AlertTriangle,
+  RefreshCw,
+} from 'lucide-react';
 import { UserSession } from './AuthModal';
-import { djangoApi } from '../services/djangoApi';
+import { extractYouTubeId } from '../utils/videoPlayback';
 
 interface LiveBroadcastRoomProps {
   currentUser?: UserSession;
@@ -29,83 +40,53 @@ interface LiveBroadcastRoomProps {
   onBack: () => void;
 }
 
-export default function LiveBroadcastRoom({ currentUser, title, description, speaker, category, scripture, mode, onEnd, onBack }: LiveBroadcastRoomProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const roomRef = useRef<Room | null>(null);
+export default function LiveBroadcastRoom({
+  currentUser,
+  title,
+  description,
+  speaker,
+  category,
+  scripture,
+  mode,
+  onEnd,
+  onBack,
+}: LiveBroadcastRoomProps) {
+  const [youtubeInput, setYoutubeInput] = useState('');
+  const [videoId, setVideoId] = useState<string | null>(null);
+  const [inputError, setInputError] = useState('');
+  const [isConnected, setIsConnected] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [isConnected, setIsConnected] = useState(mode === 'studio');
-  const [isMuted, setIsMuted] = useState(false);
-  const [isCameraEnabled, setIsCameraEnabled] = useState(mode === 'studio');
-  const [error, setError] = useState('');
+  const [copied, setCopied] = useState<'rtmp' | 'key' | null>(null);
 
-  // Only start the timer once connected so elapsed time reflects actual broadcast time
+  // Timer only runs once we have a video ID loaded
   useEffect(() => {
     if (!isConnected) return;
-    const timer = window.setInterval(() => setElapsedSeconds(value => value + 1), 1000);
+    const timer = window.setInterval(() => setElapsedSeconds(v => v + 1), 1000);
     return () => window.clearInterval(timer);
   }, [isConnected]);
 
-  const attachLocalVideo = () => {
-    const publication = Array.from(roomRef.current?.localParticipant.videoTrackPublications.values() || [])[0];
-    const track = publication?.track;
-    if (track && videoRef.current) track.attach(videoRef.current);
+  const handleLoadVideo = () => {
+    setInputError('');
+    const id = extractYouTubeId(youtubeInput);
+    if (!id) {
+      setInputError(
+        'Paste a valid YouTube Live URL (e.g. https://youtube.com/watch?v=...) or an 11-character video ID.'
+      );
+      return;
+    }
+    setVideoId(id);
+    setIsConnected(true);
+    setElapsedSeconds(0);
   };
 
-  // Capture mutable props in a ref so the effect doesn't re-run when they change
-  const propsRef = useRef({ currentUser, title, description, speaker, category, scripture, mode });
-  useEffect(() => {
-    propsRef.current = { currentUser, title, description, speaker, category, scripture, mode };
-  });
+  const handleDisconnect = () => {
+    setVideoId(null);
+    setIsConnected(false);
+    setElapsedSeconds(0);
+    setYoutubeInput('');
+  };
 
-  useEffect(() => {
-    if (propsRef.current.mode !== 'quick') return;
-    let active = true;
-    const startRoom = async () => {
-      const { currentUser: user, title: t, description: d, category: c, scripture: s, speaker: sp } = propsRef.current;
-      try {
-        if (!user?.isLoggedIn) throw new Error('Sign in before starting a Quick Live broadcast.');
-        const roomName = `video-live-${crypto.randomUUID()}`;
-        const tokenData = await djangoApi.createAudioSpaceToken(roomName, true, {
-          title: t,
-          topic: d,
-          ministry_name: user.ministryName || user.churchName || 'Gospread Ministry',
-        });
-        if (!active) return;
-        const room = new Room();
-        roomRef.current = room;
-        room.on(RoomEvent.TrackPublished, attachLocalVideo);
-        room.on(RoomEvent.LocalTrackPublished, attachLocalVideo);
-        room.on(RoomEvent.Disconnected, () => {
-          if (active) setIsConnected(false);
-        });
-        await room.connect(tokenData.server_url, tokenData.participant_token);
-        await room.localParticipant.setCameraEnabled(true);
-        await room.localParticipant.setMicrophoneEnabled(true);
-        if (active) {
-          setIsConnected(true);
-          setIsCameraEnabled(true);
-          window.setTimeout(attachLocalVideo, 100);
-        }
-      } catch (caught) {
-        if (active) setError(caught instanceof Error ? caught.message : 'Could not connect to the live video service.');
-      }
-    };
-    void startRoom();
-    return () => {
-      active = false;
-      const roomName = roomRef.current?.name;
-      if (roomName) void djangoApi.endAudioSpace(roomName);
-      roomRef.current?.disconnect();
-      roomRef.current = null;
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run once on mount — props are accessed via ref
-
-  const endBroadcast = () => {
-    const roomName = roomRef.current?.name;
-    roomRef.current?.disconnect();
-    roomRef.current = null;
-    if (roomName) void djangoApi.endAudioSpace(roomName);
+  const handleEndBroadcast = () => {
     const hours = Math.floor(elapsedSeconds / 3600);
     const minutes = Math.floor((elapsedSeconds % 3600) / 60);
     onEnd({
@@ -119,51 +100,274 @@ export default function LiveBroadcastRoom({ currentUser, title, description, spe
       totalWorshippers: 0,
       peakWorshippers: 0,
       prayersCount: 0,
-      thumbnail: '',
-      videoUrl: '',
+      thumbnail: videoId
+        ? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`
+        : '',
+      videoUrl: videoId ? `https://www.youtube.com/watch?v=${videoId}` : '',
     });
   };
 
-  const toggleMute = () => {
-    const nextMuted = !isMuted;
-    void roomRef.current?.localParticipant.setMicrophoneEnabled(!nextMuted);
-    setIsMuted(nextMuted);
+  const copyToClipboard = (text: string, key: 'rtmp' | 'key') => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(key);
+      window.setTimeout(() => setCopied(null), 2000);
+    });
   };
 
-  const toggleCamera = () => {
-    const nextEnabled = !isCameraEnabled;
-    void roomRef.current?.localParticipant.setCameraEnabled(nextEnabled);
-    setIsCameraEnabled(nextEnabled);
-  };
+  const formatTime = (s: number) =>
+    `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(
+      Math.floor((s % 3600) / 60)
+    ).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
-  const formatTime = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+  // YouTube RTMPS ingest info (for OBS/encoder setup)
+  const ytRtmpUrl = 'rtmp://a.rtmp.youtube.com/live2';
+  const ytRtmpTip =
+    'Stream Key comes from YouTube Studio → Go Live → Stream tab. Keep it private.';
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] px-3 py-5 text-white sm:px-6">
       <div className="mx-auto max-w-6xl space-y-5">
+        {/* ── HEADER BAR ── */}
         <header className="flex flex-col gap-4 rounded-3xl border border-slate-800 bg-[#141416] p-4 shadow-2xl sm:flex-row sm:items-center sm:justify-between sm:p-5">
-          <div className="flex items-center gap-3"><Radio className="h-6 w-6 text-red-400" /><div><h1 className="text-lg font-black">{mode === 'quick' ? 'QUICK LIVE' : 'STUDIO LIVE'}</h1><p className="text-xs text-slate-400">{title || 'Untitled broadcast'} · {speaker || 'Host'}</p></div></div>
-          <div className="flex flex-wrap items-center gap-2"><span className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold ${isConnected ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'}`}>{isConnected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}{mode === 'quick' ? (isConnected ? 'Connected' : 'Connecting') : 'Awaiting encoder signal'}</span><span className="flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-mono"><Clock className="h-3.5 w-3.5 text-red-400" />{formatTime(elapsedSeconds)}</span><button onClick={endBroadcast} className="flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-xs font-black hover:bg-red-500"><Square className="h-3.5 w-3.5 fill-white" />End Live</button></div>
+          <div className="flex items-center gap-3">
+            <Youtube className="h-6 w-6 text-red-500" />
+            <div>
+              <h1 className="text-lg font-black">YOUTUBE LIVE BROADCAST</h1>
+              <p className="text-xs text-slate-400">
+                {title || 'Untitled broadcast'} · {speaker || 'Host'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold ${
+                isConnected
+                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                  : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+              }`}
+            >
+              {isConnected ? (
+                <Wifi className="h-3.5 w-3.5" />
+              ) : (
+                <WifiOff className="h-3.5 w-3.5" />
+              )}
+              {isConnected ? 'Monitoring live stream' : 'Awaiting YouTube Live URL'}
+            </span>
+
+            {isConnected && (
+              <span className="flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-mono">
+                <Clock className="h-3.5 w-3.5 text-red-400" />
+                {formatTime(elapsedSeconds)}
+              </span>
+            )}
+
+            {isConnected && (
+              <button
+                onClick={handleEndBroadcast}
+                className="flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-xs font-black hover:bg-red-500"
+              >
+                <Square className="h-3.5 w-3.5 fill-white" />
+                End &amp; Save VOD
+              </button>
+            )}
+
+            <button
+              onClick={isConnected ? handleDisconnect : onBack}
+              className="rounded-full border border-slate-700 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800"
+            >
+              {isConnected ? 'Disconnect' : 'Back to setup'}
+            </button>
+          </div>
         </header>
 
-        {error && <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm font-bold text-rose-200">{error}<button onClick={onBack} className="ml-3 underline">Return to setup</button></div>}
-
-        <main className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <main className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+          {/* ── LEFT: VIDEO EMBED ── */}
           <section className="space-y-4">
+            {/* Video embed or setup prompt */}
             <div className="relative aspect-video overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 shadow-2xl">
-              {mode === 'quick' ? <video ref={videoRef} autoPlay muted playsInline className={`h-full w-full object-cover ${isCameraEnabled ? '' : 'hidden'}`} /> : <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center"><Radio className="h-12 w-12 text-amber-400" /><h2 className="text-xl font-black">Waiting for Studio encoder</h2><p className="max-w-md text-sm text-slate-400">Start OBS, vMix, Streamlabs, or your hardware encoder with the Gospread RTMPS credentials. This page will become the broadcast monitor when the ingest service reports a signal.</p></div>}
-              {mode === 'quick' && !isCameraEnabled && <div className="absolute inset-0 flex items-center justify-center text-sm font-bold text-slate-400">Camera is off</div>}
-              <div className="absolute left-4 top-4 rounded-full bg-red-600 px-3 py-1 text-[10px] font-black uppercase">{isConnected ? 'Live feed' : 'No signal'}</div>
+              {videoId ? (
+                <iframe
+                  key={videoId}
+                  src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`}
+                  title={title || 'Live Broadcast'}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="absolute inset-0 h-full w-full"
+                />
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-600/20 text-red-400">
+                    <Youtube className="h-10 w-10" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-white">Connect your YouTube Live stream</h2>
+                    <p className="mt-1 max-w-md text-sm text-slate-400">
+                      Go live on YouTube Studio, then paste the live stream URL or video ID below to
+                      monitor it here.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {videoId && (
+                <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1 text-[10px] font-black uppercase shadow-lg">
+                  <span className="h-1.5 w-1.5 animate-ping rounded-full bg-white" />
+                  Live Monitor
+                </div>
+              )}
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-3 rounded-3xl border border-slate-800 bg-[#141416] p-4">
-              {mode === 'quick' && <><button onClick={toggleCamera} className="flex items-center gap-2 rounded-full border border-slate-700 px-5 py-3 text-xs font-bold hover:bg-slate-800">{isCameraEnabled ? <Camera className="h-4 w-4 text-emerald-400" /> : <CameraOff className="h-4 w-4 text-rose-400" />}{isCameraEnabled ? 'Turn camera off' : 'Turn camera on'}</button><button onClick={toggleMute} className="flex items-center gap-2 rounded-full border border-slate-700 px-5 py-3 text-xs font-bold hover:bg-slate-800">{isMuted ? <MicOff className="h-4 w-4 text-rose-400" /> : <Mic className="h-4 w-4 text-emerald-400" />}{isMuted ? 'Unmute microphone' : 'Mute microphone'}</button></>}
-              <button onClick={onBack} className="rounded-full border border-slate-700 px-5 py-3 text-xs font-bold text-slate-300 hover:bg-slate-800">Back to setup</button>
-            </div>
+
+            {/* URL Input + Connect */}
+            {!isConnected && (
+              <div className="rounded-3xl border border-slate-800 bg-[#141416] p-5 space-y-3">
+                <h3 className="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                  <Youtube className="w-4 h-4 text-red-500" />
+                  Paste your YouTube Live URL
+                </h3>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={youtubeInput}
+                    onChange={e => setYoutubeInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleLoadVideo()}
+                    placeholder="https://youtube.com/watch?v=... or video ID"
+                    className="flex-1 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white outline-none focus:border-red-500 placeholder:text-slate-500"
+                  />
+                  <button
+                    onClick={handleLoadVideo}
+                    className="rounded-2xl bg-red-600 px-5 py-2.5 text-xs font-black text-white hover:bg-red-500 transition"
+                  >
+                    Monitor
+                  </button>
+                </div>
+                {inputError && (
+                  <p className="flex items-center gap-1.5 text-xs font-bold text-rose-400">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    {inputError}
+                  </p>
+                )}
+                <p className="text-[11px] text-slate-500">
+                  Start your broadcast in YouTube Studio first, then paste the URL here to display it.
+                </p>
+              </div>
+            )}
+
+            {/* Open in YouTube button while connected */}
+            {isConnected && videoId && (
+              <a
+                href={`https://www.youtube.com/watch?v=${videoId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-[#141416] px-5 py-3 text-xs font-bold text-slate-300 hover:bg-slate-800 transition"
+              >
+                <ExternalLink className="w-4 h-4 text-red-400" />
+                Open in YouTube Studio
+              </a>
+            )}
           </section>
 
-          <aside className="space-y-4 rounded-3xl border border-slate-800 bg-[#141416] p-5">
-            <div><p className="text-[10px] font-black uppercase tracking-wider text-amber-300">Broadcast details</p><h2 className="mt-1 text-lg font-black">{title || 'Untitled broadcast'}</h2><p className="mt-1 text-xs text-slate-400">{category || 'Live Worship'} · {scripture || 'No scripture anchor'}</p></div>
-            <div className="border-t border-slate-800 pt-4 text-xs text-slate-400"><p>{mode === 'quick' ? 'Your camera and microphone are published through Gospread Live.' : 'Your encoder publishes to Gospread RTMPS ingest.'}</p><p className="mt-3 font-bold text-emerald-300">No external live control room required.</p></div>
+          {/* ── RIGHT: SETUP GUIDE & BROADCAST DETAILS ── */}
+          <aside className="space-y-4">
+            {/* Broadcast details */}
+            <div className="rounded-3xl border border-slate-800 bg-[#141416] p-5 space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-wider text-amber-300">
+                Broadcast details
+              </p>
+              <h2 className="text-lg font-black text-white">{title || 'Untitled broadcast'}</h2>
+              <p className="text-xs text-slate-400">
+                {category || 'Live Worship'} · {scripture || 'No scripture anchor'}
+              </p>
+              <p className="text-xs text-slate-400 leading-relaxed border-t border-slate-800 pt-3">
+                {description || 'No description provided.'}
+              </p>
+            </div>
+
+            {/* OBS / encoder setup guide */}
+            <div className="rounded-3xl border border-slate-800 bg-[#141416] p-5 space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-200 flex items-center gap-2">
+                <Radio className="w-4 h-4 text-red-400" />
+                Streaming from OBS / vMix / Encoder
+              </h3>
+
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Use these settings in your encoder to send your feed to YouTube Live. Get your
+                personal Stream Key from{' '}
+                <a
+                  href="https://studio.youtube.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-red-400 underline hover:text-red-300"
+                >
+                  YouTube Studio → Go Live
+                </a>
+                .
+              </p>
+
+              {/* RTMP URL */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase text-slate-400">
+                  Stream URL (RTMP)
+                </label>
+                <div className="flex items-center gap-2 rounded-2xl bg-slate-900 border border-slate-700 px-3 py-2">
+                  <span className="flex-1 font-mono text-xs text-slate-200 truncate">
+                    {ytRtmpUrl}
+                  </span>
+                  <button
+                    onClick={() => copyToClipboard(ytRtmpUrl, 'rtmp')}
+                    className="shrink-0 text-slate-400 hover:text-white transition"
+                    title="Copy RTMP URL"
+                  >
+                    {copied === 'rtmp' ? (
+                      <Check className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Stream key note */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase text-slate-400">
+                  Stream Key
+                </label>
+                <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 px-3 py-2.5 text-xs text-amber-200 leading-relaxed">
+                  {ytRtmpTip}
+                </div>
+              </div>
+
+              {/* Step checklist */}
+              <div className="space-y-2 border-t border-slate-800 pt-3">
+                <p className="text-[10px] font-black uppercase text-slate-400">Broadcast checklist</p>
+                {[
+                  'Open YouTube Studio and click Go Live',
+                  'Choose Stream in the top navigation',
+                  'Copy the Stream Key and paste into OBS',
+                  'Set OBS server to the RTMP URL above',
+                  'Start streaming in OBS',
+                  'Paste your YouTube Live URL above to monitor',
+                ].map((step, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs text-slate-300">
+                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-600/20 text-[9px] font-black text-red-400">
+                      {i + 1}
+                    </span>
+                    {step}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Refresh reminder when connected */}
+            {isConnected && (
+              <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-300">
+                <RefreshCw className="w-4 h-4 shrink-0 animate-spin-slow" />
+                <span>
+                  The YouTube embed shows your live feed. Viewer count and chat are managed in
+                  YouTube Studio.
+                </span>
+              </div>
+            )}
           </aside>
         </main>
       </div>
