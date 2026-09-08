@@ -207,11 +207,7 @@ export default function App() {
 
   const handleAudioSpaceChange = (space: ActiveAudioSpace | null) => {
     setActiveAudioSpace(space);
-    // Navigate the host to the Podcasts tab so they can see their live space
-    if (space) {
-      setSelectedCategory('Podcasts');
-      setActiveTab('platform');
-    }
+    // Keep host in AudioSpaceStudio so they can manage their live room, mute/unmute, and invite listeners
     try {
       if (space) localStorage.setItem('gospread_active_audio_space', JSON.stringify(space));
       else localStorage.removeItem('gospread_active_audio_space');
