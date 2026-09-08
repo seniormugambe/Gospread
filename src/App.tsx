@@ -486,6 +486,7 @@ export default function App() {
   };
 
   // Saved / Prayer
+  const [likedVideos, setLikedVideos] = useState<string[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [prayerModalOpen, setPrayerModalOpen] = useState(false);
   const [prayerText, setPrayerText] = useState('');
