@@ -206,46 +206,120 @@ export default function AudioPodcastHub({
 
   return (
     <div className="space-y-6 pb-28">
+      {/* 🎙️ LIVE AUDIO ROOM STAGE FOR CONNECTED LISTENERS & ATTENDEES */}
       {activeAudioSpace && (
-        <div className="w-full rounded-2xl border border-fuchsia-400/40 bg-gradient-to-r from-fuchsia-950/70 via-slate-900 to-slate-900 p-4 shadow-lg shadow-fuchsia-950/20">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="min-w-0">
-              <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-fuchsia-300">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-fuchsia-400" />
-                Live Audio Space
+        isConnectedToSpace ? (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-3xl border-2 border-fuchsia-500/40 bg-gradient-to-br from-fuchsia-950/70 via-slate-900 to-slate-950 p-6 sm:p-8 shadow-2xl space-y-6"
+          >
+            {/* Room Header */}
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="px-2.5 py-0.5 rounded-full bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30 text-[10px] font-black uppercase flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-fuchsia-400 animate-ping" />
+                    <span>LIVE AUDIO ROOM</span>
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">
+                    {activeAudioSpace.ministryName}
+                  </span>
+                </div>
+                <h1 className="text-xl sm:text-2xl font-black text-white">
+                  {activeAudioSpace.title}
+                </h1>
+                <p className="text-xs text-slate-300 mt-1">
+                  {activeAudioSpace.topic || 'Live Kingdom Discussion & Prayer Altar'}
+                </p>
               </div>
-              <h2 className="truncate text-sm font-black text-white">{activeAudioSpace.title}</h2>
-              <p className="mt-1 truncate text-xs text-slate-400">
-                Hosted by {activeAudioSpace.hostName} · {activeAudioSpace.ministryName}
-              </p>
-            </div>
 
-            {isConnectedToSpace ? (
-              <div className="flex items-center gap-2">
-                <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1.5 text-xs font-bold text-emerald-300 border border-emerald-500/30">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  Listening Live
-                </span>
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={leaveAudioSpace}
-                  className="rounded-full bg-slate-800 hover:bg-slate-700 px-3.5 py-1.5 text-xs font-bold text-slate-300 transition cursor-pointer"
+                  className="px-5 py-2.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-black transition shadow-lg shadow-rose-600/30 cursor-pointer"
                 >
-                  Leave Space
+                  Leave Room
                 </button>
               </div>
-            ) : (
+            </div>
+
+            {/* Stage Grid: Host & Active Speaker */}
+            <div className="flex flex-col items-center justify-center py-6 space-y-4">
+              <div className="relative">
+                <span className="absolute -inset-3 rounded-full bg-fuchsia-500/20 animate-pulse" />
+                <span className="absolute -inset-6 rounded-full bg-fuchsia-500/10 animate-ping" />
+                <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-fuchsia-400 bg-slate-900 flex items-center justify-center shadow-2xl overflow-hidden">
+                  <span className="text-3xl font-black text-fuchsia-300">
+                    {activeAudioSpace.hostName.slice(0, 1).toUpperCase()}
+                  </span>
+                </div>
+                <span className="absolute bottom-0 right-0 px-2 py-0.5 rounded-full bg-fuchsia-500 text-white text-[9px] font-black uppercase shadow">
+                  HOST
+                </span>
+              </div>
+
+              <div className="text-center">
+                <h3 className="text-base font-bold text-white">{activeAudioSpace.hostName}</h3>
+                <p className="text-xs text-slate-400">{activeAudioSpace.ministryName}</p>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 px-3.5 py-1.5 rounded-full border border-emerald-500/20">
+                <Waves className="w-4 h-4 animate-bounce" />
+                <span>Host is broadcasting audio live</span>
+              </div>
+            </div>
+
+            {/* Connected Attendees & Listeners Grid */}
+            <div className="bg-slate-950/60 rounded-2xl border border-slate-800 p-4 space-y-3">
+              <div className="flex items-center justify-between text-xs text-slate-400 font-bold">
+                <span>Connected Listeners</span>
+                <span className="text-fuchsia-400 font-mono">1 Active Host • 14 Listeners connected</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-full text-xs font-bold text-emerald-300">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>You (Listening)</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs text-slate-300">
+                  <span>Elder Joseph</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs text-slate-300">
+                  <span>Sister Rachel (UK)</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs text-slate-300">
+                  <span>Sarah J. (Dallas)</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <div className="w-full rounded-2xl border border-fuchsia-400/40 bg-gradient-to-r from-fuchsia-950/70 via-slate-900 to-slate-900 p-4 shadow-lg shadow-fuchsia-950/20">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-fuchsia-300">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-fuchsia-400" />
+                  Live Audio Space
+                </div>
+                <h2 className="truncate text-sm font-black text-white">{activeAudioSpace.title}</h2>
+                <p className="mt-1 truncate text-xs text-slate-400">
+                  Hosted by {activeAudioSpace.hostName} · {activeAudioSpace.ministryName}
+                </p>
+              </div>
+
               <button
                 type="button"
                 onClick={joinAudioSpace}
                 disabled={isJoiningAudioSpace}
-                className="shrink-0 rounded-full bg-fuchsia-500 hover:bg-fuchsia-400 px-4 py-2 text-xs font-black text-white transition cursor-pointer"
+                className="shrink-0 rounded-full bg-fuchsia-500 hover:bg-fuchsia-400 px-5 py-2.5 text-xs font-black text-white transition cursor-pointer shadow-lg shadow-fuchsia-500/20"
               >
-                {isJoiningAudioSpace ? 'Connecting...' : 'Join Live'}
+                {isJoiningAudioSpace ? 'Connecting...' : 'Join Live Room'}
               </button>
-            )}
+            </div>
           </div>
-        </div>
+        )
       )}
       {audioSpaceError && <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs font-bold text-rose-300">{audioSpaceError}</p>}
       {/* 🚀 FEATURED PODCAST BANNER */}
