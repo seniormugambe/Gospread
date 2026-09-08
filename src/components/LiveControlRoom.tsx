@@ -21,15 +21,25 @@ import {
   DollarSign, 
   Layers, 
   Eye, 
+  EyeOff,
+  Copy,
+  Check,
+  Camera,
+  CameraOff,
+  Mic,
+  MicOff,
   RefreshCw,
   Award,
   BookOpen,
   Youtube,
   ExternalLink,
   AlertTriangle,
+  Sliders,
+  Monitor
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserSession } from './AuthModal';
+import LiveViewerTrendSparkline from './LiveViewerTrendSparkline';
 
 export interface LiveChatEntry {
   id: string;
@@ -105,7 +115,7 @@ export default function LiveControlRoom({
   scripture,
   streamKey,
   rtmpUrl,
-  youtubeVideoId,
+  youtubeVideoId: initialYoutubeVideoId,
   onEndStream,
   onBackToStudio
 }: LiveControlRoomProps) {
@@ -114,6 +124,25 @@ export default function LiveControlRoom({
   const [peakWorshippers, setPeakWorshippers] = useState(289);
   const [isMuted, setIsMuted] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
+
+  // Video Feed Source Mode: 'webcam' | 'youtube' | 'rtmp'
+  const [videoSourceMode, setVideoSourceMode] = useState<'webcam' | 'youtube' | 'rtmp'>(
+    initialYoutubeVideoId ? 'youtube' : 'webcam'
+  );
+  const [youtubeVideoId, setYoutubeVideoId] = useState(initialYoutubeVideoId || '');
+
+  // Webcam & Audio Stream state
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [micAudioLevel, setMicAudioLevel] = useState(45);
+  const audioAnalyserRef = useRef<AnalyserNode | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  // Copy Feedback state
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [showStreamKeySecret, setShowStreamKeySecret] = useState(false);
 
   // Active Control Room Tabs: 'chat' | 'prayer' | 'announcements' | 'telemetry'
   const [activeControlTab, setActiveControlTab] = useState<'chat' | 'prayer' | 'announcements' | 'telemetry'>('chat');
@@ -238,11 +267,78 @@ export default function LiveControlRoom({
   const [fps, setFps] = useState(60);
   const [audioKbps, setAudioKbps] = useState(192);
 
+  // Toggle Camera Feed
+  const toggleCameraFeed = async () => {
+    if (isCameraActive) {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        setCameraStream(null);
+      }
+      setIsCameraActive(false);
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        setCameraStream(stream);
+        setIsCameraActive(true);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+
+        // Initialize audio analyser
+        try {
+          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+          const ctx = new AudioContextClass();
+          const source = ctx.createMediaStreamSource(stream);
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 32;
+          source.connect(analyser);
+          audioContextRef.current = ctx;
+          audioAnalyserRef.current = analyser;
+        } catch {
+          // ignore audio context error
+        }
+      } catch (err) {
+        console.warn('Webcam permission missing or unavailable:', err);
+        setIsCameraActive(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (videoSourceMode === 'webcam' && !cameraStream) {
+      toggleCameraFeed();
+    }
+    return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [videoSourceMode]);
+
+  // Mic level simulation / analyzer tick
+  useEffect(() => {
+    const audioInterval = setInterval(() => {
+      if (isMuted) {
+        setMicAudioLevel(0);
+        return;
+      }
+      if (audioAnalyserRef.current) {
+        const dataArray = new Uint8Array(audioAnalyserRef.current.frequencyBinCount);
+        audioAnalyserRef.current.getByteFrequencyData(dataArray);
+        const avg = dataArray.reduce((acc, val) => acc + val, 0) / (dataArray.length || 1);
+        setMicAudioLevel(Math.min(100, Math.round((avg / 128) * 100)));
+      } else {
+        // Fallback mic bounce animation
+        setMicAudioLevel(35 + Math.floor(Math.random() * 35));
+      }
+    }, 150);
+    return () => clearInterval(audioInterval);
+  }, [isMuted]);
+
   // Live Timer Effect
   useEffect(() => {
     const timer = setInterval(() => {
       setElapsedSeconds(prev => prev + 1);
-      // Slight organic fluctuation in viewers & bitrate
       if (Math.random() > 0.6) {
         const delta = Math.floor(Math.random() * 5) - 2;
         setWorshipperCount(c => {
@@ -267,6 +363,18 @@ export default function LiveControlRoom({
       return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     }
     return `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const handleCopyStreamKey = () => {
+    navigator.clipboard.writeText(streamKey || 'live_key_992184918239');
+    setCopiedKey(true);
+    setTimeout(() => setCopiedKey(false), 2000);
+  };
+
+  const handleCopyRtmpUrl = () => {
+    navigator.clipboard.writeText(rtmpUrl || 'rtmp://ingest.gospread.org/live');
+    setCopiedUrl(true);
+    setTimeout(() => setCopiedUrl(false), 2000);
   };
 
   const handleSendChat = (e: React.FormEvent) => {
@@ -317,7 +425,7 @@ export default function LiveControlRoom({
   const handleToggleLowerThird = (id: string) => {
     setLowerThirdBanners(prev => prev.map(b => ({
       ...b,
-      isActive: b.id === id ? !b.isActive : false // only one active banner at a time
+      isActive: b.id === id ? !b.isActive : false
     })));
   };
 
@@ -326,6 +434,9 @@ export default function LiveControlRoom({
   // Trigger End Stream Confirmation and Transition to Automatic VOD Flow
   const handleConfirmEndStream = () => {
     setShowEndModal(false);
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+    }
     const durationMins = Math.round(elapsedSeconds / 60);
     const hours = Math.floor(elapsedSeconds / 3600);
     const mins = Math.floor((elapsedSeconds % 3600) / 60);
@@ -415,85 +526,141 @@ export default function LiveControlRoom({
         <div className="lg:col-span-7 space-y-4">
           
           {/* Live Video Monitor Frame */}
-          <div className="relative aspect-video w-full rounded-3xl overflow-hidden bg-black border-2 border-slate-800 shadow-2xl flex items-center justify-center group">
+          <div className="relative aspect-video w-full rounded-3xl overflow-hidden bg-slate-950 border-2 border-slate-800 shadow-2xl flex items-center justify-center group">
             
-            {/* YouTube Live embed or waiting state */}
-            {youtubeVideoId ? (
-              <iframe
-                key={youtubeVideoId}
-                src={`https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&rel=0&modestbranding=1`}
-                title={broadcastTitle || 'Live Broadcast'}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="absolute inset-0 h-full w-full"
-              />
-            ) : (
-              <>
-                <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-6 text-center">
+            {/* SOURCE 1: WEBCAM LIVE STREAM */}
+            {videoSourceMode === 'webcam' && (
+              <div className="relative w-full h-full bg-slate-950 flex items-center justify-center">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted={isMuted}
+                  className={`w-full h-full object-cover ${!isCameraActive ? 'hidden' : ''}`}
+                />
+                {!isCameraActive && (
+                  <div className="flex flex-col items-center justify-center gap-3 text-center p-6">
+                    <div className="w-16 h-16 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500">
+                      <CameraOff className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Webcam Preview Off</h4>
+                      <p className="text-xs text-slate-400 max-w-xs mt-1">
+                        Click below to enable your camera and microphone for direct studio broadcasting.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={toggleCameraFeed}
+                      className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-2 transition"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>Start Camera Preview</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SOURCE 2: YOUTUBE EMBED FEED */}
+            {videoSourceMode === 'youtube' && (
+              youtubeVideoId ? (
+                <iframe
+                  key={youtubeVideoId}
+                  src={`https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&rel=0&modestbranding=1`}
+                  title={broadcastTitle || 'Live Broadcast'}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="absolute inset-0 h-full w-full"
+                />
+              ) : (
+                <div className="absolute inset-0 bg-[#0a0a0a] flex flex-col items-center justify-center gap-3 px-6 text-center">
                   <Youtube className="h-12 w-12 text-red-500/60" />
                   <div>
-                    <h3 className="text-sm font-black text-white">Waiting for YouTube Live feed</h3>
+                    <h3 className="text-sm font-black text-white">Waiting for YouTube Live Feed</h3>
                     <p className="mt-1 text-xs text-slate-400 max-w-sm">
-                      Start streaming from OBS/vMix to YouTube, then enter your YouTube Live URL in
-                      the broadcast setup to see it here.
+                      Enter your YouTube Video ID or start streaming from OBS to preview the broadcast.
                     </p>
                   </div>
-                  <a
-                    href="https://studio.youtube.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 rounded-full bg-red-600 px-4 py-2 text-xs font-black text-white hover:bg-red-500 transition"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Open YouTube Studio
-                  </a>
-                </div>
-                <div className="absolute inset-0 bg-[#0a0a0a]" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center z-10">
-                  <Youtube className="h-12 w-12 text-red-500/60" />
-                  <div>
-                    <h3 className="text-sm font-black text-white">Waiting for YouTube Live feed</h3>
-                    <p className="mt-1 text-xs text-slate-400 max-w-sm">
-                      Start streaming from OBS/vMix to YouTube, then enter your YouTube Live URL in
-                      the broadcast setup to see it here.
-                    </p>
+                  <div className="flex items-center gap-2 w-full max-w-xs mt-2">
+                    <input
+                      type="text"
+                      placeholder="e.g. dQw4w9WgXcQ"
+                      value={youtubeVideoId}
+                      onChange={(e) => setYoutubeVideoId(e.target.value.trim())}
+                      className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none"
+                    />
+                    <a
+                      href="https://studio.youtube.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 rounded-xl bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-500 transition"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Studio</span>
+                    </a>
                   </div>
-                  <a
-                    href="https://studio.youtube.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 rounded-full bg-red-600 px-4 py-2 text-xs font-black text-white hover:bg-red-500 transition"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Open YouTube Studio
-                  </a>
                 </div>
-              </>
+              )
+            )}
+
+            {/* SOURCE 3: RTMP INGEST MONITOR */}
+            {videoSourceMode === 'rtmp' && (
+              <div className="absolute inset-0 bg-[#0c0c0e] flex flex-col items-center justify-center gap-3 px-6 text-center">
+                <div className="w-14 h-14 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                  <RadioTower className="w-7 h-7" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">OBS / vMix RTMP Ingest Active</h3>
+                  <p className="mt-1 text-xs text-slate-400 max-w-sm">
+                    Connect your external broadcast encoder to <span className="font-mono text-amber-300">rtmp://ingest.gospread.org/live</span> using your secret Stream Key.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={handleCopyStreamKey}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition"
+                  >
+                    {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedKey ? 'Stream Key Copied' : 'Copy Stream Key'}</span>
+                  </button>
+                </div>
+              </div>
             )}
 
             {/* Top Live Video HUD Overlay */}
-            {youtubeVideoId && (
-              <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none z-20">
-                <div className="flex items-center gap-2 pointer-events-auto">
-                  <span className="px-3 py-1 rounded-full bg-red-600 text-white font-black text-xs flex items-center gap-1.5 shadow-lg shadow-red-600/40">
-                    <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-                    <span>LIVE FEED</span>
-                  </span>
-                  <span className="px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-slate-700 text-white font-mono text-[11px]">
-                    {formatElapsed(elapsedSeconds)}
-                  </span>
-                </div>
-                <a
-                  href={`https://studio.youtube.com`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/70 border border-slate-700 text-[10px] font-bold text-slate-300 hover:text-white transition pointer-events-auto"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  Studio
-                </a>
+            <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none z-20">
+              <div className="flex items-center gap-2 pointer-events-auto">
+                <span className="px-3 py-1 rounded-full bg-red-600 text-white font-black text-xs flex items-center gap-1.5 shadow-lg shadow-red-600/40">
+                  <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                  <span>LIVE FEED</span>
+                </span>
+                <span className="px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-slate-700 text-white font-mono text-[11px]">
+                  {formatElapsed(elapsedSeconds)}
+                </span>
               </div>
-            )}
+              
+              {/* Mic & Audio Volume Indicator */}
+              <div className="flex items-center gap-2 bg-black/70 backdrop-blur-md border border-slate-700 px-3 py-1 rounded-full pointer-events-auto">
+                <button
+                  type="button"
+                  onClick={() => setIsMuted(!isMuted)}
+                  className="text-slate-300 hover:text-white transition"
+                  title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
+                >
+                  {isMuted ? <MicOff className="w-3.5 h-3.5 text-red-400" /> : <Mic className="w-3.5 h-3.5 text-emerald-400" />}
+                </button>
+                <div className="w-12 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-100 ${
+                      isMuted ? 'bg-red-500 w-0' : micAudioLevel > 70 ? 'bg-amber-400' : 'bg-emerald-400'
+                    }`}
+                    style={{ width: `${isMuted ? 0 : micAudioLevel}%` }}
+                  />
+                </div>
+              </div>
+            </div>
 
             {/* LOWER THIRD ON-SCREEN OVERLAY (Real-time Broadcast Lower Third) */}
             <AnimatePresence>
@@ -502,7 +669,7 @@ export default function LiveControlRoom({
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 20 }}
-                  className="absolute bottom-6 left-6 right-6 pointer-events-none"
+                  className="absolute bottom-6 left-6 right-6 pointer-events-none z-20"
                 >
                   <div className="max-w-xl bg-slate-950/95 backdrop-blur-md border-l-4 border-amber-400 rounded-r-2xl p-3 sm:p-4 shadow-2xl">
                     <div className="flex items-center gap-2 mb-1">
@@ -522,6 +689,72 @@ export default function LiveControlRoom({
               )}
             </AnimatePresence>
 
+          </div>
+
+          {/* VIDEO SOURCE SELECTOR & MEDIA CONTROLS BAR */}
+          <div className="bg-[#141416] border border-slate-800 rounded-3xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 shadow-xl">
+            <div className="flex items-center gap-1.5 bg-black/40 p-1 rounded-2xl border border-slate-800">
+              <button
+                type="button"
+                onClick={() => setVideoSourceMode('webcam')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
+                  videoSourceMode === 'webcam' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span>Webcam</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setVideoSourceMode('youtube')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
+                  videoSourceMode === 'youtube' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Youtube className="w-3.5 h-3.5" />
+                <span>YouTube Live</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setVideoSourceMode('rtmp')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
+                  videoSourceMode === 'rtmp' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <RadioTower className="w-3.5 h-3.5" />
+                <span>OBS Ingest</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleCameraFeed}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition ${
+                  isCameraActive
+                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                    : 'border-slate-800 bg-[#18181c] text-slate-400 hover:text-white'
+                }`}
+              >
+                {isCameraActive ? <Camera className="w-3.5 h-3.5 text-emerald-400" /> : <CameraOff className="w-3.5 h-3.5" />}
+                <span>{isCameraActive ? 'Cam On' : 'Cam Off'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsMuted(!isMuted)}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition ${
+                  !isMuted
+                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                    : 'border-red-500/40 bg-red-500/10 text-red-400'
+                }`}
+              >
+                {isMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                <span>{isMuted ? 'Muted' : 'Mic Active'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Quick Lower-Third Trigger Buttons */}
@@ -564,12 +797,12 @@ export default function LiveControlRoom({
             </div>
           </div>
 
-          {/* 📡 STREAM HEALTH & TELEMETRY CARD */}
+          {/* 📡 STREAM HEALTH TELEMETRY & SPARKLINE ANALYTICS */}
           <div className="bg-[#141416] border border-slate-800 rounded-3xl p-4 sm:p-5 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
               <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
                 <Activity className="w-4 h-4 text-emerald-400" />
-                Stream Health Telemetry
+                Stream Health & Viewer Trend
               </h3>
               <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-black uppercase flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -577,7 +810,29 @@ export default function LiveControlRoom({
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+            {/* D3 Real-Time Viewer Sparkline */}
+            <div className="pt-1">
+              <LiveViewerTrendSparkline
+                video={{
+                  id: 'live-stream-sparkline',
+                  title: broadcastTitle,
+                  speakerOrArtist: speaker,
+                  churchOrMinistry: currentUser?.ministryName || 'Grace City Cathedral',
+                  channelAvatar: currentUser?.avatarUrl || '',
+                  subscribersCount: '12K',
+                  likesCount: '4.8K',
+                  category: 'Live Worship',
+                  isLive: true,
+                  viewersCount: worshipperCount,
+                  thumbnail: '',
+                  description: '',
+                  date: 'Today'
+                }}
+                isLive={true}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
               <div className="p-3 rounded-2xl bg-[#19191d] border border-slate-800">
                 <span className="text-[10px] text-slate-400 uppercase font-bold block">Resolution</span>
                 <span className="text-xs sm:text-sm font-mono font-bold text-white mt-0.5 block">1080p60</span>
@@ -603,16 +858,54 @@ export default function LiveControlRoom({
               </div>
             </div>
 
-            <div className="p-3 rounded-2xl bg-[#101012] border border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-              <span className="font-mono text-[11px] truncate">Ingest: {rtmpUrl}</span>
-              <span className="text-[11px] text-emerald-400 font-bold shrink-0 ml-2">Cloudflare Stream Edge</span>
+            {/* Quick Stream Credentials Copy Card */}
+            <div className="p-3.5 rounded-2xl bg-[#101012] border border-slate-800/80 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 font-bold uppercase text-[10px]">RTMP Ingest Server URL</span>
+                <button
+                  type="button"
+                  onClick={handleCopyRtmpUrl}
+                  className="text-amber-400 hover:text-amber-300 font-bold text-[11px] flex items-center gap-1"
+                >
+                  {copiedUrl ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  <span>{copiedUrl ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+              <p className="font-mono text-slate-300 text-[11px] bg-black/50 p-2 rounded-xl border border-slate-800 truncate">
+                {rtmpUrl || 'rtmp://ingest.gospread.org/live'}
+              </p>
+
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-slate-400 font-bold uppercase text-[10px]">Stream Key (Private)</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowStreamKeySecret(!showStreamKeySecret)}
+                    className="text-slate-400 hover:text-slate-200 text-[11px] flex items-center gap-1"
+                  >
+                    {showStreamKeySecret ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                    <span>{showStreamKeySecret ? 'Hide' : 'Show'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopyStreamKey}
+                    className="text-amber-400 hover:text-amber-300 font-bold text-[11px] flex items-center gap-1"
+                  >
+                    {copiedKey ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedKey ? 'Copied' : 'Copy Key'}</span>
+                  </button>
+                </div>
+              </div>
+              <p className="font-mono text-slate-300 text-[11px] bg-black/50 p-2 rounded-xl border border-slate-800 truncate">
+                {showStreamKeySecret ? (streamKey || 'live_key_992184918239') : '••••••••••••••••••••••••'}
+              </p>
             </div>
           </div>
 
         </div>
 
         {/* RIGHT COLUMN: INTERACTIVE TABS (CHAT, PRAYER ALTAR, ANNOUNCEMENTS) (5 COLS) */}
-        <div className="lg:col-span-5 bg-[#141416] border border-slate-800 rounded-3xl p-4 sm:p-5 flex flex-col h-[640px] lg:h-[720px] shadow-2xl">
+        <div className="lg:col-span-5 bg-[#141416] border border-slate-800 rounded-3xl p-4 sm:p-5 flex flex-col h-[640px] lg:h-[760px] shadow-2xl">
           
           {/* Tabs Navigation Header */}
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3 gap-2">
@@ -832,7 +1125,6 @@ export default function LiveControlRoom({
                       <button
                         type="button"
                         onClick={() => {
-                          // Push this prayer request as a lower third banner
                           setLowerThirdBanners(prev => [
                             {
                               id: `lt-prayer-${prayer.id}`,

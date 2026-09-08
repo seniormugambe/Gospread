@@ -257,7 +257,7 @@ export default function KingdomHomeFeed({
             </p>
           </div>
           <p className="text-xs text-slate-400 max-w-lg mx-auto">
-            Your followed home churches ({effectiveSubscribed.slice(0, 3).join(', ')}) stream during scheduled times. Check their upcoming services below or explore active network livestreams.
+            Your followed home churches ({subscribedChannels.slice(0, 3).join(', ')}) stream during scheduled times. Check their upcoming services below or explore active network livestreams.
           </p>
 
           {liveStreams.length > 0 && (
