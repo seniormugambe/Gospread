@@ -2060,7 +2060,7 @@ export default function App() {
                   onJoinAudioSpace={() => {
                     setSelectedCategory('Podcasts');
                     setAutoJoinAudioSpace(true);
-                  }}}
+                  }}
                 />
               )}
 
