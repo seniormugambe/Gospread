@@ -176,15 +176,19 @@ export default function App() {
         const spaces = await djangoApi.getActiveAudioSpaces();
         if (!active) return;
         const requestedRoomName = new URLSearchParams(window.location.search).get('audio_space');
-        const space = spaces.find(item => item.room_name === requestedRoomName) || spaces[0];
-        setActiveAudioSpace(space ? {
-          title: space.title,
-          topic: space.topic,
-          hostName: space.host_name,
-          ministryName: space.ministry_name,
-          startedAt: Date.parse(space.started_at),
-          roomName: space.room_name,
-        } : null);
+        if (spaces && spaces.length > 0) {
+          const space = spaces.find(item => item.room_name === requestedRoomName) || spaces[0];
+          if (space) {
+            setActiveAudioSpace({
+              title: space.title,
+              topic: space.topic,
+              hostName: space.host_name,
+              ministryName: space.ministry_name,
+              startedAt: Date.parse(space.started_at) || Date.now(),
+              roomName: space.room_name,
+            });
+          }
+        }
       } catch (error) {
         console.warn('[Audio Space] Metadata sync notice:', error);
       }

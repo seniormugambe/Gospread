@@ -39,14 +39,8 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
   const currentUserRef = useRef(currentUser);
   useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
 
-  useEffect(() => () => {
-    // Cleanup on unmount — use ref so we capture the latest value
-    if (currentUserRef.current?.isLoggedIn && roomRef.current?.name) {
-      void djangoApi.endAudioSpace(roomRef.current.name);
-    }
-    roomRef.current?.disconnect();
-    roomRef.current = null;
-  }, []);
+  // Audio Space room persistence across navigation — space is only ended when host explicitly calls endSpace()
+
 
   const startSpace = async () => {
     setError('');

@@ -86,6 +86,8 @@ export default function AudioPodcastHub({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoJoinAudioSpace, activeAudioSpace?.roomName]);
 
+  const [isConnectedToSpace, setIsConnectedToSpace] = useState(false);
+
   const leaveAudioSpace = () => {
     // Disconnect any existing room and clean up attached audio elements
     if (listenerRoomRef.current) {
@@ -94,13 +96,17 @@ export default function AudioPodcastHub({
     }
     audioElementsRef.current.forEach(el => el.remove());
     audioElementsRef.current = [];
+    setIsConnectedToSpace(false);
   };
 
   const joinAudioSpace = async () => {
     if (!activeAudioSpace?.roomName || isJoiningAudioSpace) return;
 
     // If already connected to this same room, do nothing
-    if (listenerRoomRef.current?.state === 'connected' && listenerRoomRef.current?.name === activeAudioSpace.roomName) return;
+    if (listenerRoomRef.current?.state === 'connected' && listenerRoomRef.current?.name === activeAudioSpace.roomName) {
+      setIsConnectedToSpace(true);
+      return;
+    }
 
     // Disconnect any previous room before starting a new connection
     leaveAudioSpace();
@@ -121,17 +127,16 @@ export default function AudioPodcastHub({
       room.on(RoomEvent.TrackSubscribed, (track) => playTrack(track));
 
       room.on(RoomEvent.Disconnected, () => {
-        // Only clean up if this is still the active room
         if (listenerRoomRef.current === room) {
           listenerRoomRef.current = null;
           audioElementsRef.current.forEach(el => el.remove());
           audioElementsRef.current = [];
+          setIsConnectedToSpace(false);
         }
       });
 
       await room.connect(tokenData.server_url, tokenData.participant_token);
 
-      // Play any tracks already being published when we joined
       room.remoteParticipants.forEach(participant => {
         participant.trackPublications.forEach(publication => {
           if (publication.track) playTrack(publication.track);
@@ -139,9 +144,9 @@ export default function AudioPodcastHub({
       });
 
       listenerRoomRef.current = room;
+      setIsConnectedToSpace(true);
       onJoinAudioSpace?.();
     } catch (error) {
-      // Clean up the failed room attempt
       leaveAudioSpace();
       setAudioSpaceError(error instanceof Error ? error.message : 'Could not join this Audio Space.');
     } finally {
@@ -202,12 +207,45 @@ export default function AudioPodcastHub({
   return (
     <div className="space-y-6 pb-28">
       {activeAudioSpace && (
-        <button onClick={joinAudioSpace} className="w-full rounded-2xl border border-fuchsia-400/40 bg-gradient-to-r from-fuchsia-950/70 via-slate-900 to-slate-900 p-4 text-left shadow-lg shadow-fuchsia-950/20 transition hover:border-fuchsia-300/70">
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0"><div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-fuchsia-300"><span className="h-2 w-2 animate-pulse rounded-full bg-fuchsia-400" /> Live Audio Space</div><h2 className="truncate text-sm font-black text-white">{activeAudioSpace.title}</h2><p className="mt-1 truncate text-xs text-slate-400">Hosted by {activeAudioSpace.hostName} · {activeAudioSpace.ministryName}</p></div>
-            <span className="shrink-0 rounded-full bg-fuchsia-500 px-3 py-2 text-xs font-black text-white">{isJoiningAudioSpace ? 'Connecting...' : 'Join live'}</span>
+        <div className="w-full rounded-2xl border border-fuchsia-400/40 bg-gradient-to-r from-fuchsia-950/70 via-slate-900 to-slate-900 p-4 shadow-lg shadow-fuchsia-950/20">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-fuchsia-300">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-fuchsia-400" />
+                Live Audio Space
+              </div>
+              <h2 className="truncate text-sm font-black text-white">{activeAudioSpace.title}</h2>
+              <p className="mt-1 truncate text-xs text-slate-400">
+                Hosted by {activeAudioSpace.hostName} · {activeAudioSpace.ministryName}
+              </p>
+            </div>
+
+            {isConnectedToSpace ? (
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1.5 text-xs font-bold text-emerald-300 border border-emerald-500/30">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  Listening Live
+                </span>
+                <button
+                  type="button"
+                  onClick={leaveAudioSpace}
+                  className="rounded-full bg-slate-800 hover:bg-slate-700 px-3.5 py-1.5 text-xs font-bold text-slate-300 transition cursor-pointer"
+                >
+                  Leave Space
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={joinAudioSpace}
+                disabled={isJoiningAudioSpace}
+                className="shrink-0 rounded-full bg-fuchsia-500 hover:bg-fuchsia-400 px-4 py-2 text-xs font-black text-white transition cursor-pointer"
+              >
+                {isJoiningAudioSpace ? 'Connecting...' : 'Join Live'}
+              </button>
+            )}
           </div>
-        </button>
+        </div>
       )}
       {audioSpaceError && <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs font-bold text-rose-300">{audioSpaceError}</p>}
       {/* 🚀 FEATURED PODCAST BANNER */}
