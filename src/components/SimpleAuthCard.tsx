@@ -108,9 +108,7 @@ export default function SimpleAuthCard({
             churchName: res.user.church_name || undefined,
             ministryName: res.user.church_name || undefined,
             creatorType: res.user.creator_type || (res.user.role === 'pastor' ? 'church' : res.user.role === 'artiste' ? 'artiste' : 'creator'),
-            avatarUrl:
-              res.user.avatar_url ||
-              'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
+            avatarUrl: res.user.avatar_url || '',
             isLoggedIn: true,
             token: res.access
           };
@@ -160,8 +158,7 @@ export default function SimpleAuthCard({
             churchName: res.user.church_name || undefined,
             ministryName: res.user.church_name || undefined,
             creatorType: res.user.creator_type || creatorType,
-          avatarUrl:
-              res.user.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+          avatarUrl: res.user.avatar_url || '',
           isLoggedIn: true,
             token: res.access
         };
@@ -229,11 +226,17 @@ export default function SimpleAuthCard({
 
         <div className="flex flex-col items-center text-center space-y-4 pt-2">
           <div className="relative">
-            <img
-              src={currentUser.avatarUrl || currentUser.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80'}
-              alt={currentUser.fullName}
-              className="w-24 h-24 rounded-full object-cover ring-4 ring-white/80 shadow-lg"
-            />
+            {currentUser.avatarUrl || currentUser.avatar ? (
+              <img
+                src={currentUser.avatarUrl || currentUser.avatar}
+                alt={currentUser.fullName}
+                className="w-24 h-24 rounded-full object-cover ring-4 ring-white/80 shadow-lg"
+              />
+            ) : (
+              <div className="w-24 h-24 rounded-full bg-sky-100 dark:bg-slate-800 ring-4 ring-white/80 shadow-lg flex items-center justify-center">
+                <UserIcon className="w-10 h-10 text-sky-700 dark:text-sky-200" />
+              </div>
+            )}
             <span className="absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-white" />
           </div>
 

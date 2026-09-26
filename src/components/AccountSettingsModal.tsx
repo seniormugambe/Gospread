@@ -81,7 +81,7 @@ const DEFAULT_SETTINGS: UserAccountSettings = {
   homeChurch: '',
   homeCampus: '',
   callingRole: 'Global Believer & Intercessor',
-  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+  avatarUrl: '',
   preferredTranslation: 'NKJV (New King James Version)',
 
   defaultVideoQuality: '1080p',
@@ -104,15 +104,6 @@ const DEFAULT_SETTINGS: UserAccountSettings = {
   showGivingTotals: true,
   anonymousPrayerRequests: false,
 };
-
-const PRESET_AVATARS = [
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
-  'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80',
-  'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80',
-  'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=120&q=80',
-];
 
 const BIBLE_TRANSLATIONS = [
   'NKJV (New King James Version)',
@@ -328,11 +319,17 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
               <div className="p-4 rounded-2xl bg-slate-900/70 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="relative">
-                    <img
-                      src={settings.avatarUrl}
-                      alt={settings.fullName}
-                      className="w-16 h-16 rounded-2xl object-cover ring-2 ring-amber-400 shadow-md"
-                    />
+                    {settings.avatarUrl ? (
+                      <img
+                        src={settings.avatarUrl}
+                        alt={settings.fullName}
+                        className="w-16 h-16 rounded-2xl object-cover ring-2 ring-amber-400 shadow-md"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-2xl bg-slate-800 ring-2 ring-amber-400 shadow-md flex items-center justify-center">
+                        <User className="w-7 h-7 text-amber-300" />
+                      </div>
+                    )}
                     <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center text-[9px] text-white">
                       ✓
                     </span>
@@ -352,23 +349,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                   </div>
                 </div>
 
-                <div className="w-full sm:w-auto">
-                  <p className="text-[11px] font-bold text-slate-400 mb-2">Choose Avatar:</p>
-                  <div className="flex items-center gap-2">
-                    {PRESET_AVATARS.map((url, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setSettings({ ...settings, avatarUrl: url })}
-                        className={`w-8 h-8 rounded-xl overflow-hidden border-2 transition ${
-                          settings.avatarUrl === url ? 'border-amber-400 scale-110 shadow-md shadow-amber-500/20' : 'border-slate-700 opacity-60 hover:opacity-100'
-                        }`}
-                      >
-                        <img src={url} alt="Preset" className="w-full h-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <p className="text-[11px] text-slate-400 sm:text-right">Choose a photo or icon from your profile editor.</p>
               </div>
 
               {/* Form Details */}

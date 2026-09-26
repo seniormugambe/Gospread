@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, FormEvent } from 'react';
-import { 
+import {
   Play, 
   Pause, 
   Maximize2, 
@@ -104,6 +104,11 @@ import {
   LIVE_VIDEO_STREAMS,
   AUDIO_TRACKS,
 } from './data/gospelData';
+
+const LEGACY_PROFILE_PLACEHOLDERS = new Set([
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+]);
 
 export default function App() {
   // 🌤️ Sky Light Theme State (Defaulting to the requested Heavenly Sky Light Theme)
@@ -519,7 +524,13 @@ export default function App() {
   const [userSession, setUserSession] = useState<UserSession>(() => {
     try {
       const saved = localStorage.getItem('gospread_user_session');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const session = JSON.parse(saved) as UserSession;
+        if (LEGACY_PROFILE_PLACEHOLDERS.has(session.avatarUrl || '') || LEGACY_PROFILE_PLACEHOLDERS.has(session.avatar || '')) {
+          return { ...session, avatarUrl: '', avatar: '' };
+        }
+        return session;
+      }
     } catch (e) {
       console.error(e);
     }
