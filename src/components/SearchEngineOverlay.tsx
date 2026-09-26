@@ -27,6 +27,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream, AudioTrack, LIVE_VIDEO_STREAMS, AUDIO_TRACKS, SUBSCRIPTION_CHANNELS } from '../data/gospelData';
 import { youtubeApi } from '../services/youtubeApi';
+import { djangoApi } from '../services/djangoApi';
 
 interface SearchEngineOverlayProps {
   searchQuery: string;
@@ -64,23 +65,26 @@ export const SearchEngineOverlay: React.FC<SearchEngineOverlayProps> = ({
   const [durationFilter, setDurationFilter] = useState<SearchDuration>('any');
   const [liveOnly, setLiveOnly] = useState(false);
   const [ytVideos, setYtVideos] = useState<VideoStream[]>(LIVE_VIDEO_STREAMS);
-  const [ytAudio, setYtAudio] = useState<AudioTrack[]>(AUDIO_TRACKS);
+  const [audioResults, setAudioResults] = useState<AudioTrack[]>(AUDIO_TRACKS);
 
   useEffect(() => {
     let active = true;
-    const fetchYoutube = async () => {
+    const fetchMedia = async () => {
       const queryTerm = searchQuery.trim() || 'Gospel Live Worship Sermon';
       const videoRes = await youtubeApi.searchGospelVideos(queryTerm, liveOnly);
       if (active && videoRes.videos && videoRes.videos.length > 0) {
         setYtVideos(videoRes.videos);
       }
 
-      const audioRes = await youtubeApi.searchGospelAudio(searchQuery.trim() || 'Gospel Worship Podcast Audio Sermon');
-      if (active && audioRes.tracks && audioRes.tracks.length > 0) {
-        setYtAudio(audioRes.tracks);
+      const audioTracks = await djangoApi.getAudioTracks();
+      if (!active) return;
+      if (audioTracks.length > 0) {
+        setAudioResults(audioTracks);
+      } else {
+        setAudioResults(AUDIO_TRACKS);
       }
     };
-    fetchYoutube();
+    fetchMedia();
     return () => { active = false; };
   }, [searchQuery, liveOnly, isOpen]);
 
@@ -259,7 +263,7 @@ export const SearchEngineOverlay: React.FC<SearchEngineOverlayProps> = ({
   });
 
   // Filter audio results
-  const matchingAudio = ytAudio.filter(a => {
+  const matchingAudio = audioResults.filter(a => {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
     return (

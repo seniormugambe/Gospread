@@ -973,6 +973,16 @@ export default function App() {
 
         {/* Right Header: Theme Toggle, Sign In / Avatar Menu */}
         <div className="flex items-center space-x-2 sm:space-x-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowYouTubeModal(true)}
+            className="p-2 rounded-full border border-red-500/30 bg-red-500/10 text-red-400 transition hover:bg-red-500/20 hover:text-red-300"
+            title="Search YouTube videos"
+            aria-label="Search YouTube videos"
+          >
+            <Youtube className="w-4 h-4" />
+          </button>
+
           {/* Theme Toggle Button */}
           <button
             onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}

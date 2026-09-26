@@ -11,6 +11,10 @@ import {
   Check,
   AlertTriangle,
   RefreshCw,
+  Camera,
+  Mic,
+  MicOff,
+  RotateCcw,
 } from 'lucide-react';
 import { UserSession } from './AuthModal';
 import { extractYouTubeId } from '../utils/videoPlayback';
@@ -23,6 +27,7 @@ interface LiveBroadcastRoomProps {
   category: string;
   scripture: string;
   mode: 'quick' | 'studio';
+  initialStream?: MediaStream | null;
   onEnd: (data: {
     title: string;
     description: string;
@@ -48,6 +53,7 @@ export default function LiveBroadcastRoom({
   category,
   scripture,
   mode,
+  initialStream,
   onEnd,
   onBack,
 }: LiveBroadcastRoomProps) {
@@ -57,13 +63,45 @@ export default function LiveBroadcastRoom({
   const [isConnected, setIsConnected] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [copied, setCopied] = useState<'rtmp' | 'key' | null>(null);
+  const [quickStream, setQuickStream] = useState<MediaStream | null>(initialStream || null);
+  const [isQuickLive, setIsQuickLive] = useState(false);
+  const [isMicMuted, setIsMicMuted] = useState(false);
+  const [isFrontCamera, setIsFrontCamera] = useState(true);
+  const [quickError, setQuickError] = useState('');
+  const quickPreviewRef = useRef<HTMLVideoElement>(null);
 
-  // Timer only runs once we have a video ID loaded
   useEffect(() => {
-    if (!isConnected) return;
+    if (mode !== 'quick') return;
+    if (quickStream) {
+      if (quickPreviewRef.current) quickPreviewRef.current.srcObject = quickStream;
+      return;
+    }
+
+    let active = true;
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true })
+      .then(stream => {
+        if (!active) {
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+        setQuickStream(stream);
+        if (quickPreviewRef.current) quickPreviewRef.current.srcObject = stream;
+      })
+      .catch(() => setQuickError('Allow camera and microphone access to start your live.'));
+
+    return () => { active = false; };
+  }, [mode, quickStream]);
+
+  useEffect(() => () => {
+    if (mode === 'quick') quickStream?.getTracks().forEach(track => track.stop());
+  }, [mode, quickStream]);
+
+  // Keep elapsed time for either the Studio monitor or the device-first quick live.
+  useEffect(() => {
+    if (!isConnected && !isQuickLive) return;
     const timer = window.setInterval(() => setElapsedSeconds(v => v + 1), 1000);
     return () => window.clearInterval(timer);
-  }, [isConnected]);
+  }, [isConnected, isQuickLive]);
 
   const handleLoadVideo = () => {
     setInputError('');
@@ -107,6 +145,43 @@ export default function LiveBroadcastRoom({
     });
   };
 
+  const toggleQuickMute = () => {
+    quickStream?.getAudioTracks().forEach(track => { track.enabled = isMicMuted; });
+    setIsMicMuted(value => !value);
+  };
+
+  const flipQuickCamera = async () => {
+    try {
+      quickStream?.getTracks().forEach(track => track.stop());
+      const nextFacing = isFrontCamera ? 'environment' : 'user';
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: nextFacing }, audio: true });
+      setQuickStream(stream);
+      setIsFrontCamera(value => !value);
+      setQuickError('');
+    } catch {
+      setQuickError('This device could not switch cameras.');
+    }
+  };
+
+  const endQuickLive = () => {
+    const totalMinutes = Math.max(1, Math.round(elapsedSeconds / 60));
+    quickStream?.getTracks().forEach(track => track.stop());
+    onEnd({
+      title: title || 'Live Broadcast Recording',
+      description,
+      speaker,
+      scripture,
+      category: category || 'Live Worship',
+      durationMinutes: totalMinutes,
+      durationFormatted: `${totalMinutes}m`,
+      totalWorshippers: 0,
+      peakWorshippers: 0,
+      prayersCount: 0,
+      thumbnail: '',
+      videoUrl: '',
+    });
+  };
+
   const copyToClipboard = (text: string, key: 'rtmp' | 'key') => {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(key);
@@ -123,6 +198,43 @@ export default function LiveBroadcastRoom({
   const ytRtmpUrl = 'rtmp://a.rtmp.youtube.com/live2';
   const ytRtmpTip =
     'Stream Key comes from YouTube Studio → Go Live → Stream tab. Keep it private.';
+
+  if (mode === 'quick') {
+    return (
+      <div className="min-h-screen bg-black text-white">
+        <div className="relative mx-auto min-h-screen max-w-xl overflow-hidden bg-slate-950">
+          <video ref={quickPreviewRef} autoPlay muted playsInline className="absolute inset-0 h-full w-full object-cover" />
+          {!quickStream && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-950 px-8 text-center">
+              <Camera className="h-12 w-12 text-sky-300" />
+              <p className="text-sm font-bold">Preparing your camera</p>
+              {quickError && <p className="text-xs text-rose-300">{quickError}</p>}
+            </div>
+          )}
+          <div className="absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/75 to-transparent p-4 pt-6">
+            <button type="button" onClick={onBack} className="rounded-full bg-black/45 px-3 py-2 text-xs font-bold backdrop-blur">Cancel</button>
+            {isQuickLive && <span className="flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-2 text-xs font-black"><span className="h-2 w-2 animate-pulse rounded-full bg-white" />LIVE {formatTime(elapsedSeconds)}</span>}
+          </div>
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent px-5 pb-8 pt-24">
+            <div className="mb-5">
+              <p className="text-sm font-black">{title || 'My live broadcast'}</p>
+              <p className="mt-1 text-xs text-white/70">{speaker || currentUser?.fullName || 'Host'}</p>
+            </div>
+            {quickError && quickStream && <p className="mb-3 text-xs font-bold text-rose-300">{quickError}</p>}
+            <div className="flex items-center justify-center gap-5">
+              <button type="button" onClick={toggleQuickMute} className="flex h-12 w-12 items-center justify-center rounded-full bg-black/55 backdrop-blur" title={isMicMuted ? 'Unmute microphone' : 'Mute microphone'}>
+                {isMicMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+              </button>
+              <button type="button" disabled={!quickStream} onClick={() => isQuickLive ? endQuickLive() : setIsQuickLive(true)} className={`flex h-16 min-w-32 items-center justify-center rounded-full px-6 text-sm font-black transition ${isQuickLive ? 'bg-red-600 text-white' : 'bg-white text-slate-950'} disabled:opacity-50`}>
+                {isQuickLive ? 'End live' : 'Go LIVE'}
+              </button>
+              <button type="button" onClick={flipQuickCamera} disabled={!quickStream} className="flex h-12 w-12 items-center justify-center rounded-full bg-black/55 backdrop-blur disabled:opacity-50" title="Flip camera"><RotateCcw className="h-5 w-5" /></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] px-3 py-5 text-white sm:px-6">

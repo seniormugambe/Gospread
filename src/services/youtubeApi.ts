@@ -1,7 +1,7 @@
 // Production YouTube Data API v3 Service for Gospread Platform
 // Integrates official YouTube Data API endpoints for live gospel streams, sermons, and channels.
 
-import { VideoStream, LIVE_VIDEO_STREAMS, AudioTrack, AUDIO_TRACKS } from '../data/gospelData';
+import { VideoStream, LIVE_VIDEO_STREAMS } from '../data/gospelData';
 import { decodeHtml } from '../lib/utils';
 
 // Access YouTube API Key from client environment variables or provided default
@@ -38,6 +38,10 @@ export interface YouTubeVideoDetails {
   contentDetails?: {
     duration?: string;
   };
+}
+
+interface YouTubeErrorResponse {
+  error?: { message?: string };
 }
 
 class YouTubeApiService {
@@ -99,11 +103,11 @@ class YouTubeApiService {
 
       const response = await fetch(`${YOUTUBE_BASE_URL}/search?${params.toString()}`);
       if (!response.ok) {
-        const errorJson = await response.json().catch(() => ({}));
+        const errorJson = await response.json().catch(() => ({})) as YouTubeErrorResponse;
         throw new Error(errorJson.error?.message || `YouTube API HTTP ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as { items?: YouTubeSearchItem[] };
       const items: YouTubeSearchItem[] = data.items || [];
 
       if (items.length === 0) {
@@ -123,9 +127,9 @@ class YouTubeApiService {
         const snippet = item.snippet;
         const isLive = snippet.liveBroadcastContent === 'live';
 
-        const viewers = details?.liveStreamingDetails?.concurrentViewers 
+        const viewers = details?.liveStreamingDetails?.concurrentViewers
           ? parseInt(details.liveStreamingDetails.concurrentViewers, 10)
-          : Math.floor(1200 + Math.random() * 8000);
+          : undefined;
 
         return {
           id: videoId,
@@ -134,15 +138,18 @@ class YouTubeApiService {
           churchOrMinistry: `${decodeHtml(snippet.channelTitle)} Official`,
           channelAvatar: snippet.thumbnails.default?.url || snippet.thumbnails.medium?.url || '',
           subscribersCount: 'Verified YouTube Channel',
-          likesCount: this.formatCount(details?.statistics?.likeCount || 4500),
+          likesCount: this.formatCount(details?.statistics?.likeCount),
           category: isLive ? 'Live Worship' : 'Sermon',
           isLive,
           viewersCount: isLive ? viewers : undefined,
-          viewsText: isLive ? `${this.formatCount(viewers)} watching now` : `${this.formatCount(details?.statistics?.viewCount || 15000)} views`,
-          duration: details?.contentDetails?.duration ? this.formatIsoDuration(details.contentDetails.duration) : '45:00',
+          viewsText: isLive
+            ? viewers === undefined ? 'Live now' : `${this.formatCount(viewers)} watching now`
+            : details?.statistics?.viewCount ? `${this.formatCount(details.statistics.viewCount)} views` : 'Views unavailable',
+          duration: details?.contentDetails?.duration ? this.formatIsoDuration(details.contentDetails.duration) : undefined,
           thumbnail: snippet.thumbnails.high?.url || snippet.thumbnails.medium?.url || '',
           description: decodeHtml(snippet.description) || 'Watch live gospel worship and biblical preaching.',
-          date: new Date(snippet.publishedAt).toLocaleDateString()
+          date: new Date(snippet.publishedAt).toLocaleDateString(),
+          videoUrl: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`
         };
       });
 
@@ -177,8 +184,8 @@ class YouTubeApiService {
 
       const response = await fetch(`${YOUTUBE_BASE_URL}/videos?${params.toString()}`);
       if (response.ok) {
-        const data = await response.json();
-        (data.items || []).forEach((item: any) => {
+        const data = await response.json() as { items?: YouTubeVideoDetails[] };
+        (data.items || []).forEach((item) => {
           map.set(item.id, {
             id: item.id,
             statistics: item.statistics,
@@ -191,110 +198,6 @@ class YouTubeApiService {
       // Ignore statistics error gracefully
     }
     return map;
-  }
-
-  /**
-   * Search Live Gospel Audio Tracks, Podcasts, or Radio Streams on YouTube
-   */
-  public async searchGospelAudio(query: string = 'Gospel Worship Podcast Audio Sermon'): Promise<{
-    tracks: AudioTrack[];
-    isRealYoutubeData: boolean;
-    error?: string;
-  }> {
-    if (!this.hasApiKey()) {
-      return {
-        tracks: this.getFallbackAudio(query),
-        isRealYoutubeData: false
-      };
-    }
-
-    try {
-      const params = new URLSearchParams({
-        part: 'snippet',
-        maxResults: '12',
-        q: query,
-        type: 'video',
-        key: this.apiKey,
-      });
-
-      const response = await fetch(`${YOUTUBE_BASE_URL}/search?${params.toString()}`);
-      if (!response.ok) {
-        const errorJson = await response.json().catch(() => ({}));
-        throw new Error(errorJson.error?.message || `YouTube API HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      const items: YouTubeSearchItem[] = data.items || [];
-
-      if (items.length === 0) {
-        return {
-          tracks: this.getFallbackAudio(query),
-          isRealYoutubeData: false
-        };
-      }
-
-      const videoIds = items.map(item => item.id.videoId).filter(Boolean).join(',');
-      const detailsMap = await this.getVideoStatistics(videoIds);
-
-      const formattedTracks: AudioTrack[] = items.map((item, idx) => {
-        const videoId = item.id.videoId || `yt-audio-${idx}`;
-        const details = detailsMap.get(videoId);
-        const snippet = item.snippet;
-        const isLive = snippet.liveBroadcastContent === 'live';
-
-        const titleLower = snippet.title.toLowerCase();
-        const category: AudioTrack['category'] = isLive 
-          ? '24/7 Gospel Radio' 
-          : titleLower.includes('podcast') 
-            ? 'Podcast' 
-            : titleLower.includes('sermon') 
-              ? 'Audio Sermon' 
-              : titleLower.includes('devotional')
-                ? 'Devotional'
-                : 'Praise & Worship';
-
-        return {
-          id: videoId,
-          title: snippet.title,
-          artistOrPreacher: snippet.channelTitle,
-          albumOrSeries: `${snippet.channelTitle} Audio Series`,
-          channelAvatar: snippet.thumbnails.default?.url || snippet.thumbnails.medium?.url || '',
-          category,
-          coverUrl: snippet.thumbnails.high?.url || snippet.thumbnails.medium?.url || '',
-          duration: isLive ? 'LIVE' : (details?.contentDetails?.duration ? this.formatIsoDuration(details.contentDetails.duration) : '35:00'),
-          isLiveRadio: isLive,
-          listenersCount: isLive ? Math.floor(1200 + Math.random() * 5000) : undefined,
-          lyricsOrNotes: snippet.description || 'Listen to inspirational gospel praise, sermonic audio, and uplifting Christian podcasts.',
-          publishedDate: new Date(snippet.publishedAt).toLocaleDateString(),
-          downloadsCount: `${this.formatCount(details?.statistics?.viewCount || 12000)} Streams`,
-          rating: 4.9,
-          tags: ['#GospelAudio', '#YouTubeAPI', '#WorshipPodcast']
-        };
-      });
-
-      return {
-        tracks: formattedTracks,
-        isRealYoutubeData: true
-      };
-
-    } catch (err: any) {
-      console.warn('[YouTube API Service] Failed to fetch audio tracks:', err.message);
-      return {
-        tracks: this.getFallbackAudio(query),
-        isRealYoutubeData: false,
-        error: err.message
-      };
-    }
-  }
-
-  private getFallbackAudio(query: string): AudioTrack[] {
-    let list = [...AUDIO_TRACKS];
-    if (query && query.toLowerCase() !== 'gospel worship podcast audio sermon') {
-      const q = query.toLowerCase();
-      const filtered = list.filter(a => a.title.toLowerCase().includes(q) || a.artistOrPreacher.toLowerCase().includes(q));
-      return filtered.length > 0 ? filtered : list;
-    }
-    return list;
   }
 
   /**

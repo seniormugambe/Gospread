@@ -48,15 +48,19 @@ export default function YouTubeApiModal({ isOpen, onClose, onSelectVideo }: YouT
 
   useEffect(() => {
     if (isOpen) {
-      handleSearch();
+      setActiveTab('liveSearch');
+      void handleSearch();
     }
   }, [isOpen]);
 
   const handleSearch = async () => {
     setLoading(true);
-    const res = await youtubeApi.searchGospelVideos(searchQuery, isLiveOnly);
-    setSearchResults(res);
-    setLoading(false);
+    try {
+      const res = await youtubeApi.searchGospelVideos(searchQuery.trim() || 'Gospel Live Worship', isLiveOnly);
+      setSearchResults(res);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCopyCode = (text: string, index: number) => {

@@ -996,7 +996,7 @@ export default function CreatePage({
 
   // 🔴 LIVE CONTROL ROOM MODE (FULL-SCREEN PRODUCTION SUITE)
   if (studioAction === 'live_control_room') {
-    // Quick Live: WebRTC camera+mic broadcast via LiveKit
+    // Quick Live: device camera and microphone, with no encoder setup.
     if (liveMode === 'quick') {
       return (
         <div className="w-full min-h-screen bg-[#0a0a0a]">
@@ -1008,6 +1008,7 @@ export default function CreatePage({
               speaker={liveSpeaker || ownerName}
               scripture={liveScripture || 'Isaiah 40:31'}
               mode="quick"
+              initialStream={cameraPreviewStream}
               onEnd={handleEndLiveStream}
               onBack={() => setStudioAction('live')}
           />

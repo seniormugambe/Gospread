@@ -23,9 +23,8 @@ import {
   Waves
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { AudioTrack } from '../data/gospelData';
+import { AudioTrack, AUDIO_TRACKS } from '../data/gospelData';
 import { djangoApi } from '../services/djangoApi';
-import { youtubeApi } from '../services/youtubeApi';
 import { GivingTarget } from './GivingModal';
 import { ActiveAudioSpace } from './AudioSpaceStudio';
 import { Room, RoomEvent, RemoteTrack } from 'livekit-client';
@@ -61,6 +60,7 @@ export default function AudioPodcastHub({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [audioList, setAudioList] = useState<AudioTrack[]>([]);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
+  const [audioSource, setAudioSource] = useState<'library' | 'curated' | null>(null);
   const [downloadedIds, setDownloadedIds] = useState<string[]>([]);
   const [isJoiningAudioSpace, setIsJoiningAudioSpace] = useState(false);
   const [audioSpaceError, setAudioSpaceError] = useState('');
@@ -162,6 +162,7 @@ export default function AudioPodcastHub({
         const djangoTracks = await djangoApi.getAudioTracks(selectedSubCategory === 'All' ? undefined : selectedSubCategory);
         if (active && djangoTracks && djangoTracks.length > 0) {
           setAudioList(djangoTracks);
+          setAudioSource('library');
           setIsLoadingAudio(false);
           return;
         }
@@ -169,18 +170,11 @@ export default function AudioPodcastHub({
         console.warn('[Audio] Backend track fetch notice:', e);
       }
 
-      // Fallback search to media provider if backend currently has 0 uploaded songs
-      const queryTerm = searchQuery.trim() 
-        ? searchQuery.trim() 
-        : selectedSubCategory === 'All' 
-          ? 'Gospel Worship Podcast Audio Sermon' 
-          : `Gospel ${selectedSubCategory}`;
-      
-      const res = await youtubeApi.searchGospelAudio(queryTerm).catch(() => ({ tracks: [] }));
-      if (active && res.tracks && res.tracks.length > 0) {
-        setAudioList(res.tracks);
+      if (active) {
+        setAudioList(AUDIO_TRACKS);
+        setAudioSource('curated');
+        setIsLoadingAudio(false);
       }
-      if (active) setIsLoadingAudio(false);
     };
 
     fetchAudio();
@@ -452,6 +446,16 @@ export default function AudioPodcastHub({
       </div>
 
       {/* 🎧 AUDIO TRACKS GRID */}
+      {audioSource && (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+          <div className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-bold ${
+            'border-slate-700 bg-slate-900 text-slate-400'
+          }`}>
+            <Music className="h-3.5 w-3.5" />
+            <span>{audioSource === 'library' ? 'Gospread audio library' : 'Curated Gospread audio'}</span>
+          </div>
+        </div>
+      )}
       {isLoadingAudio && filteredTracks.length === 0 ? (
         <div className="p-12 text-center text-slate-400 space-y-3">
           <Loader2 className="w-8 h-8 text-amber-400 animate-spin mx-auto" />
