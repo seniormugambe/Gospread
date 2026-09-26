@@ -535,6 +535,14 @@ export default function App() {
       token: ''
     };
   });
+  const HeaderProfileIcon = {
+    church: Church,
+    heart: Heart,
+    music: Music,
+    sparkles: Sparkles,
+    flame: Flame,
+    user: User,
+  }[userSession.profileIcon || 'user'] || User;
   const [streakDays, setStreakDays] = useState(0);
   const [praiseXp, setPraiseXp] = useState(0);
 
@@ -1009,13 +1017,7 @@ export default function App() {
                     ? 'bg-slate-950 text-amber-400'
                     : 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/40'
                 }`}>
-                  {userSession.fullName ? (
-                    userSession.fullName.charAt(0).toUpperCase()
-                  ) : userSession.username ? (
-                    userSession.username.charAt(0).toUpperCase()
-                  ) : (
-                    <User className="w-3.5 h-3.5" />
-                  )}
+                  <HeaderProfileIcon className="w-3.5 h-3.5" />
                 </div>
               )}
             </motion.button>
@@ -1484,6 +1486,17 @@ export default function App() {
                 onOpenDiscover={() => setActiveTab('discover')}
                 onOpenAuthPage={handleOpenAuthPage}
                 currentUser={userSession}
+                onUpdateProfile={(profile) => {
+                  setUserSession((previous) => {
+                    const updated = { ...previous, ...profile };
+                    try {
+                      localStorage.setItem('gospread_user_session', JSON.stringify(updated));
+                    } catch (error) {
+                      console.error(error);
+                    }
+                    return updated;
+                  });
+                }}
               />
             </div>
           ) : activeTab === 'community' ? (
@@ -2561,4 +2574,3 @@ export default function App() {
     </div>
   );
 }
-

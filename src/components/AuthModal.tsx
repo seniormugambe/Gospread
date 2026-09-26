@@ -14,6 +14,7 @@ export interface UserSession {
   creatorType?: CreatorProfileType;
   avatarUrl?: string;
   avatar?: string;
+  profileIcon?: 'user' | 'church' | 'heart' | 'music' | 'sparkles' | 'flame';
   bio?: string;
   role?: string;
   isLoggedIn: boolean;

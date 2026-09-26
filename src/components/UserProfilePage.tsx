@@ -30,7 +30,8 @@ import {
   Settings,
   Lock,
   Plus,
-  Compass
+  Compass,
+  ImagePlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream, AudioTrack } from '../services/djangoApi';
@@ -59,6 +60,7 @@ interface UserProfilePageProps {
   onOpenDiscover?: () => void;
   onOpenAuthPage?: (mode?: 'signin' | 'signup') => void;
   currentUser?: UserSession;
+  onUpdateProfile?: (profile: Partial<UserSession>) => void;
 }
 
 export default function UserProfilePage({
@@ -81,7 +83,8 @@ export default function UserProfilePage({
   onOpenCommunity,
   onOpenDiscover,
   onOpenAuthPage,
-  currentUser
+  currentUser,
+  onUpdateProfile
 }: UserProfilePageProps) {
   // Active tab state
   const [activeProfileTab, setActiveProfileTab] = useState<'bookmarks' | 'giving' | 'prayers' | 'subscriptions' | 'settings'>('bookmarks');
@@ -121,6 +124,8 @@ export default function UserProfilePage({
   });
 
   const [userEmail, setUserEmail] = useState(currentUser?.email || '');
+  const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatarUrl || currentUser?.avatar || '');
+  const [profileIcon, setProfileIcon] = useState<UserSession['profileIcon']>(currentUser?.profileIcon || 'user');
   const [showSavedToast, setShowSavedToast] = useState(false);
 
   // Sync with currentUser changes
@@ -129,6 +134,8 @@ export default function UserProfilePage({
     if (currentUser?.username) setUserHandle(`@${currentUser.username}`);
     if (currentUser?.email) setUserEmail(currentUser.email);
     if (currentUser?.churchName) setHomeChurch(currentUser.churchName);
+    if (currentUser?.avatarUrl || currentUser?.avatar) setAvatarUrl(currentUser.avatarUrl || currentUser.avatar || '');
+    if (currentUser?.profileIcon) setProfileIcon(currentUser.profileIcon);
   }, [currentUser]);
 
   // Giving History Log
@@ -256,9 +263,41 @@ export default function UserProfilePage({
       localStorage.setItem('gospread_custom_bio', userBio);
       localStorage.setItem('gospread_custom_church', homeChurch);
     } catch {}
+    onUpdateProfile?.({
+      fullName: userName.trim(),
+      username: userHandle.replace(/^@/, '').trim(),
+      email: userEmail.trim(),
+      churchName: homeChurch.trim(),
+      bio: userBio.trim(),
+      avatarUrl,
+      avatar: avatarUrl,
+      profileIcon,
+    });
     setIsEditing(false);
     setShowSavedToast(true);
     setTimeout(() => setShowSavedToast(false), 3000);
+  };
+
+  const profileIcons = [
+    { id: 'user', label: 'Person', Icon: User },
+    { id: 'church', label: 'Church', Icon: Church },
+    { id: 'heart', label: 'Heart', Icon: Heart },
+    { id: 'music', label: 'Music', Icon: Music },
+    { id: 'sparkles', label: 'Sparkles', Icon: Sparkles },
+    { id: 'flame', label: 'Flame', Icon: Flame },
+  ] as const;
+  const SelectedProfileIcon = profileIcons.find((option) => option.id === profileIcon)?.Icon || User;
+
+  const handleAvatarUpload = (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Please choose an image smaller than 2 MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setAvatarUrl(typeof reader.result === 'string' ? reader.result : '');
+    reader.readAsDataURL(file);
   };
 
   const togglePrayerStatus = (id: string) => {
@@ -337,15 +376,15 @@ export default function UserProfilePage({
           <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 text-center sm:text-left">
             {/* Avatar */}
             <div className="relative shrink-0">
-              {currentUser?.avatar ? (
+              {avatarUrl ? (
                 <img
-                  src={currentUser.avatar}
+                  src={avatarUrl}
                   alt={userName}
                   className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl object-cover border-4 border-[#121215] shadow-2xl"
                 />
               ) : (
                 <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-br from-amber-600 via-amber-700 to-amber-950 border-4 border-[#121215] shadow-2xl flex items-center justify-center text-white font-serif font-black text-3xl">
-                  {userName ? userName.charAt(0).toUpperCase() : <User className="w-10 h-10 text-amber-200" />}
+                  <SelectedProfileIcon className="w-10 h-10 text-amber-200" />
                 </div>
               )}
               {currentUser?.isLoggedIn && (
@@ -451,6 +490,35 @@ export default function UserProfilePage({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="sm:col-span-2 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+              <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
+                <div className="w-16 h-16 rounded-xl bg-amber-600/20 border border-amber-500/30 flex items-center justify-center shrink-0 overflow-hidden">
+                  {avatarUrl ? <img src={avatarUrl} alt="Profile preview" className="w-full h-full object-cover" /> : <SelectedProfileIcon className="w-7 h-7 text-amber-300" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <label className="block text-slate-400 font-bold mb-1">Profile image</label>
+                  <div className="flex flex-wrap gap-2">
+                    <label className="cursor-pointer px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold flex items-center gap-1.5">
+                      <ImagePlus className="w-3.5 h-3.5 text-amber-400" /> Upload image
+                      <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => handleAvatarUpload(event.target.files?.[0])} className="sr-only" />
+                    </label>
+                    {avatarUrl && <button type="button" onClick={() => setAvatarUrl('')} className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">Use icon instead</button>}
+                  </div>
+                </div>
+              </div>
+              <label className="block text-slate-400 font-bold mt-3 mb-1">Or image URL</label>
+              <input type="url" value={avatarUrl.startsWith('data:') ? '' : avatarUrl} onChange={(event) => setAvatarUrl(event.target.value)} placeholder="https://example.com/profile-photo.jpg" className="w-full bg-slate-950 text-white p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500" />
+              <div className="mt-3">
+                <span className="block text-slate-400 font-bold mb-2">Profile icon</span>
+                <div className="flex flex-wrap gap-2">
+                  {profileIcons.map(({ id, label, Icon }) => (
+                    <button key={id} type="button" onClick={() => { setProfileIcon(id); setAvatarUrl(''); }} title={label} className={`w-9 h-9 rounded-lg border flex items-center justify-center transition ${profileIcon === id && !avatarUrl ? 'bg-amber-500 text-slate-950 border-amber-400' : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-amber-500/60'}`}>
+                      <Icon className="w-4 h-4" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
             <div>
               <label className="block text-slate-400 font-bold mb-1">Full Name</label>
               <input
