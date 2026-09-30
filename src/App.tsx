@@ -139,6 +139,11 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<'platform' | 'generated' | 'create' | 'profile' | 'history' | 'discover' | 'community' | 'auth'>('platform');
   const mainContentRef = useRef<HTMLElement>(null);
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    mainContentRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  };
+
   const [activeAudioSpace, setActiveAudioSpace] = useState<ActiveAudioSpace | null>(() => {
     try {
       const saved = localStorage.getItem('gospread_active_audio_space');
@@ -257,6 +262,10 @@ export default function App() {
   );
   const [churches, setChurches] = useState<Awaited<ReturnType<typeof djangoApi.getChurchLocations>>>([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
+  useEffect(() => {
+    scrollToTop();
+  }, [activeTab, selectedCategory]);
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(() =>
     typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
   );
@@ -2527,7 +2536,7 @@ export default function App() {
           setSelectedCategory('All');
           setSearchQuery('');
           setActiveVideo(null);
-          mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+          scrollToTop();
         }}
         watchHistoryCount={watchHistory.length}
         onOpenShorts={() => setShowShortsModal(true)}
