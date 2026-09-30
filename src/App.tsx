@@ -824,6 +824,15 @@ export default function App() {
     setActiveTab('platform');
   };
 
+  const handleNavigateHome = () => {
+    setActiveTab('platform');
+    setSelectedCategory('All');
+    setSearchQuery('');
+    setActiveVideo(null);
+    setIsPipDocked(false);
+    scrollToTop();
+  };
+
   // Filter video streams based on search and category
   const filteredVideos = videoStreams.filter(v => {
     let matchesCategory = false;
@@ -889,12 +898,7 @@ export default function App() {
           <GospreadLogo
             size="sm"
             showBadge={false}
-            onClick={() => {
-              setActiveVideo(null);
-              setSelectedCategory('All');
-              setActiveTab('platform');
-              setSearchQuery('');
-            }}
+            onClick={handleNavigateHome}
           />
 
         </div>
@@ -1129,6 +1133,8 @@ export default function App() {
                               setActiveVideo(null);
                             } else if (item.id === 'giving') {
                               handleOpenGiving();
+                            } else if (item.id === 'home') {
+                              handleNavigateHome();
                             } else {
                               if (item.id === 'following' && !userSession.isLoggedIn) {
                                 handleOpenAuthPage('signin');
@@ -1317,6 +1323,8 @@ export default function App() {
                                     setActiveVideo(null);
                                   } else if (item.id === 'giving') {
                                     handleOpenGiving();
+                                  } else if (item.id === 'home') {
+                                    handleNavigateHome();
                                   } else {
                                     if (item.id === 'following' && !userSession.isLoggedIn) {
                                       handleOpenAuthPage('signin');
@@ -1411,8 +1419,7 @@ export default function App() {
                   });
                 }}
                 onNavigateHome={() => {
-                  setActiveTab('platform');
-                  setSelectedCategory('All');
+                  handleNavigateHome();
                 }}
                 onNavigateProfile={() => setActiveTab('profile')}
                 onAwardXp={(amount, reason) => {
@@ -1495,8 +1502,7 @@ export default function App() {
                 onToggleSave={toggleSave}
                 savedIds={savedIds}
                 onNavigateHome={() => {
-                  setActiveTab('platform');
-                  setSelectedCategory('All');
+                  handleNavigateHome();
                 }}
                 onDownloadVideo={handleOpenDownloadModal}
               />
@@ -1559,7 +1565,7 @@ export default function App() {
                 </div>
 
                 <button
-                  onClick={() => setActiveTab('platform')}
+                  onClick={handleNavigateHome}
                   className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer ${
                     theme === 'light'
                       ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300'
@@ -1576,7 +1582,7 @@ export default function App() {
                 initialAction={initialStudioAction}
                 initialUploadSource={initialUploadSource}
                 onPublishSuccess={handlePublishSuccess}
-                onCancel={() => setActiveTab('platform')}
+                onCancel={handleNavigateHome}
                 activeAudioSpace={activeAudioSpace}
                 onAudioSpaceChange={handleAudioSpaceChange}
                 theme={theme}
@@ -2531,13 +2537,7 @@ export default function App() {
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
         setActiveVideo={setActiveVideo}
-        onNavigateHome={() => {
-          setActiveTab('platform');
-          setSelectedCategory('All');
-          setSearchQuery('');
-          setActiveVideo(null);
-          scrollToTop();
-        }}
+        onNavigateHome={handleNavigateHome}
         watchHistoryCount={watchHistory.length}
         onOpenShorts={() => setShowShortsModal(true)}
         onOpenGiving={() => handleOpenGiving()}
