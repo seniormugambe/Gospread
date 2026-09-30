@@ -257,7 +257,18 @@ export default function App() {
   );
   const [churches, setChurches] = useState<Awaited<ReturnType<typeof djangoApi.getChurchLocations>>>([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
+  );
+  useEffect(() => {
+    const mobileBreakpoint = window.matchMedia('(max-width: 767px)');
+    const closeSidebarOnMobile = (event: MediaQueryListEvent) => {
+      if (event.matches) setIsSidebarOpen(false);
+    };
+
+    mobileBreakpoint.addEventListener('change', closeSidebarOnMobile);
+    return () => mobileBreakpoint.removeEventListener('change', closeSidebarOnMobile);
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [isYoutubeLoading, setIsYoutubeLoading] = useState(false);
 
