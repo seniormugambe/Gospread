@@ -138,6 +138,7 @@ export default function App() {
   }, [theme]);
 
   const [activeTab, setActiveTab] = useState<'platform' | 'generated' | 'create' | 'profile' | 'history' | 'discover' | 'community' | 'auth'>('platform');
+  const mainContentRef = useRef<HTMLElement>(null);
   const [activeAudioSpace, setActiveAudioSpace] = useState<ActiveAudioSpace | null>(() => {
     try {
       const saved = localStorage.getItem('gospread_active_audio_space');
@@ -1444,7 +1445,7 @@ export default function App() {
         </AnimatePresence>
 
         {/* Main Body */}
-        <main className="flex-1 overflow-y-auto flex flex-col pb-32 md:pb-16">
+        <main ref={mainContentRef} className="flex-1 overflow-y-auto flex flex-col pb-32 md:pb-16">
           
           {activeTab === 'auth' ? (
             <div className="p-2 sm:p-4 lg:p-6 max-w-7xl w-full mx-auto">
@@ -2587,6 +2588,13 @@ export default function App() {
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
         setActiveVideo={setActiveVideo}
+        onNavigateHome={() => {
+          setActiveTab('platform');
+          setSelectedCategory('All');
+          setSearchQuery('');
+          setActiveVideo(null);
+          mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
         watchHistoryCount={watchHistory.length}
         onOpenShorts={() => setShowShortsModal(true)}
         onOpenGiving={() => handleOpenGiving()}

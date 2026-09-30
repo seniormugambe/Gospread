@@ -14,6 +14,7 @@ interface MobileBottomNavProps {
   selectedCategory: string;
   setSelectedCategory: (cat: string) => void;
   setActiveVideo: (video: null) => void;
+  onNavigateHome: () => void;
   watchHistoryCount?: number;
   onOpenShorts?: () => void;
   onOpenGiving?: () => void;
@@ -25,6 +26,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   selectedCategory,
   setSelectedCategory,
   setActiveVideo,
+  onNavigateHome,
 }) => {
   const isHomeActive = activeTab === 'platform' && selectedCategory === 'All';
   const isLiveActive = activeTab === 'platform' && (selectedCategory === 'Live' || selectedCategory === 'Live Worship');
@@ -39,9 +41,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       <motion.button
         whileTap={{ scale: 0.92 }}
         onClick={() => {
-          setActiveTab('platform');
-          setSelectedCategory('All');
-          setActiveVideo(null);
+          onNavigateHome();
         }}
         className={`flex flex-col items-center justify-center min-w-[56px] min-h-[44px] px-2 py-1 rounded-2xl transition relative ${
           isHomeActive
