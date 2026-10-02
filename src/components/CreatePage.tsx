@@ -185,6 +185,8 @@ export interface CreatePageProps {
   initialAction?: StudioAction;
   initialUploadSource?: UploadMode;
   onPublishSuccess: (newStream: VideoStream) => void;
+  onLiveCreated?: (newStream: VideoStream) => void;
+  onLiveEnded?: (streamId: string) => void;
   onCancel: () => void;
   activeAudioSpace?: ActiveAudioSpace | null;
   onAudioSpaceChange?: (space: ActiveAudioSpace | null) => void;
@@ -286,6 +288,8 @@ export default function CreatePage({
   initialAction = 'choose',
   initialUploadSource = 'device',
   onPublishSuccess, 
+  onLiveCreated,
+  onLiveEnded,
   onCancel,
   onAudioSpaceChange,
   theme = 'dark'
@@ -428,6 +432,7 @@ export default function CreatePage({
   // Step in Go Live flow: 'setup' | 'credentials'
   const [liveSetupStep, setLiveSetupStep] = useState<'setup' | 'credentials'>('setup');
   const [liveMode, setLiveMode] = useState<'quick' | 'studio'>('quick');
+  const [activeLiveStreamId, setActiveLiveStreamId] = useState<string | null>(null);
   
   // What are you broadcasting? options: 'Sunday Service' | 'Bible Study' | 'Prayer' | 'Worship' | 'Conference' | 'Other'
   const [broadcastType, setBroadcastType] = useState<LiveBroadcastType>('Other');
@@ -599,7 +604,33 @@ export default function CreatePage({
       void startCameraPreview();
       return;
     }
+    publishLiveStreamToFeed();
     setStudioAction('live_control_room');
+  };
+
+  const publishLiveStreamToFeed = () => {
+    const mappedCategory: VideoStream['category'] =
+      liveCategory === 'Bible Study' ? 'Bible Study' : 'Live Worship';
+    const newVideo: VideoStream = {
+      id: `live-${Date.now()}`,
+      title: liveTitle || `${broadcastType} — Live Broadcast`,
+      speakerOrArtist: liveSpeaker || ownerName,
+      churchOrMinistry: ministryName,
+      channelAvatar: avatarUrl,
+      subscribersCount: '24.8K Members',
+      likesCount: '0',
+      category: mappedCategory,
+      isLive: true,
+      viewersCount: 0,
+      viewsText: 'Live now',
+      thumbnail: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
+      description: liveDescription,
+      bibleVerse: liveScripture || 'Isaiah 40:29-31',
+      date: 'Streaming Live Now'
+    };
+
+    setActiveLiveStreamId(newVideo.id);
+    onLiveCreated?.(newVideo);
   };
 
   const startCameraPreview = async () => {
@@ -854,39 +885,15 @@ export default function CreatePage({
   const handleGoLiveSubmit = (e?: FormEvent) => {
     if (e) e.preventDefault();
     prepareGlobalRegistration();
-
-    const mappedCategory = (
-      liveCategory === 'Sunday Service' ? 'Live Worship' :
-      liveCategory === 'Bible Study' ? 'Bible Study' :
-      liveCategory === 'Prayer' ? 'Prayer & Intercession' :
-      liveCategory === 'Worship' || liveCategory === 'Live Worship' ? 'Live Worship' :
-      liveCategory === 'Conference' ? 'Christian Living' : 'Live Worship'
-    ) as any;
-
-    const newVideo: VideoStream = {
-      id: `live-${Date.now()}`,
-      title: liveTitle || `${broadcastType} — Live Broadcast`,
-      speakerOrArtist: liveSpeaker || ownerName,
-      churchOrMinistry: ministryName,
-      channelAvatar: avatarUrl,
-      subscribersCount: '24.8K Members',
-      likesCount: '4.2K',
-      category: mappedCategory,
-      isLive: true,
-      viewersCount: 940,
-      viewsText: '940 worshippers live now • 1080p60 OBS Feed',
-      thumbnail: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
-      description: `${liveDescription}\n\n📡 Broadcast Source: Gospread RTMPS Live Ingest (${rtmpServerUrl})\nFormat: ${broadcastType}`,
-      bibleVerse: liveScripture || 'Isaiah 40:29-31',
-      date: 'Streaming Live Now'
-    };
-
+    publishLiveStreamToFeed();
     // Transition directly to Live Control Room
     setStudioAction('live_control_room');
   };
 
   // Live Stream ended callback -> Triggers LiveRecordingVODModal
   const handleEndLiveStream = (data: RecordedStreamData) => {
+    if (activeLiveStreamId) onLiveEnded?.(activeLiveStreamId);
+    setActiveLiveStreamId(null);
     setActiveVODModalData(data);
     setStudioAction('choose');
   };
