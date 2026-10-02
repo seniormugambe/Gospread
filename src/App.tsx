@@ -824,8 +824,10 @@ export default function App() {
     setActiveTab('platform');
   };
 
-  const handleLiveCreated = (newStream: VideoStream) => {
-    setVideoStreams(prev => [newStream, ...prev.filter(stream => stream.id !== newStream.id)]);
+  const handleLiveCreated = (newStream: VideoStream, replacedId?: string) => {
+    setVideoStreams(prev => [newStream, ...prev.filter(stream =>
+      stream.id !== newStream.id && stream.id !== replacedId
+    )]);
   };
 
   const handleLiveEnded = (streamId: string) => {

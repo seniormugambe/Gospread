@@ -185,7 +185,7 @@ export interface CreatePageProps {
   initialAction?: StudioAction;
   initialUploadSource?: UploadMode;
   onPublishSuccess: (newStream: VideoStream) => void;
-  onLiveCreated?: (newStream: VideoStream) => void;
+  onLiveCreated?: (newStream: VideoStream, replacedId?: string) => void;
   onLiveEnded?: (streamId: string) => void;
   onCancel: () => void;
   activeAudioSpace?: ActiveAudioSpace | null;
@@ -433,6 +433,8 @@ export default function CreatePage({
   const [liveSetupStep, setLiveSetupStep] = useState<'setup' | 'credentials'>('setup');
   const [liveMode, setLiveMode] = useState<'quick' | 'studio'>('quick');
   const [activeLiveStreamId, setActiveLiveStreamId] = useState<string | null>(null);
+  const [livePublishError, setLivePublishError] = useState('');
+  const [isPublishingLive, setIsPublishingLive] = useState(false);
   
   // What are you broadcasting? options: 'Sunday Service' | 'Bible Study' | 'Prayer' | 'Worship' | 'Conference' | 'Other'
   const [broadcastType, setBroadcastType] = useState<LiveBroadcastType>('Other');
@@ -598,17 +600,18 @@ export default function CreatePage({
     setLiveSetupStep('credentials');
   };
 
-  const handleStartQuickLive = (e: FormEvent) => {
+  const handleStartQuickLive = async (e: FormEvent) => {
     e.preventDefault();
     if (!cameraPreviewStream) {
       void startCameraPreview();
       return;
     }
-    publishLiveStreamToFeed();
-    setStudioAction('live_control_room');
+    if (await publishLiveStreamToFeed()) setStudioAction('live_control_room');
   };
 
-  const publishLiveStreamToFeed = () => {
+  const publishLiveStreamToFeed = async (): Promise<boolean> => {
+    setLivePublishError('');
+    setIsPublishingLive(true);
     const mappedCategory: VideoStream['category'] =
       liveCategory === 'Bible Study' ? 'Bible Study' : 'Live Worship';
     const newVideo: VideoStream = {
@@ -629,8 +632,38 @@ export default function CreatePage({
       date: 'Streaming Live Now'
     };
 
-    setActiveLiveStreamId(newVideo.id);
-    onLiveCreated?.(newVideo);
+    try {
+      if (!currentUser?.isLoggedIn) {
+        throw new Error('Sign in with a creator account to publish a live broadcast for other viewers.');
+      }
+
+      const churchNames = [currentUser.churchName, currentUser.ministryName, ministryName]
+        .filter((name): name is string => Boolean(name?.trim()))
+        .map(name => name.trim().toLowerCase());
+      const church = (await djangoApi.getChurchLocations()).find(location =>
+        churchNames.includes(location.name.trim().toLowerCase()) && /^\d+$/.test(location.id)
+      );
+      if (!church) {
+        throw new Error('Create a church profile linked to this account before starting a shared live broadcast.');
+      }
+
+      const savedStream = await djangoApi.createLiveStream({
+        church: Number(church.id),
+        title: newVideo.title,
+        description: newVideo.description,
+        thumbnail_url: newVideo.thumbnail,
+        quality_label: 'Live video',
+      });
+      const persistedVideo = { ...newVideo, id: String(savedStream.id), streamUrl: savedStream.playback_url };
+      setActiveLiveStreamId(persistedVideo.id);
+      onLiveCreated?.(persistedVideo);
+      return true;
+    } catch (error) {
+      setLivePublishError(error instanceof Error ? error.message : 'Could not publish the live broadcast.');
+      return false;
+    } finally {
+      setIsPublishingLive(false);
+    }
   };
 
   const startCameraPreview = async () => {
@@ -882,17 +915,22 @@ export default function CreatePage({
   };
 
   // Submit Handler for Action 2: Go Live
-  const handleGoLiveSubmit = (e?: FormEvent) => {
+  const handleGoLiveSubmit = async (e?: FormEvent) => {
     if (e) e.preventDefault();
     prepareGlobalRegistration();
-    publishLiveStreamToFeed();
+    if (!await publishLiveStreamToFeed()) return;
     // Transition directly to Live Control Room
     setStudioAction('live_control_room');
   };
 
   // Live Stream ended callback -> Triggers LiveRecordingVODModal
   const handleEndLiveStream = (data: RecordedStreamData) => {
-    if (activeLiveStreamId) onLiveEnded?.(activeLiveStreamId);
+    if (activeLiveStreamId) {
+      onLiveEnded?.(activeLiveStreamId);
+      void djangoApi.endLiveStream(activeLiveStreamId).catch(error => {
+        console.warn('[Live broadcast] Failed to mark stream as ended:', error);
+      });
+    }
     setActiveLiveStreamId(null);
     setActiveVODModalData(data);
     setStudioAction('choose');
@@ -3672,7 +3710,8 @@ export default function CreatePage({
                 <div><label className="block text-xs font-bold text-slate-200 mb-1.5">Category</label><select value={liveCategory || 'Live Worship'} onChange={(e) => setLiveCategory(e.target.value)} className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-sky-400 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none"><option>Live Worship</option><option>Prayer & Intercession</option><option>Bible Study</option><option>Sunday Service</option><option>Christian Living</option></select></div>
                 <div><label className="block text-xs font-bold text-slate-200 mb-1.5">Speaker / host</label><input value={liveSpeaker} onChange={(e) => setLiveSpeaker(e.target.value)} className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-sky-400 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none" /></div>
               </div>
-              <div className="flex items-center justify-between pt-2 border-t border-slate-800"><button type="button" onClick={() => setStudioAction('choose')} className="px-5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">Cancel</button><button type="submit" className="px-7 py-3.5 rounded-full bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-sky-500/20 transition"><Radio className="w-4 h-4" /><span>{cameraPreviewStream ? 'Start Quick Live' : 'Enable Camera to Continue'}</span><ArrowRight className="w-4 h-4" /></button></div>
+              {livePublishError && <p role="alert" className="text-sm font-semibold text-rose-300">{livePublishError}</p>}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-800"><button type="button" onClick={() => setStudioAction('choose')} className="px-5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">Cancel</button><button type="submit" disabled={isPublishingLive} className="px-7 py-3.5 rounded-full bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-sky-500/20 transition disabled:opacity-60"><Radio className="w-4 h-4" /><span>{isPublishingLive ? 'Publishing live...' : cameraPreviewStream ? 'Start Quick Live' : 'Enable Camera to Continue'}</span><ArrowRight className="w-4 h-4" /></button></div>
             </form>
           )}
 
@@ -3984,6 +4023,7 @@ export default function CreatePage({
               animate={{ opacity: 1, scale: 1 }}
               className="space-y-6"
             >
+              {livePublishError && <p role="alert" className="text-sm font-semibold text-rose-300">{livePublishError}</p>}
               <div className="bg-[#181818] border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-7">
                 
                 {/* Header */}
@@ -4258,11 +4298,12 @@ export default function CreatePage({
 
                     <button
                       type="button"
-                      onClick={() => setStudioAction('live_control_room')}
-                      className="flex-1 sm:flex-none px-8 py-3.5 rounded-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-red-600/30 transition cursor-pointer"
+                      onClick={() => void handleGoLiveSubmit()}
+                      disabled={isPublishingLive}
+                      className="flex-1 sm:flex-none px-8 py-3.5 rounded-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-red-600/30 transition cursor-pointer disabled:opacity-60"
                     >
                       <RadioTower className="w-4 h-4" />
-                      <span>Open Gospread Control Room</span>
+                      <span>{isPublishingLive ? 'Publishing live...' : 'Open Gospread Control Room'}</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>

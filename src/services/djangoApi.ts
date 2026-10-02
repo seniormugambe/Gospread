@@ -656,6 +656,33 @@ class DjangoApiClient {
     return this.getVideos(category, true);
   }
 
+  public async createLiveStream(stream: {
+    church: number;
+    title: string;
+    description?: string;
+    thumbnail_url?: string;
+    quality_label?: string;
+  }): Promise<{ id: number; playback_url?: string }> {
+    const startedAt = new Date().toISOString();
+    return this.request('/streams/', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...stream,
+        stream_type: 'video',
+        status: 'live',
+        scheduled_for: startedAt,
+        started_at: startedAt,
+      }),
+    });
+  }
+
+  public async endLiveStream(streamId: string): Promise<void> {
+    await this.request(`/streams/${encodeURIComponent(streamId)}/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'ended', ended_at: new Date().toISOString() }),
+    });
+  }
+
   public async getShorts(): Promise<VideoStream[]> {
     try {
       const res = await this.request<any[] | { results: any[] }>('/shorts/').catch(() => []);
