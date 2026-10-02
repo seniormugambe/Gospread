@@ -3,6 +3,7 @@ from pathlib import Path
 import os
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -65,6 +66,9 @@ TEMPLATES = [{
 }]
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
+
+if os.getenv("RENDER") and not os.getenv("DATABASE_URL"):
+    raise ImproperlyConfigured("DATABASE_URL must be configured on Render to persist user accounts.")
 
 DATABASES = {
     "default": dj_database_url.config(
