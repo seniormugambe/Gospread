@@ -1,9 +1,29 @@
 import * as IVSBroadcastClient from 'amazon-ivs-web-broadcast';
+import { BroadcastClientError, BroadcastClientEvents, ConnectionState } from 'amazon-ivs-web-broadcast';
 
 export interface IvsBroadcastCredentials {
   ingest_endpoint: string;
   stream_key: string;
   playback_url: string;
+}
+
+export type IvsConnectionState = ConnectionState;
+
+export function listenToIvsConnection(
+  client: IVSBroadcastClient.AmazonIVSBroadcastClient,
+  onStateChange: (state: ConnectionState) => void,
+  onError: (error: BroadcastClientError) => void,
+): () => void {
+  const handleStateChange = (state: ConnectionState) => onStateChange(state);
+  const handleError = (error: BroadcastClientError) => onError(error);
+
+  client.on(BroadcastClientEvents.CONNECTION_STATE_CHANGE, handleStateChange);
+  client.on(BroadcastClientEvents.ERROR, handleError);
+
+  return () => {
+    client.off(BroadcastClientEvents.CONNECTION_STATE_CHANGE, handleStateChange);
+    client.off(BroadcastClientEvents.ERROR, handleError);
+  };
 }
 
 export async function startIvsBroadcast(
@@ -17,6 +37,7 @@ export async function startIvsBroadcast(
   const client = IVSBroadcastClient.create({
     streamConfig: IVSBroadcastClient.STANDARD_LANDSCAPE,
     ingestEndpoint: credentials.ingest_endpoint,
+    networkReconnectConfig: { reconnect: true, timeout: 30 },
   });
 
   try {
