@@ -1,3 +1,6 @@
+import logging
+
+import boto3
 from django.db import transaction
 from django.db.models import Count, DecimalField, Q, Sum, Value
 from django.db.models.functions import Coalesce
@@ -19,6 +22,8 @@ from .serializers import (
     GospreadTokenSerializer, ScriptureSerializer, SermonSerializer, SermonShortSerializer,
     SignupSerializer, UserSerializer, WatchProgressSerializer, WorshipSongSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class SignupView(generics.CreateAPIView):
@@ -340,6 +345,81 @@ class LiveStreamViewSet(viewsets.ModelViewSet):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You can only create streams for your own church.")
         serializer.save(created_by=self.request.user)
+
+    @action(detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def start(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        stream = serializer.save(created_by=request.user, status=LiveStream.Status.SCHEDULED)
+        ivs_client = None
+        channel_arn = ""
+        stream_key_arn = ""
+
+        try:
+            ivs_client = boto3.client("ivs", region_name=settings.AWS_IVS_REGION)
+            channel_response = ivs_client.create_channel(
+                name=f"gospread-live-{stream.id}",
+                latencyMode="LOW",
+                type="STANDARD",
+            )
+            channel = channel_response["channel"]
+            channel_arn = channel["arn"]
+            stream_key = ivs_client.create_stream_key(channelArn=channel_arn)["streamKey"]
+            stream_key_arn = stream_key["arn"]
+
+            stream.ivs_channel_arn = channel_arn
+            stream.ivs_stream_key_arn = stream_key_arn
+            stream.playback_url = channel["playbackUrl"]
+            stream.status = LiveStream.Status.LIVE
+            stream.started_at = timezone.now()
+            stream.save(update_fields=(
+                "ivs_channel_arn", "ivs_stream_key_arn", "playback_url", "status", "started_at"
+            ))
+
+            response_data = dict(self.get_serializer(stream).data)
+            response_data.update({
+                "ingest_endpoint": channel["ingestEndpoint"],
+                "stream_key": stream_key["value"],
+            })
+            return Response(response_data, status=status.HTTP_201_CREATED)
+        except Exception:
+            logger.exception("Amazon IVS broadcast provisioning failed for stream %s", stream.id)
+            if ivs_client and stream_key_arn:
+                try:
+                    ivs_client.delete_stream_key(arn=stream_key_arn)
+                except Exception:
+                    logger.exception("Could not remove IVS stream key after provisioning failure")
+            if ivs_client and channel_arn:
+                try:
+                    ivs_client.delete_channel(arn=channel_arn)
+                except Exception:
+                    logger.exception("Could not remove IVS channel after provisioning failure")
+            stream.delete()
+            return Response(
+                {"detail": "Could not provision an Amazon IVS broadcast. Check backend AWS credentials and IVS permissions."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+    @action(detail=True, methods=["post"])
+    def end(self, request, pk=None):
+        stream = self.get_object()
+        if stream.ivs_channel_arn:
+            try:
+                ivs_client = boto3.client("ivs", region_name=settings.AWS_IVS_REGION)
+                ivs_client.stop_stream(channelArn=stream.ivs_channel_arn)
+                if stream.ivs_stream_key_arn:
+                    ivs_client.delete_stream_key(arn=stream.ivs_stream_key_arn)
+            except Exception:
+                logger.exception("Amazon IVS shutdown failed for stream %s", stream.id)
+                return Response(
+                    {"detail": "Amazon IVS could not stop this broadcast. Please retry."},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+
+        stream.status = LiveStream.Status.ENDED
+        stream.ended_at = timezone.now()
+        stream.save(update_fields=("status", "ended_at"))
+        return Response(self.get_serializer(stream).data)
 
 
 class ChurchEventViewSet(viewsets.ModelViewSet):

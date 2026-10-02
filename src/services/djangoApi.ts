@@ -672,14 +672,18 @@ class DjangoApiClient {
   }
 
   public async createLiveStream(stream: {
-    church?: number;
     title: string;
     description?: string;
     thumbnail_url?: string;
     quality_label?: string;
-  }): Promise<{ id: number; playback_url?: string }> {
+  }): Promise<{
+    id: number;
+    playback_url: string;
+    ingest_endpoint: string;
+    stream_key: string;
+  }> {
     const startedAt = new Date().toISOString();
-    return this.request('/streams/', {
+    return this.request('/streams/start/', {
       method: 'POST',
       body: JSON.stringify({
         ...stream,
@@ -692,9 +696,8 @@ class DjangoApiClient {
   }
 
   public async endLiveStream(streamId: string): Promise<void> {
-    await this.request(`/streams/${encodeURIComponent(streamId)}/`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status: 'ended', ended_at: new Date().toISOString() }),
+    await this.request(`/streams/${encodeURIComponent(streamId)}/end/`, {
+      method: 'POST',
     });
   }
 

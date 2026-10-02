@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { UserSession } from './AuthModal';
 import { extractYouTubeId } from '../utils/videoPlayback';
+import { IvsBroadcastCredentials, startIvsBroadcast, stopIvsBroadcast } from '../services/ivsBroadcast';
 
 interface LiveBroadcastRoomProps {
   currentUser?: UserSession;
@@ -28,6 +29,7 @@ interface LiveBroadcastRoomProps {
   scripture: string;
   mode: 'quick' | 'studio';
   initialStream?: MediaStream | null;
+  ivsCredentials: IvsBroadcastCredentials | null;
   onEnd: (data: {
     title: string;
     description: string;
@@ -54,6 +56,7 @@ export default function LiveBroadcastRoom({
   scripture,
   mode,
   initialStream,
+  ivsCredentials,
   onEnd,
   onBack,
 }: LiveBroadcastRoomProps) {
@@ -68,7 +71,9 @@ export default function LiveBroadcastRoom({
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [isFrontCamera, setIsFrontCamera] = useState(true);
   const [quickError, setQuickError] = useState('');
+  const [isStartingQuickLive, setIsStartingQuickLive] = useState(false);
   const quickPreviewRef = useRef<HTMLVideoElement>(null);
+  const broadcastClientRef = useRef<Awaited<ReturnType<typeof startIvsBroadcast>> | null>(null);
 
   useEffect(() => {
     if (mode !== 'quick') return;
@@ -95,6 +100,8 @@ export default function LiveBroadcastRoom({
   useEffect(() => () => {
     if (mode === 'quick') quickStream?.getTracks().forEach(track => track.stop());
   }, [mode, quickStream]);
+
+  useEffect(() => () => stopIvsBroadcast(broadcastClientRef.current), []);
 
   // Keep elapsed time for either the Studio monitor or the device-first quick live.
   useEffect(() => {
@@ -165,6 +172,8 @@ export default function LiveBroadcastRoom({
 
   const endQuickLive = () => {
     const totalMinutes = Math.max(1, Math.round(elapsedSeconds / 60));
+    stopIvsBroadcast(broadcastClientRef.current);
+    broadcastClientRef.current = null;
     quickStream?.getTracks().forEach(track => track.stop());
     onEnd({
       title: title || 'Live Broadcast Recording',
@@ -180,6 +189,24 @@ export default function LiveBroadcastRoom({
       thumbnail: '',
       videoUrl: '',
     });
+  };
+
+  const startQuickLive = async () => {
+    if (!quickStream || !ivsCredentials) {
+      setQuickError('Gospread could not prepare the live video channel. Return to setup and try again.');
+      return;
+    }
+
+    setIsStartingQuickLive(true);
+    setQuickError('');
+    try {
+      broadcastClientRef.current = await startIvsBroadcast(quickStream, ivsCredentials);
+      setIsQuickLive(true);
+    } catch (error) {
+      setQuickError(error instanceof Error ? error.message : 'Could not start the live broadcast.');
+    } finally {
+      setIsStartingQuickLive(false);
+    }
   };
 
   const copyToClipboard = (text: string, key: 'rtmp' | 'key') => {
@@ -225,10 +252,10 @@ export default function LiveBroadcastRoom({
               <button type="button" onClick={toggleQuickMute} className="flex h-12 w-12 items-center justify-center rounded-full bg-black/55 backdrop-blur" title={isMicMuted ? 'Unmute microphone' : 'Mute microphone'}>
                 {isMicMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
               </button>
-              <button type="button" disabled={!quickStream} onClick={() => isQuickLive ? endQuickLive() : setIsQuickLive(true)} className={`flex h-16 min-w-32 items-center justify-center rounded-full px-6 text-sm font-black transition ${isQuickLive ? 'bg-red-600 text-white' : 'bg-white text-slate-950'} disabled:opacity-50`}>
-                {isQuickLive ? 'End live' : 'Go LIVE'}
+              <button type="button" disabled={!quickStream || isStartingQuickLive} onClick={() => isQuickLive ? endQuickLive() : void startQuickLive()} className={`flex h-16 min-w-32 items-center justify-center rounded-full px-6 text-sm font-black transition ${isQuickLive ? 'bg-red-600 text-white' : 'bg-white text-slate-950'} disabled:opacity-50`}>
+                {isStartingQuickLive ? 'Connecting...' : isQuickLive ? 'End live' : 'Go LIVE'}
               </button>
-              <button type="button" onClick={flipQuickCamera} disabled={!quickStream} className="flex h-12 w-12 items-center justify-center rounded-full bg-black/55 backdrop-blur disabled:opacity-50" title="Flip camera"><RotateCcw className="h-5 w-5" /></button>
+              <button type="button" onClick={flipQuickCamera} disabled={!quickStream || isQuickLive} className="flex h-12 w-12 items-center justify-center rounded-full bg-black/55 backdrop-blur disabled:opacity-50" title="Flip camera"><RotateCcw className="h-5 w-5" /></button>
             </div>
           </div>
         </div>

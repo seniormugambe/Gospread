@@ -84,6 +84,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream, ChurchLocation, SocialLink, registerChurchProfile } from '../data/gospelData';
 import { djangoApi } from '../services/djangoApi';
+import { IvsBroadcastCredentials } from '../services/ivsBroadcast';
 import { UserSession } from './AuthModal';
 import LiveBroadcastRoom from './LiveBroadcastRoom';
 import LiveControlRoom from './LiveControlRoom';
@@ -435,6 +436,7 @@ export default function CreatePage({
   const [liveSetupStep, setLiveSetupStep] = useState<'setup' | 'credentials'>('setup');
   const [liveMode, setLiveMode] = useState<'quick' | 'studio'>('quick');
   const [activeLiveStreamId, setActiveLiveStreamId] = useState<string | null>(null);
+  const [ivsBroadcastCredentials, setIvsBroadcastCredentials] = useState<IvsBroadcastCredentials | null>(null);
   const [livePublishError, setLivePublishError] = useState('');
   const [isPublishingLive, setIsPublishingLive] = useState(false);
   
@@ -447,11 +449,8 @@ export default function CreatePage({
   const [liveScripture, setLiveScripture] = useState('');
 
   // Gospread Generated Live-Stream Credentials (RTMPS & Stream Key)
-  const [rtmpServerUrl, setRtmpServerUrl] = useState('rtmps://live.gospread.com/live');
-  const [liveStreamKey, setLiveStreamKey] = useState(() => {
-    const slug = (currentUser?.ministryName || currentUser?.churchName || 'gracecity').toLowerCase().replace(/[^a-z0-9]/g, '');
-    return `live_${slug}_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString().slice(-4)}`;
-  });
+  const [rtmpServerUrl, setRtmpServerUrl] = useState('');
+  const [liveStreamKey, setLiveStreamKey] = useState('');
   const [showStreamKey, setShowStreamKey] = useState(false);
   const [copiedServer, setCopiedServer] = useState(false);
   const [copiedStreamKey, setCopiedStreamKey] = useState(false);
@@ -577,27 +576,24 @@ export default function CreatePage({
   }, [uploadStep]);
 
   const handleCopyServerUrl = () => {
+    if (!rtmpServerUrl) return;
     navigator.clipboard?.writeText(rtmpServerUrl);
     setCopiedServer(true);
     setTimeout(() => setCopiedServer(false), 2000);
   };
 
   const handleCopyLiveStreamKey = () => {
+    if (!liveStreamKey) return;
     navigator.clipboard?.writeText(liveStreamKey);
     setCopiedStreamKey(true);
     setTimeout(() => setCopiedStreamKey(false), 2000);
   };
 
-  const handleRegenerateStreamKey = () => {
-    const slug = (currentUser?.ministryName || currentUser?.churchName || 'gracecity').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const newKey = `live_${slug}_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString().slice(-4)}`;
-    setLiveStreamKey(newKey);
-    setCopiedStreamKey(false);
-  };
-
   // Handler to progress from Setup Form to Gospread Generated Live Credentials
-  const handleStartLiveSetup = (e: FormEvent) => {
+  const handleStartLiveSetup = async (e: FormEvent) => {
     e.preventDefault();
+    prepareGlobalRegistration();
+    if (!activeLiveStreamId && !await publishLiveStreamToFeed()) return;
     void startCameraPreview();
     setLiveSetupStep('credentials');
   };
@@ -608,6 +604,7 @@ export default function CreatePage({
       void startCameraPreview();
       return;
     }
+    prepareGlobalRegistration();
     if (await publishLiveStreamToFeed()) setStudioAction('live_control_room');
   };
 
@@ -645,6 +642,9 @@ export default function CreatePage({
         thumbnail_url: newVideo.thumbnail,
         quality_label: 'Live video',
       });
+      setIvsBroadcastCredentials(savedStream);
+      setRtmpServerUrl(`rtmps://${savedStream.ingest_endpoint}:443/app`);
+      setLiveStreamKey(savedStream.stream_key);
       const persistedVideo = { ...newVideo, id: String(savedStream.id), streamUrl: savedStream.playback_url };
       setActiveLiveStreamId(persistedVideo.id);
       onLiveCreated?.(persistedVideo);
@@ -908,21 +908,25 @@ export default function CreatePage({
   // Submit Handler for Action 2: Go Live
   const handleGoLiveSubmit = async (e?: FormEvent) => {
     if (e) e.preventDefault();
-    prepareGlobalRegistration();
-    if (!await publishLiveStreamToFeed()) return;
+    if (!activeLiveStreamId && !await publishLiveStreamToFeed()) return;
     // Transition directly to Live Control Room
     setStudioAction('live_control_room');
   };
 
   // Live Stream ended callback -> Triggers LiveRecordingVODModal
-  const handleEndLiveStream = (data: RecordedStreamData) => {
+  const handleEndLiveStream = async (data: RecordedStreamData) => {
     if (activeLiveStreamId) {
-      onLiveEnded?.(activeLiveStreamId);
-      void djangoApi.endLiveStream(activeLiveStreamId).catch(error => {
-        console.warn('[Live broadcast] Failed to mark stream as ended:', error);
-      });
+      try {
+        await djangoApi.endLiveStream(activeLiveStreamId);
+        onLiveEnded?.(activeLiveStreamId);
+      } catch (error) {
+        setLivePublishError(error instanceof Error ? error.message : 'Could not stop the IVS broadcast.');
+      }
     }
     setActiveLiveStreamId(null);
+    setIvsBroadcastCredentials(null);
+    setRtmpServerUrl('');
+    setLiveStreamKey('');
     setActiveVODModalData(data);
     setStudioAction('choose');
   };
@@ -1045,6 +1049,7 @@ export default function CreatePage({
               scripture={liveScripture || 'Isaiah 40:31'}
               mode="quick"
               initialStream={cameraPreviewStream}
+              ivsCredentials={ivsBroadcastCredentials}
               onEnd={handleEndLiveStream}
               onBack={() => setStudioAction('live')}
           />
@@ -1072,16 +1077,9 @@ export default function CreatePage({
             category={selectedCategory}
             speaker={liveSpeaker || ownerName}
             scripture={liveScripture || 'Isaiah 40:31'}
-            streamKey={liveStreamKey}
-            rtmpUrl={rtmpServerUrl}
-            onPlaybackUrlChange={(playbackUrl) => {
-              if (!activeLiveStreamId) return;
-              void djangoApi.updateLiveStreamPlayback(activeLiveStreamId, playbackUrl)
-                .then(() => onLivePlaybackUpdated?.(activeLiveStreamId, playbackUrl))
-                .catch(error => {
-                  setLivePublishError(error instanceof Error ? error.message : 'Could not connect the live video source.');
-                });
-            }}
+            streamKey={ivsBroadcastCredentials?.stream_key || ''}
+            rtmpUrl={ivsBroadcastCredentials ? `rtmps://${ivsBroadcastCredentials.ingest_endpoint}:443/app` : ''}
+            ivsCredentials={ivsBroadcastCredentials}
             onEndStream={handleEndLiveStream}
             onBackToStudio={() => setStudioAction('live')}
           />
@@ -1687,8 +1685,9 @@ export default function CreatePage({
                   <span className="text-[10px] text-emerald-400 font-bold">Encrypted TLS</span>
                 </div>
                 <div className="flex items-center justify-between gap-2 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800">
-                  <span className="text-xs font-mono text-slate-200 truncate">{rtmpServerUrl}</span>
+                  <span className="text-xs font-mono text-slate-200 truncate">{rtmpServerUrl || 'Generated when a broadcast starts'}</span>
                   <button
+                    disabled={!rtmpServerUrl}
                     onClick={() => {
                       navigator.clipboard.writeText(rtmpServerUrl);
                       setCopiedOverviewRtmp(true);
@@ -1719,9 +1718,10 @@ export default function CreatePage({
                 </div>
                 <div className="flex items-center justify-between gap-2 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800">
                   <span className="text-xs font-mono text-amber-400 truncate">
-                    {overviewShowKey ? liveStreamKey : '••••••••••••••••••••••••'}
+                    {liveStreamKey ? overviewShowKey ? liveStreamKey : '••••••••••••••••••••••••' : 'Generated when a broadcast starts'}
                   </span>
                   <button
+                    disabled={!liveStreamKey}
                     onClick={() => {
                       navigator.clipboard.writeText(liveStreamKey);
                       setCopiedOverviewKey(true);
@@ -3673,6 +3673,7 @@ export default function CreatePage({
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
+          {livePublishError && <p role="alert" className="text-sm font-semibold text-rose-300">{livePublishError}</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button type="button" onClick={() => setLiveMode('quick')} className={`rounded-3xl border p-5 text-left transition ${liveMode === 'quick' ? 'border-sky-400 bg-sky-500/10 ring-2 ring-sky-400/20' : 'border-slate-800 bg-[#181818] hover:border-slate-700'}`}>
               <div className="flex items-center gap-3">
@@ -4139,15 +4140,6 @@ export default function CreatePage({
                               <span>👁 Show Key</span>
                             </>
                           )}
-                        </button>
-                        <span className="text-slate-600">|</span>
-                        <button
-                          type="button"
-                          onClick={handleRegenerateStreamKey}
-                          className="text-xs text-slate-400 hover:text-slate-200 transition cursor-pointer"
-                          title="Generate a new private stream key"
-                        >
-                          Reset
                         </button>
                       </div>
                     </div>

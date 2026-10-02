@@ -31,8 +31,6 @@ import {
   RefreshCw,
   Award,
   BookOpen,
-  Youtube,
-  ExternalLink,
   AlertTriangle,
   Sliders,
   Monitor
@@ -40,6 +38,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { UserSession } from './AuthModal';
 import LiveViewerTrendSparkline from './LiveViewerTrendSparkline';
+import { IvsBroadcastCredentials, startIvsBroadcast, stopIvsBroadcast } from '../services/ivsBroadcast';
 
 export interface LiveChatEntry {
   id: string;
@@ -88,8 +87,7 @@ interface LiveControlRoomProps {
   scripture: string;
   streamKey: string;
   rtmpUrl: string;
-  youtubeVideoId?: string;
-  onPlaybackUrlChange?: (playbackUrl: string) => void;
+  ivsCredentials: IvsBroadcastCredentials | null;
   onEndStream: (recordedData: {
     title: string;
     description: string;
@@ -116,8 +114,7 @@ export default function LiveControlRoom({
   scripture,
   streamKey,
   rtmpUrl,
-  youtubeVideoId: initialYoutubeVideoId,
-  onPlaybackUrlChange,
+  ivsCredentials,
   onEndStream,
   onBackToStudio
 }: LiveControlRoomProps) {
@@ -127,28 +124,23 @@ export default function LiveControlRoom({
   const [isMuted, setIsMuted] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
 
-  // Video Feed Source Mode: 'webcam' | 'youtube' | 'rtmp'
-  const [videoSourceMode, setVideoSourceMode] = useState<'webcam' | 'youtube' | 'rtmp'>(
-    initialYoutubeVideoId ? 'youtube' : 'webcam'
-  );
-  const [youtubeVideoId, setYoutubeVideoId] = useState(initialYoutubeVideoId || '');
-
-  useEffect(() => {
-    if (videoSourceMode !== 'youtube') {
-      onPlaybackUrlChange?.('');
-      return;
-    }
-    const videoId = youtubeVideoId.match(/^[\w-]{11}$/)?.[0];
-    onPlaybackUrlChange?.(videoId ? `https://www.youtube.com/watch?v=${videoId}` : '');
-  }, [videoSourceMode, youtubeVideoId, onPlaybackUrlChange]);
+  const [videoSourceMode, setVideoSourceMode] = useState<'webcam' | 'rtmp'>('rtmp');
 
   // Webcam & Audio Stream state
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [broadcastError, setBroadcastError] = useState('');
+  const broadcastClientRef = useRef<Awaited<ReturnType<typeof startIvsBroadcast>> | null>(null);
   const [micAudioLevel, setMicAudioLevel] = useState(45);
   const audioAnalyserRef = useRef<AnalyserNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+
+  useEffect(() => {
+    cameraStream?.getAudioTracks().forEach(track => {
+      track.enabled = !isMuted;
+    });
+  }, [cameraStream, isMuted]);
 
   // Copy Feedback state
   const [copiedKey, setCopiedKey] = useState(false);
@@ -281,14 +273,20 @@ export default function LiveControlRoom({
   // Toggle Camera Feed
   const toggleCameraFeed = async () => {
     if (isCameraActive) {
+      stopIvsBroadcast(broadcastClientRef.current);
+      broadcastClientRef.current = null;
       if (cameraStream) {
         cameraStream.getTracks().forEach(track => track.stop());
         setCameraStream(null);
       }
       setIsCameraActive(false);
     } else {
+      let stream: MediaStream | null = null;
+      setBroadcastError('');
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        if (!ivsCredentials) throw new Error('This broadcast has no provisioned IVS channel. Return to Go Live and start again.');
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        broadcastClientRef.current = await startIvsBroadcast(stream, ivsCredentials);
         setCameraStream(stream);
         setIsCameraActive(true);
         if (videoRef.current) {
@@ -309,8 +307,12 @@ export default function LiveControlRoom({
           // ignore audio context error
         }
       } catch (err) {
-        console.warn('Webcam permission missing or unavailable:', err);
+        console.warn('IVS camera broadcast could not start:', err);
+        stream?.getTracks().forEach(track => track.stop());
+        setBroadcastError(err instanceof Error ? err.message : 'Could not start the IVS camera broadcast.');
         setIsCameraActive(false);
+        stopIvsBroadcast(broadcastClientRef.current);
+        broadcastClientRef.current = null;
       }
     }
   };
@@ -320,11 +322,24 @@ export default function LiveControlRoom({
       toggleCameraFeed();
     }
     return () => {
+      stopIvsBroadcast(broadcastClientRef.current);
+      broadcastClientRef.current = null;
       if (cameraStream) {
         cameraStream.getTracks().forEach(track => track.stop());
       }
     };
   }, [videoSourceMode]);
+
+  const selectVideoSource = (mode: 'webcam' | 'rtmp') => {
+    if (mode !== 'webcam') {
+      stopIvsBroadcast(broadcastClientRef.current);
+      broadcastClientRef.current = null;
+      cameraStream?.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+      setIsCameraActive(false);
+    }
+    setVideoSourceMode(mode);
+  };
 
   // Mic level simulation / analyzer tick
   useEffect(() => {
@@ -377,13 +392,15 @@ export default function LiveControlRoom({
   };
 
   const handleCopyStreamKey = () => {
-    navigator.clipboard.writeText(streamKey || 'live_key_992184918239');
+    if (!streamKey) return;
+    navigator.clipboard.writeText(streamKey);
     setCopiedKey(true);
     setTimeout(() => setCopiedKey(false), 2000);
   };
 
   const handleCopyRtmpUrl = () => {
-    navigator.clipboard.writeText(rtmpUrl || 'rtmp://ingest.gospread.org/live');
+    if (!rtmpUrl) return;
+    navigator.clipboard.writeText(rtmpUrl);
     setCopiedUrl(true);
     setTimeout(() => setCopiedUrl(false), 2000);
   };
@@ -445,6 +462,8 @@ export default function LiveControlRoom({
   // Trigger End Stream Confirmation and Transition to Automatic VOD Flow
   const handleConfirmEndStream = () => {
     setShowEndModal(false);
+    stopIvsBroadcast(broadcastClientRef.current);
+    broadcastClientRef.current = null;
     if (cameraStream) {
       cameraStream.getTracks().forEach(track => track.stop());
     }
@@ -464,12 +483,8 @@ export default function LiveControlRoom({
       totalWorshippers: worshipperCount + 890,
       peakWorshippers: peakWorshippers,
       prayersCount: prayerRequests.length + 31,
-      thumbnail: videoSourceMode === 'youtube' && youtubeVideoId
-        ? `https://i.ytimg.com/vi/${youtubeVideoId}/maxresdefault.jpg`
-        : '',
-      videoUrl: videoSourceMode === 'youtube' && /^[\w-]{11}$/.test(youtubeVideoId)
-        ? `https://www.youtube.com/watch?v=${youtubeVideoId}`
-        : ''
+      thumbnail: '',
+      videoUrl: ''
     });
   };
 
@@ -561,8 +576,9 @@ export default function LiveControlRoom({
                     <div>
                       <h4 className="text-sm font-bold text-white">Webcam Preview Off</h4>
                       <p className="text-xs text-slate-400 max-w-xs mt-1">
-                        Click below to enable your camera and microphone for direct studio broadcasting.
+                        Click below to publish your camera and microphone to this IVS broadcast.
                       </p>
+                      {broadcastError && <p role="alert" className="mt-2 max-w-xs text-xs font-semibold text-rose-300">{broadcastError}</p>}
                     </div>
                     <button
                       type="button"
@@ -577,62 +593,16 @@ export default function LiveControlRoom({
               </div>
             )}
 
-            {/* SOURCE 2: YOUTUBE EMBED FEED */}
-            {videoSourceMode === 'youtube' && (
-              youtubeVideoId ? (
-                <iframe
-                  key={youtubeVideoId}
-                  src={`https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&rel=0&modestbranding=1`}
-                  title={broadcastTitle || 'Live Broadcast'}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="absolute inset-0 h-full w-full"
-                />
-              ) : (
-                <div className="absolute inset-0 bg-[#0a0a0a] flex flex-col items-center justify-center gap-3 px-6 text-center">
-                  <Youtube className="h-12 w-12 text-red-500/60" />
-                  <div>
-                    <h3 className="text-sm font-black text-white">Waiting for YouTube Live Feed</h3>
-                    <p className="mt-1 text-xs text-slate-400 max-w-sm">
-                      Enter your YouTube Video ID or start streaming from OBS to preview the broadcast.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 w-full max-w-xs mt-2">
-                    <input
-                      type="text"
-                      placeholder="e.g. dQw4w9WgXcQ"
-                      value={youtubeVideoId}
-                      onChange={(e) => {
-                        const input = e.target.value.trim();
-                        const videoId = input.match(/^[\w-]{11}$/)?.[0];
-                        setYoutubeVideoId(videoId || input);
-                      }}
-                      className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none"
-                    />
-                    <a
-                      href="https://studio.youtube.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 rounded-xl bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-500 transition"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Studio</span>
-                    </a>
-                  </div>
-                </div>
-              )
-            )}
-
-            {/* SOURCE 3: RTMP INGEST MONITOR */}
+            {/* RTMP INGEST MONITOR */}
             {videoSourceMode === 'rtmp' && (
               <div className="absolute inset-0 bg-[#0c0c0e] flex flex-col items-center justify-center gap-3 px-6 text-center">
                 <div className="w-14 h-14 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
                   <RadioTower className="w-7 h-7" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-white">OBS / vMix RTMP Ingest Active</h3>
+                  <h3 className="text-sm font-black text-white">OBS / vMix to Amazon IVS</h3>
                   <p className="mt-1 text-xs text-slate-400 max-w-sm">
-                    Connect your external broadcast encoder to <span className="font-mono text-amber-300">rtmp://ingest.gospread.org/live</span> using your secret Stream Key.
+                    Set your encoder to the private RTMPS endpoint and stream key shown below. Your feed will play in Gospread.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 mt-1">
@@ -715,7 +685,7 @@ export default function LiveControlRoom({
             <div className="flex items-center gap-1.5 bg-black/40 p-1 rounded-2xl border border-slate-800">
               <button
                 type="button"
-                onClick={() => setVideoSourceMode('webcam')}
+                onClick={() => selectVideoSource('webcam')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
                   videoSourceMode === 'webcam' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'
                 }`}
@@ -726,18 +696,7 @@ export default function LiveControlRoom({
 
               <button
                 type="button"
-                onClick={() => setVideoSourceMode('youtube')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
-                  videoSourceMode === 'youtube' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <Youtube className="w-3.5 h-3.5" />
-                <span>YouTube Live</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setVideoSourceMode('rtmp')}
+                onClick={() => selectVideoSource('rtmp')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
                   videoSourceMode === 'rtmp' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
                 }`}
@@ -891,7 +850,7 @@ export default function LiveControlRoom({
                 </button>
               </div>
               <p className="font-mono text-slate-300 text-[11px] bg-black/50 p-2 rounded-xl border border-slate-800 truncate">
-                {rtmpUrl || 'rtmp://ingest.gospread.org/live'}
+                {rtmpUrl || 'Start a broadcast to generate its private IVS ingest endpoint.'}
               </p>
 
               <div className="flex items-center justify-between pt-1">

@@ -133,6 +133,8 @@ class LiveStream(models.Model):
     description = models.TextField(blank=True)
     stream_type = models.CharField(max_length=10, choices=StreamType.choices, default=StreamType.VIDEO)
     playback_url = models.URLField(blank=True)
+    ivs_channel_arn = models.CharField(max_length=255, blank=True)
+    ivs_stream_key_arn = models.CharField(max_length=255, blank=True)
     thumbnail_url = models.URLField(blank=True)
     recording_url = models.URLField(blank=True)
     auto_save_to_library = models.BooleanField(default=True)

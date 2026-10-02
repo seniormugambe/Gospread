@@ -1,4 +1,5 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
@@ -177,6 +178,53 @@ class LiveStreamTests(APITestCase):
 
         denied_update = self.client.patch(f"/api/v1/streams/{stream.id}/", {"status": "ended"}, format="json")
         self.assertEqual(denied_update.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch("api.views.boto3.client")
+    def test_ivs_broadcast_credentials_are_private_to_host(self, ivs_client_factory):
+        host = User.objects.create_user(username="ivs-host", email="ivs-host@example.com", password="StrongPass123!")
+        viewer = User.objects.create_user(username="ivs-viewer", email="ivs-viewer@example.com", password="StrongPass123!")
+        ivs_client = ivs_client_factory.return_value
+        ivs_client.create_channel.return_value = {
+            "channel": {
+                "arn": "arn:aws:ivs:us-east-1:123456789012:channel/test",
+                "ingestEndpoint": "abcd.global-contribute.live-video.net",
+                "playbackUrl": "https://abcd.us-east-1.playback.live-video.net/api/video/v1/us-east-1.123456789012.channel.test.m3u8",
+            }
+        }
+        ivs_client.create_stream_key.return_value = {
+            "streamKey": {"arn": "arn:aws:ivs:us-east-1:123456789012:stream-key/test", "value": "private-key"}
+        }
+        self.client.force_authenticate(user=host)
+
+        created = self.client.post("/api/v1/streams/start/", {
+            "title": "Gospread community live",
+            "description": "Live from Gospread",
+            "scheduled_for": timezone.now().isoformat(),
+        }, format="json")
+
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(created.data["stream_key"], "private-key")
+        self.assertEqual(created.data["playback_url"], ivs_client.create_channel.return_value["channel"]["playbackUrl"])
+        stream = LiveStream.objects.get(id=created.data["id"])
+        self.assertEqual(stream.created_by, host)
+        self.assertEqual(stream.status, LiveStream.Status.LIVE)
+
+        self.client.force_authenticate(user=viewer)
+        listed = self.client.get("/api/v1/streams/", {"status": "live"})
+        self.assertEqual(listed.status_code, status.HTTP_200_OK)
+        self.assertEqual(listed.data["results"][0]["playback_url"], stream.playback_url)
+        self.assertNotIn("stream_key", listed.data["results"][0])
+        self.assertNotIn("ivs_channel_arn", listed.data["results"][0])
+        self.assertNotIn("ivs_stream_key_arn", listed.data["results"][0])
+        denied_end = self.client.post(f"/api/v1/streams/{stream.id}/end/", {}, format="json")
+        self.assertEqual(denied_end.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.force_authenticate(user=host)
+        ended = self.client.post(f"/api/v1/streams/{stream.id}/end/", {}, format="json")
+        self.assertEqual(ended.status_code, status.HTTP_200_OK)
+        self.assertEqual(ended.data["status"], LiveStream.Status.ENDED)
+        ivs_client.stop_stream.assert_called_once_with(channelArn=stream.ivs_channel_arn)
+        ivs_client.delete_stream_key.assert_called_once_with(arn=stream.ivs_stream_key_arn)
 
 
 class ChurchEntryTests(APITestCase):

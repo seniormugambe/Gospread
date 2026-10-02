@@ -403,7 +403,7 @@ export default function VideoStreamFrame({
           <div>
             <h2 className="text-base font-bold">Live source not connected</h2>
             <p className="mt-1 max-w-md text-xs text-slate-400">
-              The host has not connected a YouTube live video or stream playback URL yet.
+              This IVS live channel does not have an active video source yet.
             </p>
           </div>
         </div>
