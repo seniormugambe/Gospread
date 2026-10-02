@@ -161,11 +161,35 @@ export default function App() {
     }
   };
 
+  const isFreshActiveAudioSpace = (space?: ActiveAudioSpace | null) => {
+    if (!space?.roomName || !space.startedAt) return false;
+    const ageMs = Date.now() - space.startedAt;
+    return ageMs >= 0 && ageMs < 12 * 60 * 60 * 1000;
+  };
+
+  const clearActiveAudioSpaceState = (roomName?: string) => {
+    localStorage.removeItem('gospread_active_audio_space');
+    if (roomName) {
+      try {
+        const endedRooms = JSON.parse(localStorage.getItem('gospread_ended_audio_spaces') || '[]');
+        const nextEnded = Array.isArray(endedRooms) ? [...new Set([...endedRooms, roomName])] : [roomName];
+        localStorage.setItem('gospread_ended_audio_spaces', JSON.stringify(nextEnded));
+      } catch {
+        localStorage.setItem('gospread_ended_audio_spaces', JSON.stringify([roomName]));
+      }
+    }
+    return null;
+  };
+
   const [activeAudioSpace, setActiveAudioSpace] = useState<ActiveAudioSpace | null>(() => {
     try {
       const saved = localStorage.getItem('gospread_active_audio_space');
       const space = saved ? JSON.parse(saved) as ActiveAudioSpace : null;
-      return isSuppressedAudioSpace(space?.roomName) ? null : space;
+      if (!space || isSuppressedAudioSpace(space.roomName) || !isFreshActiveAudioSpace(space)) {
+        if (space?.roomName) localStorage.removeItem('gospread_active_audio_space');
+        return null;
+      }
+      return space;
     } catch {
       return null;
     }
@@ -211,19 +235,21 @@ export default function App() {
         if (visibleSpaces.length > 0) {
           const space = visibleSpaces.find(item => item.room_name === requestedRoomName) || visibleSpaces[0];
           if (space) {
-            setActiveAudioSpace({
+            const nextSpace = {
               title: space.title,
               topic: space.topic,
               hostName: space.host_name,
               ministryName: space.ministry_name,
               startedAt: Date.parse(space.started_at) || Date.now(),
               roomName: space.room_name,
-            });
+            };
+            setActiveAudioSpace(nextSpace);
+            localStorage.setItem('gospread_active_audio_space', JSON.stringify(nextSpace));
+            return;
           }
-        } else {
-          setActiveAudioSpace(null);
-          localStorage.removeItem('gospread_active_audio_space');
         }
+        setActiveAudioSpace(null);
+        localStorage.removeItem('gospread_active_audio_space');
       } catch (error) {
         console.warn('[Audio Space] Metadata sync notice:', error);
       }
@@ -251,12 +277,7 @@ export default function App() {
         const filteredEnded = Array.isArray(endedRooms) ? endedRooms.filter((room: string) => room !== space.roomName) : [];
         localStorage.setItem('gospread_ended_audio_spaces', JSON.stringify(filteredEnded));
       } else {
-        localStorage.removeItem('gospread_active_audio_space');
-        if (previousRoomName) {
-          const endedRooms = JSON.parse(localStorage.getItem('gospread_ended_audio_spaces') || '[]');
-          const nextEnded = Array.isArray(endedRooms) ? [...new Set([...endedRooms, previousRoomName])] : [previousRoomName];
-          localStorage.setItem('gospread_ended_audio_spaces', JSON.stringify(nextEnded));
-        }
+        clearActiveAudioSpaceState(previousRoomName);
         const url = new URL(window.location.href);
         url.searchParams.delete('audio_space');
         window.history.replaceState({}, '', url);
