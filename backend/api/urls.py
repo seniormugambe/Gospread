@@ -1,9 +1,8 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     ChangePasswordView, ChurchEventViewSet, ChurchViewSet, CommunityPostViewSet, DonationViewSet, GivingFundViewSet,
-    AudioSpaceEndView, AudioSpaceListView, AudioSpaceTokenView, GospreadTokenView, HealthCheckView, LiveStreamViewSet, LogoutView, MeView,
+    AudioSpaceEndView, AudioSpaceListView, AudioSpaceTokenView, GospreadTokenRefreshView, GospreadTokenView, HealthCheckView, LiveStreamViewSet, LogoutView, MeView,
     PrayerRequestViewSet, RandomScriptureView, SavedSermonViewSet, SermonShortViewSet,
     SermonViewSet, SignupView, StreakCheckinView, WatchProgressViewSet, WorshipSongViewSet,
 )
@@ -31,7 +30,7 @@ urlpatterns = [
     # Primary auth endpoints (canonical)
     path("auth/signup/", SignupView.as_view(), name="signup"),
     path("auth/token/", GospreadTokenView.as_view(), name="token"),
-    path("auth/token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
+    path("auth/token/refresh/", GospreadTokenRefreshView.as_view(), name="token-refresh"),
     path("auth/logout/", LogoutView.as_view(), name="logout"),
     path("auth/change-password/", ChangePasswordView.as_view(), name="change-password"),
     path("auth/me/", MeView.as_view(), name="me"),

@@ -11,7 +11,7 @@ from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from livekit import api as livekit_api
 from .models import AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund, LiveStream, PaymentGatewayCheckout, PrayerComment, PrayerRequest, Scripture, SavedSermon, Sermon, SermonShort, WatchProgress, WorshipSong
 from .permissions import IsPastorOwnerOrReadOnly
@@ -20,7 +20,7 @@ from .serializers import (
     GivingFundSerializer, LiveStreamSerializer, PaymentGatewayCheckoutSerializer,
     PrayerCommentSerializer, PrayerRequestSerializer, SavedSermonSerializer, ChangePasswordSerializer,
     GospreadTokenSerializer, ScriptureSerializer, SermonSerializer, SermonShortSerializer,
-    SignupSerializer, UserSerializer, WatchProgressSerializer, WorshipSongSerializer,
+    GospreadTokenRefreshSerializer, SignupSerializer, UserSerializer, WatchProgressSerializer, WorshipSongSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,10 @@ class SignupView(generics.CreateAPIView):
 
 class GospreadTokenView(TokenObtainPairView):
     serializer_class = GospreadTokenSerializer
+
+
+class GospreadTokenRefreshView(TokenRefreshView):
+    serializer_class = GospreadTokenRefreshSerializer
 
 
 class LogoutView(generics.GenericAPIView):

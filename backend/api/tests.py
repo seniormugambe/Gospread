@@ -93,6 +93,18 @@ class AuthenticationTests(APITestCase):
         self.assertNotEqual(refreshed.data["refresh"], original_refresh)
         self.assertEqual(reused.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_refresh_for_deleted_user_returns_unauthorized(self):
+        user = User.objects.create_user(username="deleted-refresh", email="deleted-refresh@example.com", password="StrongPass123!")
+        token = self.client.post(reverse("token"), {
+            "email": "deleted-refresh@example.com",
+            "password": "StrongPass123!",
+        }, format="json")
+        User.objects.filter(pk=user.pk).delete()
+
+        response = self.client.post(reverse("token-refresh"), {"refresh": token.data["refresh"]}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
 
 class ScriptureTests(APITestCase):
     def test_random_scripture_is_public(self):

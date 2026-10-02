@@ -7,7 +7,8 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from .models import (
     AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund, LiveStream, PrayerComment, PrayerRequest,
     PaymentGatewayCheckout, SavedSermon, Scripture, Sermon, SermonShort, User,
@@ -42,6 +43,14 @@ class GospreadTokenSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
         data["user"] = UserSerializer(self.user).data
         return data
+
+
+class GospreadTokenRefreshSerializer(TokenRefreshSerializer):
+    def validate(self, attrs):
+        try:
+            return super().validate(attrs)
+        except User.DoesNotExist as error:
+            raise AuthenticationFailed("No active account found for the given token.") from error
 
 
 class ChangePasswordSerializer(serializers.Serializer):
