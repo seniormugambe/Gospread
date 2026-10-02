@@ -163,6 +163,16 @@ export default function App() {
     }
   });
 
+  const isSuppressedAudioSpace = (roomName?: string) => {
+    if (!roomName) return false;
+    try {
+      const endedRooms = JSON.parse(localStorage.getItem('gospread_ended_audio_spaces') || '[]');
+      return Array.isArray(endedRooms) && endedRooms.includes(roomName);
+    } catch {
+      return false;
+    }
+  };
+
   useEffect(() => {
     const audioSpaceChannel = typeof window !== 'undefined' && 'BroadcastChannel' in window
       ? new BroadcastChannel('gospread_audio_space')
@@ -197,8 +207,9 @@ export default function App() {
         const spaces = await djangoApi.getActiveAudioSpaces();
         if (!active) return;
         const requestedRoomName = new URLSearchParams(window.location.search).get('audio_space');
-        if (spaces && spaces.length > 0) {
-          const space = spaces.find(item => item.room_name === requestedRoomName) || spaces[0];
+        const visibleSpaces = (spaces || []).filter(space => !isSuppressedAudioSpace(space.room_name));
+        if (visibleSpaces.length > 0) {
+          const space = visibleSpaces.find(item => item.room_name === requestedRoomName) || visibleSpaces[0];
           if (space) {
             setActiveAudioSpace({
               title: space.title,
@@ -209,6 +220,9 @@ export default function App() {
               roomName: space.room_name,
             });
           }
+        } else {
+          setActiveAudioSpace(null);
+          localStorage.removeItem('gospread_active_audio_space');
         }
       } catch (error) {
         console.warn('[Audio Space] Metadata sync notice:', error);
@@ -227,11 +241,26 @@ export default function App() {
   }, []);
 
   const handleAudioSpaceChange = (space: ActiveAudioSpace | null) => {
+    const previousRoomName = activeAudioSpace?.roomName;
     setActiveAudioSpace(space);
     // Keep host in AudioSpaceStudio so they can manage their live room, mute/unmute, and invite listeners
     try {
-      if (space) localStorage.setItem('gospread_active_audio_space', JSON.stringify(space));
-      else localStorage.removeItem('gospread_active_audio_space');
+      if (space) {
+        localStorage.setItem('gospread_active_audio_space', JSON.stringify(space));
+        const endedRooms = JSON.parse(localStorage.getItem('gospread_ended_audio_spaces') || '[]');
+        const filteredEnded = Array.isArray(endedRooms) ? endedRooms.filter((room: string) => room !== space.roomName) : [];
+        localStorage.setItem('gospread_ended_audio_spaces', JSON.stringify(filteredEnded));
+      } else {
+        localStorage.removeItem('gospread_active_audio_space');
+        if (previousRoomName) {
+          const endedRooms = JSON.parse(localStorage.getItem('gospread_ended_audio_spaces') || '[]');
+          const nextEnded = Array.isArray(endedRooms) ? [...new Set([...endedRooms, previousRoomName])] : [previousRoomName];
+          localStorage.setItem('gospread_ended_audio_spaces', JSON.stringify(nextEnded));
+        }
+        const url = new URL(window.location.href);
+        url.searchParams.delete('audio_space');
+        window.history.replaceState({}, '', url);
+      }
       if ('BroadcastChannel' in window) {
         const audioSpaceChannel = new BroadcastChannel('gospread_audio_space');
         audioSpaceChannel.postMessage(space);
