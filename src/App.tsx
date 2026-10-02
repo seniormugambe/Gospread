@@ -243,8 +243,8 @@ export default function App() {
     };
   }, []);
 
-  const handleAudioSpaceChange = (space: ActiveAudioSpace | null) => {
-    const previousRoomName = activeAudioSpace?.roomName;
+  const handleAudioSpaceChange = (space: ActiveAudioSpace | null, endedRoomName?: string) => {
+    const previousRoomName = endedRoomName || activeAudioSpace?.roomName;
     setActiveAudioSpace(space);
     // Keep host in AudioSpaceStudio so they can manage their live room, mute/unmute, and invite listeners
     try {

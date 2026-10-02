@@ -17,7 +17,7 @@ interface AudioSpaceStudioProps {
   currentUser?: UserSession;
   ministryName: string;
   onBack: () => void;
-  onSpaceChange?: (space: ActiveAudioSpace | null) => void;
+  onSpaceChange?: (space: ActiveAudioSpace | null, endedRoomName?: string) => void;
 }
 
 export default function AudioSpaceStudio({ currentUser, ministryName, onBack, onSpaceChange }: AudioSpaceStudioProps) {
@@ -30,6 +30,7 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
   const [error, setError] = useState('');
   const [inviteCopied, setInviteCopied] = useState(false);
   const roomRef = useRef<Room | null>(null);
+  const roomNameRef = useRef<string | null>(null);
 
   const syncListenerCount = (room: Room) => {
     setListenerCount(room.remoteParticipants.size);
@@ -55,6 +56,7 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
     }
     try {
       const roomName = `audio-space-${crypto.randomUUID()}`;
+      roomNameRef.current = roomName;
       const spaceTitle = title.trim();
       const spaceTopic = topic.trim();
 
@@ -85,10 +87,12 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
           room.on(RoomEvent.Disconnected, () => {
             if (roomRef.current !== room) return;
             roomRef.current = null;
+            roomNameRef.current = null;
+            void djangoApi.endAudioSpace(roomName);
             setIsLive(false);
             setIsMuted(false);
             setListenerCount(0);
-            onSpaceChange?.(null);
+            onSpaceChange?.(null, roomName);
           });
           await room.connect(serverUrl, token);
           syncListenerCount(room);
@@ -116,14 +120,15 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
   };
 
   const endSpace = () => {
-    const roomName = roomRef.current?.name;
+    const roomName = roomNameRef.current;
     roomRef.current?.disconnect();
     roomRef.current = null;
+    roomNameRef.current = null;
     if (roomName) void djangoApi.endAudioSpace(roomName);
     setIsLive(false);
     setIsMuted(false);
     setListenerCount(0);
-    onSpaceChange?.(null);
+    onSpaceChange?.(null, roomName || undefined);
   };
 
   const toggleMute = () => {
