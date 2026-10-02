@@ -632,8 +632,8 @@ export default function CreatePage({
     };
 
     try {
-      if (!currentUser?.isLoggedIn) {
-        throw new Error('Sign in to publish a live broadcast for other viewers.');
+      if (!currentUser?.isLoggedIn || !djangoApi.getAccessToken()) {
+        throw new Error('Your Gospread session is not connected to the API. Sign out and sign back in before starting a shared broadcast.');
       }
 
       const savedStream = await djangoApi.createLiveStream({
