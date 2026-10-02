@@ -225,7 +225,6 @@ export default function AudioPodcastHub({
   });
 
   const featuredTrack = audioList.find((t) => t.category === 'Podcast') || audioList[0];
-  const listenerCount = Math.max(participantCount - 1, 0);
 
   if (activeAudioSpace) {
     return (
