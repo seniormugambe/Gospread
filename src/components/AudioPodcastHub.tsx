@@ -99,6 +99,17 @@ export default function AudioPodcastHub({
     setIsConnectedToSpace(false);
   };
 
+  useEffect(() => {
+    if (!activeAudioSpace) {
+      leaveAudioSpace();
+      return;
+    }
+
+    if (listenerRoomRef.current && listenerRoomRef.current.name !== activeAudioSpace.roomName) {
+      leaveAudioSpace();
+    }
+  }, [activeAudioSpace?.roomName]);
+
   const joinAudioSpace = async () => {
     if (!activeAudioSpace?.roomName || isJoiningAudioSpace) return;
 
