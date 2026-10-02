@@ -43,7 +43,7 @@ export async function startIvsBroadcast(
   const client = IVSBroadcastClient.create({
     streamConfig: IVSBroadcastClient.STANDARD_LANDSCAPE,
     ingestEndpoint: credentials.ingest_endpoint,
-    networkReconnectConfig: { reconnect: true, timeout: 30 },
+    networkReconnectConfig: { reconnect: true, timeout: 30000 },
   });
 
   try {
