@@ -302,18 +302,13 @@ export default function App() {
         const backendVideos = await djangoApi.getVideos();
         if (isMounted && backendVideos && backendVideos.length > 0) {
           setVideoStreams(backendVideos);
-          setActiveVideo(prev => prev && backendVideos.some(video => video.id === prev.id)
-            ? prev
-            : backendVideos[0] || null);
         } else if (isMounted) {
           setVideoStreams(LIVE_VIDEO_STREAMS);
-          setActiveVideo(prev => prev || LIVE_VIDEO_STREAMS[0] || null);
         }
       } catch (e) {
         console.warn('Backend media notice (using local streams):', e);
         if (isMounted) {
           setVideoStreams(LIVE_VIDEO_STREAMS);
-          setActiveVideo(prev => prev || LIVE_VIDEO_STREAMS[0] || null);
         }
       }
 
