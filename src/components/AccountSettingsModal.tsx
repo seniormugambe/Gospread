@@ -133,7 +133,6 @@ interface AccountSettingsModalProps {
   praiseXp?: number;
   theme?: 'light' | 'dark';
   onToggleTheme?: () => void;
-  onOpenDjangoModal?: () => void;
 }
 
 export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
@@ -145,7 +144,6 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   praiseXp = 650,
   theme = 'light',
   onToggleTheme,
-  onOpenDjangoModal,
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'playback' | 'notifications' | 'privacy' | 'integrations'>('profile');
   
@@ -771,33 +769,6 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
           {/* TAB 5: INTEGRATIONS & CONNECTED SERVICES */}
           {activeTab === 'integrations' && (
             <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
-                      🐍
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-white">Django 5.x REST Backend</h4>
-                      <p className="text-[11px] text-slate-400">SimpleJWT token session & live altar WebSocket consumer</p>
-                    </div>
-                  </div>
-                  {onOpenDjangoModal && (
-                    <button
-                      type="button"
-                      onClick={onOpenDjangoModal}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 text-xs font-bold border border-emerald-500/40 transition"
-                    >
-                      Inspect Server
-                    </button>
-                  )}
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] font-mono text-slate-400 flex items-center justify-between">
-                  <span>JWT Access Token:</span>
-                  <span className="text-amber-400 truncate max-w-[200px]">{userSession.token || 'Bearer token-active'}</span>
-                </div>
-              </div>
-
               <div className="p-4 rounded-2xl bg-slate-900/70 border border-slate-800 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-red-600/20 text-red-400 flex items-center justify-center font-bold text-xs">

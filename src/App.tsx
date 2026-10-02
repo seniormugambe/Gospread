@@ -72,7 +72,6 @@ import GivingModal, { GivingTarget } from './components/GivingModal';
 import DailyStreakModal from './components/DailyStreakModal';
 import DailyPromiseModal from './components/DailyPromiseModal';
 import GraceShortsModal from './components/GraceShortsModal';
-import DjangoBackendModal from './components/DjangoBackendModal';
 import YouTubeApiModal from './components/YouTubeApiModal';
 import AuthModal, { UserSession } from './components/AuthModal';
 import AuthPage from './components/AuthPage';
@@ -568,7 +567,6 @@ export default function App() {
   const [showPromiseModal, setShowPromiseModal] = useState(false);
   const [showShortsModal, setShowShortsModal] = useState(false);
   const [selectedShortId, setSelectedShortId] = useState<string | null>(null);
-  const [showDjangoModal, setShowDjangoModal] = useState(false);
   const [showYouTubeModal, setShowYouTubeModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -2514,12 +2512,6 @@ export default function App() {
         />
       )}
 
-      {/* 🐍 Django REST API Integration & Debugger Modal */}
-      <DjangoBackendModal
-        isOpen={showDjangoModal}
-        onClose={() => setShowDjangoModal(false)}
-      />
-
       {/* ⚙️ User Account & Spiritual Preferences Modal */}
       <AccountSettingsModal
         isOpen={showSettingsModal}
@@ -2530,7 +2522,6 @@ export default function App() {
         praiseXp={praiseXp}
         theme={theme}
         onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
-        onOpenDjangoModal={() => setShowDjangoModal(true)}
       />
 
       {/* 🔐 Auth & JWT Session Modal */}
