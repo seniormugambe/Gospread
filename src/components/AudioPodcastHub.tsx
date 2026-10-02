@@ -64,6 +64,7 @@ export default function AudioPodcastHub({
   const [downloadedIds, setDownloadedIds] = useState<string[]>([]);
   const [isJoiningAudioSpace, setIsJoiningAudioSpace] = useState(false);
   const [audioSpaceError, setAudioSpaceError] = useState('');
+  const [participantCount, setParticipantCount] = useState(0);
   const listenerRoomRef = React.useRef<Room | null>(null);
   const audioElementsRef = React.useRef<HTMLAudioElement[]>([]);
 
@@ -88,6 +89,10 @@ export default function AudioPodcastHub({
 
   const [isConnectedToSpace, setIsConnectedToSpace] = useState(false);
 
+  const syncParticipantCount = (room: Room) => {
+    setParticipantCount(room.remoteParticipants.size + 1);
+  };
+
   const leaveAudioSpace = () => {
     // Disconnect any existing room and clean up attached audio elements
     if (listenerRoomRef.current) {
@@ -97,6 +102,7 @@ export default function AudioPodcastHub({
     audioElementsRef.current.forEach(el => el.remove());
     audioElementsRef.current = [];
     setIsConnectedToSpace(false);
+    setParticipantCount(0);
   };
 
   useEffect(() => {
@@ -136,6 +142,8 @@ export default function AudioPodcastHub({
       };
 
       room.on(RoomEvent.TrackSubscribed, (track) => playTrack(track));
+      room.on(RoomEvent.ParticipantConnected, () => syncParticipantCount(room));
+      room.on(RoomEvent.ParticipantDisconnected, () => syncParticipantCount(room));
 
       room.on(RoomEvent.Disconnected, () => {
         if (listenerRoomRef.current === room) {
@@ -143,6 +151,7 @@ export default function AudioPodcastHub({
           audioElementsRef.current.forEach(el => el.remove());
           audioElementsRef.current = [];
           setIsConnectedToSpace(false);
+          setParticipantCount(0);
         }
       });
 
@@ -153,6 +162,7 @@ export default function AudioPodcastHub({
           if (publication.track) playTrack(publication.track);
         });
       });
+      syncParticipantCount(room);
 
       listenerRoomRef.current = room;
       setIsConnectedToSpace(true);
@@ -208,12 +218,12 @@ export default function AudioPodcastHub({
   });
 
   const featuredTrack = audioList.find((t) => t.category === 'Podcast') || audioList[0];
-  const isInLiveAudioRoom = Boolean(activeAudioSpace && isConnectedToSpace);
+  const listenerCount = Math.max(participantCount - 1, 0);
 
-  if (isInLiveAudioRoom) {
+  if (activeAudioSpace) {
     return (
       <div className="space-y-6 pb-28">
-        {activeAudioSpace && (
+        {isConnectedToSpace ? (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -267,7 +277,7 @@ export default function AudioPodcastHub({
             <div className="bg-slate-950/60 rounded-2xl border border-slate-800 p-4 space-y-3">
               <div className="flex items-center justify-between text-xs text-slate-400 font-bold">
                 <span>Connected Listeners</span>
-                <span className="text-fuchsia-400 font-mono">1 Active Host • 14 Listeners connected</span>
+                <span className="text-fuchsia-400 font-mono">{listenerCount} listening</span>
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5 pt-1">
@@ -287,7 +297,30 @@ export default function AudioPodcastHub({
               </div>
             </div>
           </motion.div>
+        ) : (
+          <div className="w-full rounded-2xl border border-fuchsia-400/40 bg-gradient-to-r from-fuchsia-950/70 via-slate-900 to-slate-900 p-4 shadow-lg shadow-fuchsia-950/20">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-fuchsia-300">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-fuchsia-400" />
+                  Live Audio Space
+                </div>
+                <h2 className="truncate text-sm font-black text-white">{activeAudioSpace.title}</h2>
+                <p className="mt-1 truncate text-xs text-slate-400">Hosted by {activeAudioSpace.hostName} · {activeAudioSpace.ministryName}</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={joinAudioSpace}
+                disabled={isJoiningAudioSpace}
+                className="shrink-0 rounded-full bg-fuchsia-500 hover:bg-fuchsia-400 px-5 py-2.5 text-xs font-black text-white transition cursor-pointer shadow-lg shadow-fuchsia-500/20"
+              >
+                {isJoiningAudioSpace ? 'Connecting...' : 'Join Live Room'}
+              </button>
+            </div>
+          </div>
         )}
+        {audioSpaceError && <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs font-bold text-rose-300">{audioSpaceError}</p>}
       </div>
     );
   }
@@ -363,7 +396,7 @@ export default function AudioPodcastHub({
             <div className="bg-slate-950/60 rounded-2xl border border-slate-800 p-4 space-y-3">
               <div className="flex items-center justify-between text-xs text-slate-400 font-bold">
                 <span>Connected Listeners</span>
-                <span className="text-fuchsia-400 font-mono">1 Active Host • 14 Listeners connected</span>
+                <span className="text-fuchsia-400 font-mono">{participantCount} total participants</span>
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5 pt-1">

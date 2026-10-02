@@ -154,15 +154,6 @@ export default function App() {
     scrollToTop();
   }, [homeNavigationKey]);
 
-  const [activeAudioSpace, setActiveAudioSpace] = useState<ActiveAudioSpace | null>(() => {
-    try {
-      const saved = localStorage.getItem('gospread_active_audio_space');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-
   const isSuppressedAudioSpace = (roomName?: string) => {
     if (!roomName) return false;
     try {
@@ -173,6 +164,16 @@ export default function App() {
     }
   };
 
+  const [activeAudioSpace, setActiveAudioSpace] = useState<ActiveAudioSpace | null>(() => {
+    try {
+      const saved = localStorage.getItem('gospread_active_audio_space');
+      const space = saved ? JSON.parse(saved) as ActiveAudioSpace : null;
+      return isSuppressedAudioSpace(space?.roomName) ? null : space;
+    } catch {
+      return null;
+    }
+  });
+
   useEffect(() => {
     const audioSpaceChannel = typeof window !== 'undefined' && 'BroadcastChannel' in window
       ? new BroadcastChannel('gospread_audio_space')
@@ -180,14 +181,16 @@ export default function App() {
 
     if (audioSpaceChannel) {
       audioSpaceChannel.onmessage = (event: MessageEvent<ActiveAudioSpace | null>) => {
-        setActiveAudioSpace(event.data || null);
+        const space = event.data || null;
+        setActiveAudioSpace(isSuppressedAudioSpace(space?.roomName) ? null : space);
       };
     }
 
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key !== 'gospread_active_audio_space') return;
       try {
-        setActiveAudioSpace(event.newValue ? JSON.parse(event.newValue) : null);
+        const space = event.newValue ? JSON.parse(event.newValue) as ActiveAudioSpace : null;
+        setActiveAudioSpace(isSuppressedAudioSpace(space?.roomName) ? null : space);
       } catch {
         setActiveAudioSpace(null);
       }

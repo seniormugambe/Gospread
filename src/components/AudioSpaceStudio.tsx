@@ -26,9 +26,14 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
   const [isLive, setIsLive] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [listenerCount, setListenerCount] = useState(0);
   const [error, setError] = useState('');
   const [inviteCopied, setInviteCopied] = useState(false);
   const roomRef = useRef<Room | null>(null);
+
+  const syncListenerCount = (room: Room) => {
+    setListenerCount(room.remoteParticipants.size);
+  };
 
   useEffect(() => {
     if (!isLive) return;
@@ -74,14 +79,19 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
         try {
           const room = new Room();
           roomRef.current = room;
+          room.on(RoomEvent.Connected, () => syncListenerCount(room));
+          room.on(RoomEvent.ParticipantConnected, () => syncListenerCount(room));
+          room.on(RoomEvent.ParticipantDisconnected, () => syncListenerCount(room));
           room.on(RoomEvent.Disconnected, () => {
             if (roomRef.current !== room) return;
             roomRef.current = null;
             setIsLive(false);
             setIsMuted(false);
+            setListenerCount(0);
             onSpaceChange?.(null);
           });
           await room.connect(serverUrl, token);
+          syncListenerCount(room);
           if (room.state === 'connected') {
             await room.localParticipant.setMicrophoneEnabled(true).catch(() => {});
           }
@@ -112,6 +122,7 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
     if (roomName) void djangoApi.endAudioSpace(roomName);
     setIsLive(false);
     setIsMuted(false);
+    setListenerCount(0);
     onSpaceChange?.(null);
   };
 
@@ -196,7 +207,7 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-slate-800 bg-[#161616] p-4"><Users className="mb-2 h-5 w-5 text-sky-400" /><p className="text-2xl font-black text-white">0</p><p className="text-xs text-slate-400">Listeners connected</p></div>
+            <div className="rounded-2xl border border-slate-800 bg-[#161616] p-4"><Users className="mb-2 h-5 w-5 text-sky-400" /><p className="text-2xl font-black text-white">{listenerCount}</p><p className="text-xs text-slate-400">Listeners connected</p></div>
             <div className="rounded-2xl border border-slate-800 bg-[#161616] p-4"><Radio className="mb-2 h-5 w-5 text-amber-400" /><p className="text-2xl font-black text-white">0</p><p className="text-xs text-slate-400">Co-hosts invited</p></div>
           </div>
           <div className="flex justify-center gap-3">
