@@ -946,7 +946,7 @@ export default function App() {
       )}
       
       {/* 🔴 CONTENT-FIRST STREAMING HEADER */}
-      <header className="sticky top-0 z-40 bg-[#0f0f0f]/95 backdrop-blur-md border-b border-slate-800/80 px-3 sm:px-5 py-2.5 flex items-center justify-between gap-3 sm:gap-4">
+      <header className="sticky top-0 z-40 min-h-16 sm:min-h-0 bg-[#0f0f0f]/95 backdrop-blur-md border-b border-slate-800/80 px-3 sm:px-5 py-2 sm:py-2.5 flex items-center justify-between gap-3 sm:gap-4">
         
         {/* Left: Brand Logo & Top Navigation Links */}
         <div className="flex items-center space-x-3 sm:space-x-6 shrink-0">
