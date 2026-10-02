@@ -4,6 +4,7 @@ from unittest.mock import patch
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
+from botocore.exceptions import ClientError
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -190,6 +191,26 @@ class LiveStreamTests(APITestCase):
 
         denied_update = self.client.patch(f"/api/v1/streams/{stream.id}/", {"status": "ended"}, format="json")
         self.assertEqual(denied_update.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch("api.views.boto3.client")
+    def test_ivs_start_reports_safe_error_code_and_stage(self, ivs_client_factory):
+        host = User.objects.create_user(username="ivs-denied", email="ivs-denied@example.com", password="StrongPass123!")
+        ivs_client_factory.return_value.create_channel.side_effect = ClientError(
+            {"Error": {"Code": "AccessDeniedException", "Message": "Sensitive AWS response detail"}},
+            "CreateChannel",
+        )
+        self.client.force_authenticate(user=host)
+
+        response = self.client.post("/api/v1/streams/start/", {
+            "title": "Denied broadcast",
+            "scheduled_for": timezone.now().isoformat(),
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertEqual(response.data["code"], "AccessDeniedException")
+        self.assertEqual(response.data["stage"], "create_channel")
+        self.assertNotIn("Sensitive AWS response detail", response.data["detail"])
+        self.assertFalse(LiveStream.objects.filter(title="Denied broadcast").exists())
 
     @patch("api.views.boto3.client")
     def test_ivs_broadcast_credentials_are_private_to_host(self, ivs_client_factory):

@@ -358,9 +358,11 @@ class LiveStreamViewSet(viewsets.ModelViewSet):
         ivs_client = None
         channel_arn = ""
         stream_key_arn = ""
+        provisioning_stage = "initialize_client"
 
         try:
             ivs_client = boto3.client("ivs", region_name=settings.AWS_IVS_REGION)
+            provisioning_stage = "create_channel"
             channel_response = ivs_client.create_channel(
                 name=f"gospread-live-{stream.id}",
                 latencyMode="LOW",
@@ -368,9 +370,11 @@ class LiveStreamViewSet(viewsets.ModelViewSet):
             )
             channel = channel_response["channel"]
             channel_arn = channel["arn"]
+            provisioning_stage = "create_stream_key"
             stream_key = ivs_client.create_stream_key(channelArn=channel_arn)["streamKey"]
             stream_key_arn = stream_key["arn"]
 
+            provisioning_stage = "save_stream"
             stream.ivs_channel_arn = channel_arn
             stream.ivs_stream_key_arn = stream_key_arn
             stream.playback_url = channel["playbackUrl"]
@@ -386,7 +390,9 @@ class LiveStreamViewSet(viewsets.ModelViewSet):
                 "stream_key": stream_key["value"],
             })
             return Response(response_data, status=status.HTTP_201_CREATED)
-        except Exception:
+        except Exception as error:
+            aws_error = getattr(error, "response", {}).get("Error", {})
+            error_code = aws_error.get("Code", type(error).__name__)
             logger.exception("Amazon IVS broadcast provisioning failed for stream %s", stream.id)
             if ivs_client and stream_key_arn:
                 try:
@@ -400,7 +406,11 @@ class LiveStreamViewSet(viewsets.ModelViewSet):
                     logger.exception("Could not remove IVS channel after provisioning failure")
             stream.delete()
             return Response(
-                {"detail": "Could not provision an Amazon IVS broadcast. Check backend AWS credentials and IVS permissions."},
+                {
+                    "detail": f"Amazon IVS {provisioning_stage} failed ({error_code}). Check AWS credentials, IVS permissions, and region.",
+                    "code": error_code,
+                    "stage": provisioning_stage,
+                },
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
