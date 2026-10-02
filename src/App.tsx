@@ -618,9 +618,16 @@ export default function App() {
   const [praiseXp, setPraiseXp] = useState(0);
 
   const openProtectedTab = (tab: 'profile' | 'history' | 'create') => {
-    if (!userSession.isLoggedIn) {
+    const accessToken = djangoApi.getAccessToken() || userSession.token;
+    if (!userSession.isLoggedIn && !accessToken) {
       handleOpenAuthPage('signin');
       return;
+    }
+    if (accessToken && !djangoApi.getAccessToken()) {
+      djangoApi.setTokens(accessToken);
+    }
+    if (accessToken && !userSession.isLoggedIn) {
+      setUserSession(previous => ({ ...previous, isLoggedIn: true, token: accessToken }));
     }
     setActiveTab(tab);
   };
@@ -853,7 +860,7 @@ export default function App() {
   const handleCreateMenuSelect = (action: StudioAction, importSource: 'device' | 'url' | 'youtube' = 'device') => {
     setInitialStudioAction(action);
     setInitialUploadSource(importSource);
-    setActiveTab('create');
+    openProtectedTab('create');
     setIsCreateDropdownOpen(false);
   };
 
