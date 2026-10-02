@@ -211,9 +211,8 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
               <span className="rounded-full bg-rose-500/15 px-3 py-1 text-[10px] font-black uppercase text-rose-300">Host</span>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <div className="rounded-2xl border border-slate-800 bg-[#161616] p-4"><Users className="mb-2 h-5 w-5 text-sky-400" /><p className="text-2xl font-black text-white">{listenerCount}</p><p className="text-xs text-slate-400">Listeners connected</p></div>
-            <div className="rounded-2xl border border-slate-800 bg-[#161616] p-4"><Radio className="mb-2 h-5 w-5 text-amber-400" /><p className="text-2xl font-black text-white">0</p><p className="text-xs text-slate-400">Co-hosts invited</p></div>
           </div>
           <div className="flex justify-center gap-3">
             <button onClick={toggleMute} className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900 px-5 py-3 text-xs font-bold text-white hover:bg-slate-800">{isMuted ? <MicOff className="w-4 h-4 text-rose-400" /> : <Mic className="w-4 h-4 text-emerald-400" />}{isMuted ? 'Unmute' : 'Mute microphone'}</button>

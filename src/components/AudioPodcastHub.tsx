@@ -65,6 +65,7 @@ export default function AudioPodcastHub({
   const [isJoiningAudioSpace, setIsJoiningAudioSpace] = useState(false);
   const [audioSpaceError, setAudioSpaceError] = useState('');
   const [participantCount, setParticipantCount] = useState(0);
+  const [remoteParticipants, setRemoteParticipants] = useState<{ identity: string; name: string }[]>([]);
   const listenerRoomRef = React.useRef<Room | null>(null);
   const audioElementsRef = React.useRef<HTMLAudioElement[]>([]);
 
@@ -91,6 +92,10 @@ export default function AudioPodcastHub({
 
   const syncParticipantCount = (room: Room) => {
     setParticipantCount(room.remoteParticipants.size + 1);
+    setRemoteParticipants(Array.from(room.remoteParticipants.values(), participant => ({
+      identity: participant.identity,
+      name: participant.name || participant.identity,
+    })));
   };
 
   const leaveAudioSpace = () => {
@@ -103,6 +108,7 @@ export default function AudioPodcastHub({
     audioElementsRef.current = [];
     setIsConnectedToSpace(false);
     setParticipantCount(0);
+    setRemoteParticipants([]);
   };
 
   useEffect(() => {
@@ -152,6 +158,7 @@ export default function AudioPodcastHub({
           audioElementsRef.current = [];
           setIsConnectedToSpace(false);
           setParticipantCount(0);
+          setRemoteParticipants([]);
         }
       });
 
@@ -239,7 +246,7 @@ export default function AudioPodcastHub({
                   <span className="text-xs text-slate-400 font-mono">{activeAudioSpace.ministryName}</span>
                 </div>
                 <h1 className="text-xl sm:text-2xl font-black text-white">{activeAudioSpace.title}</h1>
-                <p className="text-xs text-slate-300 mt-1">{activeAudioSpace.topic || 'Live Kingdom Discussion & Prayer Altar'}</p>
+                {activeAudioSpace.topic && <p className="text-xs text-slate-300 mt-1">{activeAudioSpace.topic}</p>}
               </div>
 
               <div className="flex items-center gap-3">
@@ -276,8 +283,8 @@ export default function AudioPodcastHub({
 
             <div className="bg-slate-950/60 rounded-2xl border border-slate-800 p-4 space-y-3">
               <div className="flex items-center justify-between text-xs text-slate-400 font-bold">
-                <span>Connected Listeners</span>
-                <span className="text-fuchsia-400 font-mono">{listenerCount} listening</span>
+                <span>Connected Participants</span>
+                <span className="text-fuchsia-400 font-mono">{participantCount} total</span>
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5 pt-1">
@@ -285,15 +292,11 @@ export default function AudioPodcastHub({
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                   <span>You (Listening)</span>
                 </div>
-                <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs text-slate-300">
-                  <span>Elder Joseph</span>
-                </div>
-                <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs text-slate-300">
-                  <span>Sister Rachel (UK)</span>
-                </div>
-                <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs text-slate-300">
-                  <span>Sarah J. (Dallas)</span>
-                </div>
+                {remoteParticipants.map(participant => (
+                  <div key={participant.identity} className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs text-slate-300">
+                    <span>{participant.name}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </motion.div>
@@ -350,9 +353,7 @@ export default function AudioPodcastHub({
                 <h1 className="text-xl sm:text-2xl font-black text-white">
                   {activeAudioSpace.title}
                 </h1>
-                <p className="text-xs text-slate-300 mt-1">
-                  {activeAudioSpace.topic || 'Live Kingdom Discussion & Prayer Altar'}
-                </p>
+                {activeAudioSpace.topic && <p className="text-xs text-slate-300 mt-1">{activeAudioSpace.topic}</p>}
               </div>
 
               <div className="flex items-center gap-3">
@@ -395,7 +396,7 @@ export default function AudioPodcastHub({
             {/* Connected Attendees & Listeners Grid */}
             <div className="bg-slate-950/60 rounded-2xl border border-slate-800 p-4 space-y-3">
               <div className="flex items-center justify-between text-xs text-slate-400 font-bold">
-                <span>Connected Listeners</span>
+                <span>Connected Participants</span>
                 <span className="text-fuchsia-400 font-mono">{participantCount} total participants</span>
               </div>
 
@@ -404,15 +405,11 @@ export default function AudioPodcastHub({
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                   <span>You (Listening)</span>
                 </div>
-                <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs text-slate-300">
-                  <span>Elder Joseph</span>
-                </div>
-                <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs text-slate-300">
-                  <span>Sister Rachel (UK)</span>
-                </div>
-                <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs text-slate-300">
-                  <span>Sarah J. (Dallas)</span>
-                </div>
+                {remoteParticipants.map(participant => (
+                  <div key={participant.identity} className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs text-slate-300">
+                    <span>{participant.name}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </motion.div>
