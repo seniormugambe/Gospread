@@ -1046,7 +1046,7 @@ export default function App() {
               )}
             </motion.button>
 
-            {/* Dropdown containing Following, Saved, History, Prayer, Notifications, Profile, Settings */}
+            {/* Dropdown containing Following, Saved, Prayer, Notifications, Settings, Giving, and session actions */}
             <UserAccountMenuDropdown
               isOpen={showUserAccountDropdown}
               onClose={() => setShowUserAccountDropdown(false)}
