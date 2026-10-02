@@ -525,6 +525,13 @@ class DjangoApiClient {
 
   public async logout(): Promise<void> {
     const refresh = this.getRefreshToken();
+    this.clearTokens();
+    try {
+      localStorage.removeItem('gospread_user_session');
+    } catch (e) {
+      console.error(e);
+    }
+
     if (refresh) {
       try {
         await this.request('/auth/logout/', {
@@ -534,12 +541,6 @@ class DjangoApiClient {
       } catch (e) {
         console.warn('[Django API] Logout notification error:', e);
       }
-    }
-    this.clearTokens();
-    try {
-      localStorage.removeItem('gospread_user_session');
-    } catch (e) {
-      console.error(e);
     }
   }
 
