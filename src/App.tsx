@@ -1054,7 +1054,6 @@ export default function App() {
               onOpenSettings={() => userSession.isLoggedIn ? setShowSettingsModal(true) : handleOpenAuthPage('signin')}
               onOpenProfile={() => openProtectedTab('profile')}
               onOpenCommunity={() => setActiveTab('community')}
-              onOpenHistory={() => openProtectedTab('history')}
               onOpenGiving={() => handleOpenGiving()}
               onOpenFollowing={() => {
                 setSelectedCategory('Following');

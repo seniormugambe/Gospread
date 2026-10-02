@@ -2,11 +2,8 @@ import React, { useRef, useEffect } from 'react';
 import {
   User,
   Settings,
-  History,
   DollarSign,
   LogOut,
-  Moon,
-  Sun,
   ShieldCheck,
   ChevronRight,
   Bookmark,
@@ -26,7 +23,6 @@ interface UserAccountMenuDropdownProps {
   onOpenSettings: () => void;
   onOpenProfile: () => void;
   onOpenCommunity?: () => void;
-  onOpenHistory: () => void;
   onOpenGiving: () => void;
   onOpenFollowing?: () => void;
   onOpenSaved?: () => void;
@@ -35,8 +31,6 @@ interface UserAccountMenuDropdownProps {
   onOpenAuth: () => void;
   onOpenAuthPage?: (mode?: 'signin' | 'signup') => void;
   onLogout?: () => void;
-  theme: 'light' | 'dark';
-  onToggleTheme: () => void;
 }
 
 export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = ({
@@ -46,7 +40,6 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
   onOpenSettings,
   onOpenProfile,
   onOpenCommunity,
-  onOpenHistory,
   onOpenGiving,
   onOpenFollowing,
   onOpenSaved,
@@ -55,8 +48,6 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
   onOpenAuth,
   onOpenAuthPage,
   onLogout,
-  theme,
-  onToggleTheme,
 }) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -146,7 +137,7 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
           )}
         </div>
 
-        {/* Menu Actions: Following, Saved, History, Prayer, Notifications, Profile, Settings */}
+        {/* Menu Actions: Following, Saved, Prayer, Notifications, Settings */}
         <div className="p-2 space-y-0.5 text-xs">
           
           {/* 1. Following */}
@@ -181,23 +172,6 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
                 <Bookmark className="w-4 h-4" />
               </div>
               <span className="font-medium text-xs">Saved Videos</span>
-            </div>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-amber-400 transition" />
-          </button>
-
-          {/* 3. History */}
-          <button
-            onClick={() => {
-              onClose();
-              onOpenHistory();
-            }}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-2xl hover:bg-slate-800/80 text-slate-200 transition group"
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center group-hover:text-amber-400 transition">
-                <History className="w-4 h-4" />
-              </div>
-              <span className="font-medium text-xs">Watch History</span>
             </div>
             <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-amber-400 transition" />
           </button>
@@ -237,23 +211,6 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
             <span className="text-[10px] text-amber-400 font-mono">Active</span>
           </button>
 
-          {/* 6. Profile */}
-          <button
-            onClick={() => {
-              onClose();
-              onOpenProfile();
-            }}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-2xl hover:bg-slate-800/80 text-slate-200 transition group"
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-slate-950 transition">
-                <User className="w-4 h-4" />
-              </div>
-              <span className="font-medium text-xs">Profile</span>
-            </div>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-amber-400 transition" />
-          </button>
-
           {/* 7. Settings */}
           <button
             onClick={() => {
@@ -286,21 +243,6 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
               <span className="font-medium text-xs">Giving &amp; Tithes</span>
             </div>
             <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">LEDGER</span>
-          </button>
-
-          {/* 9. Theme Toggle */}
-          <button
-            onClick={() => {
-              onToggleTheme();
-            }}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-2xl hover:bg-slate-800/80 text-slate-200 transition group"
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-xl bg-slate-800 text-pink-400 flex items-center justify-center">
-                {theme === 'light' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-pink-400" />}
-              </div>
-              <span className="font-medium text-xs">Theme: {theme === 'light' ? 'Sunset 🌸' : 'Night'}</span>
-            </div>
           </button>
 
           <hr className="border-slate-800/90 my-1" />
