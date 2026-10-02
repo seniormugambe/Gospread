@@ -1460,7 +1460,7 @@ export default function App() {
         </AnimatePresence>
 
         {/* Main Body */}
-        <main ref={mainContentRef} className="flex-1 overflow-y-auto flex flex-col pb-32 md:pb-16">
+        <main ref={mainContentRef} className="flex-1 min-w-0 overflow-y-auto flex flex-col pb-32 md:pb-16">
           
           {activeTab === 'auth' ? (
             <div className="p-2 sm:p-4 lg:p-6 max-w-7xl w-full mx-auto">
@@ -1932,7 +1932,7 @@ export default function App() {
               
               {/* Category Filter Pills (shown when filtering by category or searching) */}
               {(selectedCategory !== 'All' || searchQuery.trim() !== '') && (
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none py-1">
+                <div className="flex w-full min-w-0 flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain touch-pan-x pb-1 py-1 scrollbar-none">
                   {categories.map((cat) => {
                     const Icon = cat.icon;
                     const isSelected = selectedCategory === cat.label;
