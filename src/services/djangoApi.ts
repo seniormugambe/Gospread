@@ -232,6 +232,7 @@ export interface ActiveAudioSpaceApi {
 
 class DjangoApiClient {
   private baseUrl: string;
+  private refreshInFlight: Promise<string | null> | null = null;
 
   constructor() {
     this.baseUrl = DJANGO_API_BASE_URL.replace(/\/$/, '');
@@ -300,7 +301,16 @@ class DjangoApiClient {
     return localStorage.getItem(CSRF_TOKEN_KEY);
   }
 
-  private async refreshAccessToken(): Promise<string | null> {
+  private refreshAccessToken(): Promise<string | null> {
+    if (!this.refreshInFlight) {
+      this.refreshInFlight = this.performTokenRefresh().finally(() => {
+        this.refreshInFlight = null;
+      });
+    }
+    return this.refreshInFlight;
+  }
+
+  private async performTokenRefresh(): Promise<string | null> {
     const refresh = this.getRefreshToken();
     if (!refresh) return null;
 
@@ -310,13 +320,18 @@ class DjangoApiClient {
       body: JSON.stringify({ refresh }),
     });
     if (!response.ok) {
+      if (response.status >= 500) {
+        throw new Error(`Token refresh failed on the server (${response.status}).`);
+      }
       this.clearTokens();
+      localStorage.removeItem('gospread_user_session');
       return null;
     }
 
     const data = await response.json() as { access?: string; refresh?: string };
     if (!data.access) {
       this.clearTokens();
+      localStorage.removeItem('gospread_user_session');
       return null;
     }
     this.setTokens(data.access, data.refresh || refresh);

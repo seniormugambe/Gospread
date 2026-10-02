@@ -76,6 +76,22 @@ class AuthenticationTests(APITestCase):
         self.assertEqual(logout.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(reuse.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_refresh_rotates_token_and_rejects_reuse(self):
+        User.objects.create_user(username="refresh-member", email="refresh@example.com", password="StrongPass123!")
+        token = self.client.post(reverse("token"), {
+            "email": "refresh@example.com",
+            "password": "StrongPass123!",
+        }, format="json")
+        original_refresh = token.data["refresh"]
+
+        refreshed = self.client.post(reverse("token-refresh"), {"refresh": original_refresh}, format="json")
+        reused = self.client.post(reverse("token-refresh"), {"refresh": original_refresh}, format="json")
+
+        self.assertEqual(refreshed.status_code, status.HTTP_200_OK)
+        self.assertIn("access", refreshed.data)
+        self.assertNotEqual(refreshed.data["refresh"], original_refresh)
+        self.assertEqual(reused.status_code, status.HTTP_401_UNAUTHORIZED)
+
 
 class ScriptureTests(APITestCase):
     def test_random_scripture_is_public(self):
