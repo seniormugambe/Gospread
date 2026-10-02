@@ -51,7 +51,6 @@ import {
   Moon,
   Building2,
   Server,
-  Youtube,
   ShieldCheck,
   Download,
   Settings,
@@ -968,7 +967,7 @@ export default function App() {
         </div>
 
         {/* Center Search Bar */}
-        <div className="flex-1 max-w-md mx-1 sm:mx-4">
+        <div className="flex-1 min-w-0 max-w-md mx-1 sm:mx-4">
           <SearchEngineOverlay
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
@@ -984,17 +983,9 @@ export default function App() {
         </div>
 
         {/* Right Header: Theme Toggle, Sign In / Avatar Menu */}
-        <div className="flex items-center space-x-2 sm:space-x-2.5 shrink-0">
-          <button
-            type="button"
-            onClick={() => setShowYouTubeModal(true)}
-            className="p-2 rounded-full border border-red-500/30 bg-red-500/10 text-red-400 transition hover:bg-red-500/20 hover:text-red-300"
-            title="Search YouTube videos"
-            aria-label="Search YouTube videos"
-          >
-            <Youtube className="w-4 h-4" />
-          </button>
-
+        <div className="flex min-w-0 items-center gap-2 sm:gap-2.5 shrink-0">
+          <div className="min-w-0 max-w-[40vw] overflow-x-auto overscroll-x-contain touch-pan-x scrollbar-none sm:max-w-none sm:overflow-visible">
+            <div className="flex w-max shrink-0 items-center gap-2 sm:gap-2.5">
           {/* Theme Toggle Button */}
           <button
             onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
@@ -1024,9 +1015,11 @@ export default function App() {
               Sign In
             </motion.button>
           )}
+            </div>
+          </div>
 
           {/* User Profile Avatar Header Button with Account Dropdown Popover */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}

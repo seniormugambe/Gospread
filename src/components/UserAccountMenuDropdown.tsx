@@ -90,7 +90,7 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 8, scale: 0.96 }}
         transition={{ duration: 0.15 }}
-        className="absolute right-0 top-full mt-2 w-72 bg-[#121214] border border-slate-800 rounded-3xl shadow-2xl z-50 overflow-hidden text-slate-200"
+        className="absolute right-0 top-full mt-2 w-72 max-h-[calc(100dvh-5rem)] overflow-x-hidden overflow-y-auto overscroll-contain bg-[#121214] border border-slate-800 rounded-3xl shadow-2xl z-50 text-slate-200"
       >
         {/* User Identity Header */}
         <div className="p-4 bg-gradient-to-b from-slate-900/90 to-[#121214] border-b border-slate-800/80 space-y-3">
