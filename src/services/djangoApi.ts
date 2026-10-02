@@ -579,8 +579,8 @@ class DjangoApiClient {
       videoList.push({
         id: String(s.id),
         title: s.title,
-        speakerOrArtist: s.church_name || 'Ministry Leader',
-        churchOrMinistry: s.church_name || 'Gospread Church',
+        speakerOrArtist: s.host_name || s.church_name || 'Ministry Leader',
+        churchOrMinistry: s.church_name || s.host_name || 'Gospread Creator',
         channelAvatar: s.thumbnail_url || 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=120&q=80',
         subscribersCount: 'Live',
         likesCount: `${s.viewer_count || 0}`,
@@ -657,7 +657,7 @@ class DjangoApiClient {
   }
 
   public async createLiveStream(stream: {
-    church: number;
+    church?: number;
     title: string;
     description?: string;
     thumbnail_url?: string;

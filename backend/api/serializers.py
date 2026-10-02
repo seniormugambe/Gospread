@@ -346,11 +346,23 @@ class SermonShortSerializer(serializers.ModelSerializer):
 
 class LiveStreamSerializer(serializers.ModelSerializer):
     church_name = serializers.CharField(source="church.name", read_only=True)
+    host_name = serializers.SerializerMethodField()
 
     class Meta:
         model = LiveStream
-        fields = "__all__"
-        read_only_fields = ("id", "viewer_count", "created_at")
+        fields = (
+            "id", "church", "church_name", "created_by", "host_name", "title", "description",
+            "stream_type", "playback_url", "thumbnail_url", "recording_url", "auto_save_to_library",
+            "quality_label", "is_featured", "status", "scheduled_for", "started_at", "ended_at",
+            "viewer_count", "created_at",
+        )
+        read_only_fields = ("id", "created_by", "host_name", "viewer_count", "created_at")
+        extra_kwargs = {"church": {"required": False, "allow_null": True}}
+
+    def get_host_name(self, obj):
+        if obj.created_by:
+            return obj.created_by.get_full_name() or obj.created_by.username
+        return obj.church.owner.get_full_name() or obj.church.owner.username if obj.church else "Gospread Creator"
 
 
 class ChurchEventSerializer(serializers.ModelSerializer):

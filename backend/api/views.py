@@ -335,11 +335,11 @@ class LiveStreamViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        church = serializer.validated_data["church"]
-        if church.owner_id != self.request.user.id:
+        church = serializer.validated_data.get("church")
+        if church and church.owner_id != self.request.user.id:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You can only create streams for your own church.")
-        serializer.save()
+        serializer.save(created_by=self.request.user)
 
 
 class ChurchEventViewSet(viewsets.ModelViewSet):

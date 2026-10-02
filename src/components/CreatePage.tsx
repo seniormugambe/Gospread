@@ -634,21 +634,10 @@ export default function CreatePage({
 
     try {
       if (!currentUser?.isLoggedIn) {
-        throw new Error('Sign in with a creator account to publish a live broadcast for other viewers.');
-      }
-
-      const churchNames = [currentUser.churchName, currentUser.ministryName, ministryName]
-        .filter((name): name is string => Boolean(name?.trim()))
-        .map(name => name.trim().toLowerCase());
-      const church = (await djangoApi.getChurchLocations()).find(location =>
-        churchNames.includes(location.name.trim().toLowerCase()) && /^\d+$/.test(location.id)
-      );
-      if (!church) {
-        throw new Error('Create a church profile linked to this account before starting a shared live broadcast.');
+        throw new Error('Sign in to publish a live broadcast for other viewers.');
       }
 
       const savedStream = await djangoApi.createLiveStream({
-        church: Number(church.id),
         title: newVideo.title,
         description: newVideo.description,
         thumbnail_url: newVideo.thumbnail,

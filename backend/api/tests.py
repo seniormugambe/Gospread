@@ -134,6 +134,35 @@ class SermonShortTests(APITestCase):
         self.assertTrue(Sermon.objects.get(id=response.data["id"]).media_url)
 
 
+class LiveStreamTests(APITestCase):
+    def test_member_can_create_churchless_live_visible_to_other_users(self):
+        host = User.objects.create_user(username="live-host", email="host@example.com", password="StrongPass123!")
+        viewer = User.objects.create_user(username="live-viewer", email="viewer@example.com", password="StrongPass123!")
+        self.client.force_authenticate(user=host)
+        started_at = timezone.now()
+
+        created = self.client.post("/api/v1/streams/", {
+            "title": "Community prayer live",
+            "status": LiveStream.Status.LIVE,
+            "scheduled_for": started_at.isoformat(),
+            "started_at": started_at.isoformat(),
+        }, format="json")
+
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        stream = LiveStream.objects.get(id=created.data["id"])
+        self.assertIsNone(stream.church)
+        self.assertEqual(stream.created_by, host)
+
+        self.client.force_authenticate(user=viewer)
+        listed = self.client.get("/api/v1/streams/", {"status": "live"})
+        self.assertEqual(listed.status_code, status.HTTP_200_OK)
+        self.assertEqual(listed.data["count"], 1)
+        self.assertEqual(listed.data["results"][0]["host_name"], "live-host")
+
+        denied_update = self.client.patch(f"/api/v1/streams/{stream.id}/", {"status": "ended"}, format="json")
+        self.assertEqual(denied_update.status_code, status.HTTP_403_FORBIDDEN)
+
+
 class ChurchEntryTests(APITestCase):
     def test_church_detail_includes_pastor_stars_media_and_schedule(self):
         pastor = User.objects.create_user(

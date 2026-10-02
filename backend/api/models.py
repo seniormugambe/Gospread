@@ -121,7 +121,14 @@ class LiveStream(models.Model):
         LIVE = "live", "Live"
         ENDED = "ended", "Ended"
 
-    church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="streams")
+    church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="streams", null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_live_streams",
+        null=True,
+        blank=True,
+    )
     title = models.CharField(max_length=220)
     description = models.TextField(blank=True)
     stream_type = models.CharField(max_length=10, choices=StreamType.choices, default=StreamType.VIDEO)
