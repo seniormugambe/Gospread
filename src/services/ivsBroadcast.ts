@@ -14,8 +14,14 @@ export function listenToIvsConnection(
   onStateChange: (state: ConnectionState) => void,
   onError: (error: BroadcastClientError) => void,
 ): () => void {
-  const handleStateChange = (state: ConnectionState) => onStateChange(state);
-  const handleError = (error: BroadcastClientError) => onError(error);
+  const handleStateChange = (...args: unknown[]) => {
+    const state = args[0] as ConnectionState | undefined;
+    if (state) onStateChange(state);
+  };
+  const handleError = (...args: unknown[]) => {
+    const error = args[0] as BroadcastClientError | undefined;
+    if (error) onError(error);
+  };
 
   client.on(BroadcastClientEvents.CONNECTION_STATE_CHANGE, handleStateChange);
   client.on(BroadcastClientEvents.ERROR, handleError);

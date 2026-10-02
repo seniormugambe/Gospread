@@ -1642,6 +1642,7 @@ export default function App() {
                 onLiveCreated={handleLiveCreated}
                 onLiveEnded={handleLiveEnded}
                 onLivePlaybackUpdated={handleLivePlaybackUpdated}
+                onRequireAuth={() => handleOpenAuthPage('signin')}
                 onCancel={handleNavigateHome}
                 activeAudioSpace={activeAudioSpace}
                 onAudioSpaceChange={handleAudioSpaceChange}

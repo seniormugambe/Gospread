@@ -189,6 +189,7 @@ export interface CreatePageProps {
   onLiveCreated?: (newStream: VideoStream, replacedId?: string) => void;
   onLiveEnded?: (streamId: string) => void;
   onLivePlaybackUpdated?: (streamId: string, playbackUrl: string) => void;
+  onRequireAuth?: () => void;
   onCancel: () => void;
   activeAudioSpace?: ActiveAudioSpace | null;
   onAudioSpaceChange?: (space: ActiveAudioSpace | null) => void;
@@ -293,6 +294,7 @@ export default function CreatePage({
   onLiveCreated,
   onLiveEnded,
   onLivePlaybackUpdated,
+  onRequireAuth,
   onCancel,
   onAudioSpaceChange,
   theme = 'dark'
@@ -1033,6 +1035,16 @@ export default function CreatePage({
   // Helpers for Upload UI formatting
   const formattedUploadedGB = (uploadedBytes / (1024 * 1024 * 1024)).toFixed(1);
   const formattedTotalGB = (totalBytes / (1024 * 1024 * 1024)).toFixed(1);
+  const renderLivePublishError = () => livePublishError && (
+    <div role="alert" className="flex flex-wrap items-center justify-between gap-3 text-sm font-semibold text-rose-300">
+      <p>{livePublishError}</p>
+      {/session|authentication credentials/i.test(livePublishError) && onRequireAuth && (
+        <button type="button" onClick={onRequireAuth} className="rounded-lg border border-rose-400/40 px-3 py-1.5 text-xs font-bold text-rose-200 hover:bg-rose-500/10">
+          Sign in again
+        </button>
+      )}
+    </div>
+  );
 
   // 🔴 LIVE CONTROL ROOM MODE (FULL-SCREEN PRODUCTION SUITE)
   if (studioAction === 'live_control_room') {
@@ -3673,7 +3685,7 @@ export default function CreatePage({
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
-          {livePublishError && <p role="alert" className="text-sm font-semibold text-rose-300">{livePublishError}</p>}
+          {renderLivePublishError()}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button type="button" onClick={() => setLiveMode('quick')} className={`rounded-3xl border p-5 text-left transition ${liveMode === 'quick' ? 'border-sky-400 bg-sky-500/10 ring-2 ring-sky-400/20' : 'border-slate-800 bg-[#181818] hover:border-slate-700'}`}>
               <div className="flex items-center gap-3">
@@ -3710,7 +3722,7 @@ export default function CreatePage({
                 <div><label className="block text-xs font-bold text-slate-200 mb-1.5">Category</label><select value={liveCategory || 'Live Worship'} onChange={(e) => setLiveCategory(e.target.value)} className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-sky-400 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none"><option>Live Worship</option><option>Prayer & Intercession</option><option>Bible Study</option><option>Sunday Service</option><option>Christian Living</option></select></div>
                 <div><label className="block text-xs font-bold text-slate-200 mb-1.5">Speaker / host</label><input value={liveSpeaker} onChange={(e) => setLiveSpeaker(e.target.value)} className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-sky-400 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none" /></div>
               </div>
-              {livePublishError && <p role="alert" className="text-sm font-semibold text-rose-300">{livePublishError}</p>}
+              {renderLivePublishError()}
               <div className="flex items-center justify-between pt-2 border-t border-slate-800"><button type="button" onClick={() => setStudioAction('choose')} className="px-5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">Cancel</button><button type="submit" disabled={isPublishingLive} className="px-7 py-3.5 rounded-full bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-sky-500/20 transition disabled:opacity-60"><Radio className="w-4 h-4" /><span>{isPublishingLive ? 'Publishing live...' : cameraPreviewStream ? 'Start Quick Live' : 'Enable Camera to Continue'}</span><ArrowRight className="w-4 h-4" /></button></div>
             </form>
           )}
