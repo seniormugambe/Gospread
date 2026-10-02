@@ -111,11 +111,23 @@ export default function KingdomHomeFeed({
   const effectiveWorship = worshipVideos;
 
   // Returning user's followed churches live streams
+  const ownChannelNames = [
+    userSession?.ministryName,
+    userSession?.churchName,
+    userSession?.fullName,
+    userSession?.username,
+  ].filter((name): name is string => Boolean(name?.trim()));
   const yourChurchesLive = liveStreams.filter((v) =>
-    v && subscribedChannels.some(
-      (ch) =>
-        (v.churchOrMinistry && v.churchOrMinistry.toLowerCase().includes(ch.toLowerCase())) ||
-        (v.speakerOrArtist && v.speakerOrArtist.toLowerCase().includes(ch.toLowerCase()))
+    v && (
+      subscribedChannels.some(
+        (ch) =>
+          (v.churchOrMinistry && v.churchOrMinistry.toLowerCase().includes(ch.toLowerCase())) ||
+          (v.speakerOrArtist && v.speakerOrArtist.toLowerCase().includes(ch.toLowerCase()))
+      ) ||
+      ownChannelNames.some((name) =>
+        v.churchOrMinistry?.toLowerCase() === name.toLowerCase() ||
+        v.speakerOrArtist?.toLowerCase() === name.toLowerCase()
+      )
     )
   );
 
