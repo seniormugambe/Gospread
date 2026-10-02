@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, FormEvent } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, FormEvent } from 'react';
 import {
   Play, 
   Pause, 
@@ -138,11 +138,16 @@ export default function App() {
   }, [theme]);
 
   const [activeTab, setActiveTab] = useState<'platform' | 'generated' | 'create' | 'profile' | 'history' | 'discover' | 'community' | 'auth'>('platform');
+  const [homeNavigationKey, setHomeNavigationKey] = useState(0);
   const mainContentRef = useRef<HTMLElement>(null);
   const scrollToTop = () => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     mainContentRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   };
+
+  useLayoutEffect(() => {
+    scrollToTop();
+  }, [homeNavigationKey]);
 
   const [activeAudioSpace, setActiveAudioSpace] = useState<ActiveAudioSpace | null>(() => {
     try {
@@ -830,7 +835,7 @@ export default function App() {
     setSearchQuery('');
     setActiveVideo(null);
     setIsPipDocked(false);
-    scrollToTop();
+    setHomeNavigationKey(key => key + 1);
   };
 
   // Filter video streams based on search and category
