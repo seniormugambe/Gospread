@@ -374,9 +374,8 @@ class LiveStreamViewSet(viewsets.ModelViewSet):
                 type="STANDARD",
             )
             channel = channel_response["channel"]
+            stream_key = channel_response["streamKey"]
             channel_arn = channel["arn"]
-            provisioning_stage = "create_stream_key"
-            stream_key = ivs_client.create_stream_key(channelArn=channel_arn)["streamKey"]
             stream_key_arn = stream_key["arn"]
 
             provisioning_stage = "save_stream"

@@ -225,10 +225,8 @@ class LiveStreamTests(APITestCase):
                 "arn": "arn:aws:ivs:us-east-1:123456789012:channel/test",
                 "ingestEndpoint": "abcd.global-contribute.live-video.net",
                 "playbackUrl": "https://abcd.us-east-1.playback.live-video.net/api/video/v1/us-east-1.123456789012.channel.test.m3u8",
-            }
-        }
-        ivs_client.create_stream_key.return_value = {
-            "streamKey": {"arn": "arn:aws:ivs:us-east-1:123456789012:stream-key/test", "value": "private-key"}
+            },
+            "streamKey": {"arn": "arn:aws:ivs:us-east-1:123456789012:stream-key/test", "value": "private-key"},
         }
         self.client.force_authenticate(user=host)
 
@@ -241,6 +239,7 @@ class LiveStreamTests(APITestCase):
         self.assertEqual(created.status_code, status.HTTP_201_CREATED)
         self.assertEqual(created.data["stream_key"], "private-key")
         self.assertEqual(created.data["playback_url"], ivs_client.create_channel.return_value["channel"]["playbackUrl"])
+        ivs_client.create_stream_key.assert_not_called()
         stream = LiveStream.objects.get(id=created.data["id"])
         self.assertEqual(stream.created_by, host)
         self.assertEqual(stream.status, LiveStream.Status.SCHEDULED)
@@ -281,10 +280,8 @@ class LiveStreamTests(APITestCase):
                 "arn": "arn:aws:ivs:us-east-1:123456789012:channel/idle",
                 "ingestEndpoint": "idle.global-contribute.live-video.net",
                 "playbackUrl": "https://idle.us-east-1.playback.live-video.net/channel.m3u8",
-            }
-        }
-        ivs_client.create_stream_key.return_value = {
-            "streamKey": {"arn": "arn:aws:ivs:us-east-1:123456789012:stream-key/idle", "value": "private-key"}
+            },
+            "streamKey": {"arn": "arn:aws:ivs:us-east-1:123456789012:stream-key/idle", "value": "private-key"},
         }
         ivs_client.get_stream.side_effect = ClientError(
             {"Error": {"Code": "ResourceNotFoundException", "Message": "Channel is not broadcasting"}},
@@ -296,6 +293,8 @@ class LiveStreamTests(APITestCase):
             "title": "Not broadcasting yet",
             "scheduled_for": timezone.now().isoformat(),
         }, format="json")
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        ivs_client.create_stream_key.assert_not_called()
         stream_id = created.data["id"]
 
         synced = self.client.post(f"/api/v1/streams/{stream_id}/sync/", {}, format="json")
@@ -321,10 +320,8 @@ class LiveStreamTests(APITestCase):
     def test_check_ivs_command_creates_and_cleans_temporary_resources(self, ivs_client_factory):
         ivs_client = ivs_client_factory.return_value
         ivs_client.create_channel.return_value = {
-            "channel": {"arn": "arn:aws:ivs:us-east-1:123456789012:channel/check"}
-        }
-        ivs_client.create_stream_key.return_value = {
-            "streamKey": {"arn": "arn:aws:ivs:us-east-1:123456789012:stream-key/check"}
+            "channel": {"arn": "arn:aws:ivs:us-east-1:123456789012:channel/check"},
+            "streamKey": {"arn": "arn:aws:ivs:us-east-1:123456789012:stream-key/check"},
         }
         ivs_client.get_stream.side_effect = ClientError(
             {"Error": {"Code": "ChannelNotBroadcasting", "Message": "Channel is not broadcasting"}},
@@ -338,6 +335,7 @@ class LiveStreamTests(APITestCase):
 
         call_command("check_ivs", stdout=output)
 
+        ivs_client.create_stream_key.assert_not_called()
         ivs_client.delete_stream_key.assert_called_once_with(
             arn="arn:aws:ivs:us-east-1:123456789012:stream-key/check"
         )
@@ -354,19 +352,23 @@ class LiveStreamTests(APITestCase):
         self.assertIn("temporary resources were removed", output.getvalue())
 
     @patch("api.management.commands.check_ivs.boto3.client")
-    def test_check_ivs_command_cleans_channel_when_key_creation_fails(self, ivs_client_factory):
+    def test_check_ivs_command_cleans_resources_when_stream_check_fails(self, ivs_client_factory):
         ivs_client = ivs_client_factory.return_value
         ivs_client.create_channel.return_value = {
-            "channel": {"arn": "arn:aws:ivs:us-east-1:123456789012:channel/check"}
+            "channel": {"arn": "arn:aws:ivs:us-east-1:123456789012:channel/check"},
+            "streamKey": {"arn": "arn:aws:ivs:us-east-1:123456789012:stream-key/check"},
         }
-        ivs_client.create_stream_key.side_effect = ClientError(
+        ivs_client.get_stream.side_effect = ClientError(
             {"Error": {"Code": "AccessDeniedException", "Message": "Sensitive AWS response detail"}},
-            "CreateStreamKey",
+            "GetStream",
         )
 
-        with self.assertRaisesMessage(CommandError, "create_stream_key in us-east-1 (AccessDeniedException)"):
+        with self.assertRaisesMessage(CommandError, "get_stream in us-east-1 (AccessDeniedException)"):
             call_command("check_ivs", stdout=StringIO())
 
+        ivs_client.delete_stream_key.assert_called_once_with(
+            arn="arn:aws:ivs:us-east-1:123456789012:stream-key/check"
+        )
         ivs_client.delete_channel.assert_called_once_with(
             arn="arn:aws:ivs:us-east-1:123456789012:channel/check"
         )

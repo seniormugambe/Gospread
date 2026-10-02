@@ -16,15 +16,14 @@ class Command(BaseCommand):
         failure_code = None
 
         try:
-            channel = client.create_channel(
+            channel_response = client.create_channel(
                 name=f"gospread-check-{uuid4().hex[:12]}",
                 latencyMode="LOW",
                 type="STANDARD",
-            )["channel"]
+            )
+            channel = channel_response["channel"]
+            stream_key = channel_response["streamKey"]
             channel_arn = channel["arn"]
-
-            failed_stage = "create_stream_key"
-            stream_key = client.create_stream_key(channelArn=channel_arn)["streamKey"]
             stream_key_arn = stream_key["arn"]
 
             failed_stage = "get_stream"
