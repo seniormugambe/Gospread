@@ -78,6 +78,7 @@ import YouTubeApiModal from './components/YouTubeApiModal';
 import AuthModal, { UserSession } from './components/AuthModal';
 import AuthPage from './components/AuthPage';
 import { djangoApi } from './services/djangoApi';
+import { youtubeApi } from './services/youtubeApi';
 import VideoDownloadModal from './components/VideoDownloadModal';
 import VideoStreamFrame from './components/VideoStreamFrame';
 import PictureInPictureWindow from './components/PictureInPictureWindow';
@@ -109,6 +110,12 @@ const LEGACY_PROFILE_PLACEHOLDERS = new Set([
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
 ]);
+
+const mergeVideoStreams = (...groups: VideoStream[][]): VideoStream[] => {
+  const videosById = new Map<string, VideoStream>();
+  groups.flat().forEach(video => videosById.set(video.id, video));
+  return Array.from(videosById.values());
+};
 
 export default function App() {
   // 🌤️ Sky Light Theme State (Defaulting to the requested Heavenly Sky Light Theme)
@@ -299,11 +306,23 @@ export default function App() {
       }
 
       try {
-        const backendVideos = await djangoApi.getVideos();
-        if (isMounted && backendVideos && backendVideos.length > 0) {
-          setVideoStreams(backendVideos);
-        } else if (isMounted) {
-          setVideoStreams(LIVE_VIDEO_STREAMS);
+        const [backendVideos, youtubeResult] = await Promise.all([
+          djangoApi.getVideos(),
+          youtubeApi.searchGospelVideos('Gospel Live Worship', true).catch(() => ({
+            videos: [],
+            isRealYoutubeData: false,
+          })),
+        ]);
+        if (isMounted) {
+          const youtubeLiveVideos = youtubeResult.isRealYoutubeData
+            ? youtubeResult.videos
+                .filter(video => video.isLive)
+                .map(video => ({ ...video, id: `youtube-${video.id}` }))
+            : [];
+          setVideoStreams(mergeVideoStreams(
+            backendVideos.length > 0 ? backendVideos : LIVE_VIDEO_STREAMS,
+            youtubeLiveVideos,
+          ));
         }
       } catch (e) {
         console.warn('Backend media notice (using local streams):', e);
@@ -349,6 +368,26 @@ export default function App() {
 
     loadMedia();
     return () => { isMounted = false; };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const refreshPlatformVideos = async () => {
+      try {
+        const backendVideos = await djangoApi.getVideos();
+        if (isMounted && backendVideos.length > 0) {
+          setVideoStreams(previous => mergeVideoStreams(previous, backendVideos));
+        }
+      } catch (error) {
+        console.warn('Live broadcast refresh notice:', error);
+      }
+    };
+
+    const refreshInterval = window.setInterval(refreshPlatformVideos, 30_000);
+    return () => {
+      isMounted = false;
+      window.clearInterval(refreshInterval);
+    };
   }, []);
 
   // 🕒 Watch History State & Local Persistence

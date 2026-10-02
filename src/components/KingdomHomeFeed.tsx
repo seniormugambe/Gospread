@@ -95,8 +95,6 @@ export default function KingdomHomeFeed({
   // Simplified Category Filters: All | Live | Sermons | Worship | Shorts | Podcasts | Ministries
   const [selectedFilter, setSelectedFilter] = useState<'All' | 'Live' | 'Sermons' | 'Worship' | 'Shorts' | 'Podcasts' | 'Ministries'>('All');
 
-  const [showAllNetworkLive, setShowAllNetworkLive] = useState(false);
-
   const safeVideos = videoStreams && videoStreams.length > 0 ? videoStreams : [];
   const safeAudio = audioQueue && audioQueue.length > 0 ? audioQueue : [];
 
@@ -217,18 +215,18 @@ export default function KingdomHomeFeed({
     </section>
   );
 
-  // 1. YOUR CHURCHES LIVE (RETURNING VIEWER)
-  const renderYourChurchesLiveSection = () => (
+  // 1. NETWORK LIVE (RETURNING VIEWER)
+  const renderNetworkLiveSection = () => (
     <section id="section-your-churches-live" className="space-y-4">
       <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
         <div className="flex items-center gap-2.5">
           <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping" />
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              <span>🔴 Your Churches Live</span>
-              {yourChurchesLive.length > 0 ? (
+              <span>🔴 Live Across Gospread</span>
+              {liveStreams.length > 0 ? (
                 <span className="text-xs font-bold text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-full">
-                  {yourChurchesLive.length} sanctuary on air
+                  {liveStreams.length} broadcasts on air
                 </span>
               ) : (
                 <span className="text-xs font-semibold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">
@@ -239,65 +237,38 @@ export default function KingdomHomeFeed({
           </div>
         </div>
         <span className="text-xs text-slate-400 hidden sm:inline">
-          Live broadcasts from sanctuaries you follow
+          Live broadcasts from creators across Gospread
         </span>
       </div>
 
-      {yourChurchesLive.length > 0 ? (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-            {yourChurchesLive.map((video) => (
-              <div key={video.id} className="relative">
+      {liveStreams.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          {liveStreams.map((video) => (
+            <div key={video.id} className="relative">
+              {yourChurchesLive.some(followedVideo => followedVideo.id === video.id) && (
                 <span className="absolute top-2.5 left-2.5 z-20 px-2 py-0.5 rounded bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow">
-                  ⭐ Your Sanctuary
+                  ⭐ Following
                 </span>
-                <StreamingVideoCard
-                  video={video}
-                  onSelect={onSelectVideo}
-                  onOpenChannel={onOpenChannelModal}
-                />
-              </div>
-            ))}
-          </div>
+              )}
+              <StreamingVideoCard
+                video={video}
+                onSelect={onSelectVideo}
+                onOpenChannel={onOpenChannelModal}
+              />
+            </div>
+          ))}
         </div>
       ) : (
         <div className="rounded-2xl bg-slate-900/60 border border-slate-800/80 p-5 text-center space-y-2.5">
           <div className="flex items-center justify-center gap-2 text-slate-300">
             <Radio className="w-4 h-4 text-amber-400 animate-pulse" />
             <p className="text-sm font-bold text-white">
-              None of your followed churches are broadcasting right now.
+              No live broadcasts right now.
             </p>
           </div>
           <p className="text-xs text-slate-400 max-w-lg mx-auto">
-            Your followed home churches ({subscribedChannels.slice(0, 3).join(', ')}) stream during scheduled times. Check their upcoming services below or explore active network livestreams.
+            Live broadcasts from ministries and YouTube channels will appear here while they are on air.
           </p>
-
-          {liveStreams.length > 0 && (
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => setShowAllNetworkLive(!showAllNetworkLive)}
-                className="text-xs font-bold text-amber-400 hover:text-amber-300 px-3.5 py-1.5 rounded-xl bg-amber-400/10 border border-amber-400/20 hover:bg-amber-400/20 transition"
-              >
-                {showAllNetworkLive
-                  ? 'Hide Global Broadcasts'
-                  : `Explore Other Live Sanctuaries (${liveStreams.length} active)`}
-              </button>
-            </div>
-          )}
-
-          {showAllNetworkLive && liveStreams.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-3 text-left">
-              {liveStreams.map((video) => (
-                <StreamingVideoCard
-                  key={video.id}
-                  video={video}
-                  onSelect={onSelectVideo}
-                  onOpenChannel={onOpenChannelModal}
-                />
-              ))}
-            </div>
-          )}
         </div>
       )}
     </section>
@@ -905,7 +876,7 @@ export default function KingdomHomeFeed({
       {viewingMode === 'returning' && selectedFilter === 'All' && (
         <>
           {/* 1. 🔴 Your Churches Live */}
-          {renderYourChurchesLiveSection()}
+          {renderNetworkLiveSection()}
 
           {/* 2. 📅 Upcoming From Your Churches */}
           {renderUpcomingSection()}
@@ -935,7 +906,7 @@ export default function KingdomHomeFeed({
       {/* ========================================================================= */}
       {selectedFilter === 'Live' &&
         (viewingMode === 'returning'
-          ? renderYourChurchesLiveSection()
+          ? renderNetworkLiveSection()
           : renderGuestLiveSection())}
       {selectedFilter === 'Shorts' && renderShortsSection()}
       {selectedFilter === 'Sermons' && renderSermonsSection()}
