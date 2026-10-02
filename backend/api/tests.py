@@ -1,6 +1,9 @@
 from datetime import timedelta
+from io import StringIO
 from unittest.mock import patch
 
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
@@ -240,7 +243,17 @@ class LiveStreamTests(APITestCase):
         self.assertEqual(created.data["playback_url"], ivs_client.create_channel.return_value["channel"]["playbackUrl"])
         stream = LiveStream.objects.get(id=created.data["id"])
         self.assertEqual(stream.created_by, host)
-        self.assertEqual(stream.status, LiveStream.Status.LIVE)
+        self.assertEqual(stream.status, LiveStream.Status.SCHEDULED)
+        self.assertIsNone(stream.started_at)
+
+        ivs_client.get_stream.return_value = {"stream": {"state": "LIVE"}}
+        synced = self.client.post(f"/api/v1/streams/{stream.id}/sync/", {}, format="json")
+        self.assertEqual(synced.status_code, status.HTTP_200_OK)
+        self.assertTrue(synced.data["active"])
+        self.assertEqual(synced.data["status"], LiveStream.Status.LIVE)
+        stream.refresh_from_db()
+        self.assertIsNotNone(stream.started_at)
+        ivs_client.get_stream.return_value = {"stream": {"state": "LIVE"}}
 
         self.client.force_authenticate(user=viewer)
         listed = self.client.get("/api/v1/streams/", {"status": "live"})
@@ -258,6 +271,154 @@ class LiveStreamTests(APITestCase):
         self.assertEqual(ended.data["status"], LiveStream.Status.ENDED)
         ivs_client.stop_stream.assert_called_once_with(channelArn=stream.ivs_channel_arn)
         ivs_client.delete_stream_key.assert_called_once_with(arn=stream.ivs_stream_key_arn)
+
+    @patch("api.views.boto3.client")
+    def test_idle_ivs_channel_stays_out_of_live_feed(self, ivs_client_factory):
+        host = User.objects.create_user(username="ivs-idle", email="ivs-idle@example.com", password="StrongPass123!")
+        ivs_client = ivs_client_factory.return_value
+        ivs_client.create_channel.return_value = {
+            "channel": {
+                "arn": "arn:aws:ivs:us-east-1:123456789012:channel/idle",
+                "ingestEndpoint": "idle.global-contribute.live-video.net",
+                "playbackUrl": "https://idle.us-east-1.playback.live-video.net/channel.m3u8",
+            }
+        }
+        ivs_client.create_stream_key.return_value = {
+            "streamKey": {"arn": "arn:aws:ivs:us-east-1:123456789012:stream-key/idle", "value": "private-key"}
+        }
+        ivs_client.get_stream.side_effect = ClientError(
+            {"Error": {"Code": "ResourceNotFoundException", "Message": "Channel is not broadcasting"}},
+            "GetStream",
+        )
+        self.client.force_authenticate(user=host)
+
+        created = self.client.post("/api/v1/streams/start/", {
+            "title": "Not broadcasting yet",
+            "scheduled_for": timezone.now().isoformat(),
+        }, format="json")
+        stream_id = created.data["id"]
+
+        synced = self.client.post(f"/api/v1/streams/{stream_id}/sync/", {}, format="json")
+        self.assertEqual(synced.status_code, status.HTTP_200_OK)
+        self.assertFalse(synced.data["active"])
+        self.assertEqual(synced.data["status"], LiveStream.Status.SCHEDULED)
+
+        self.client.force_authenticate(user=None)
+        listed = self.client.get("/api/v1/streams/", {"status": "live"})
+        self.assertEqual(listed.status_code, status.HTTP_200_OK)
+        self.assertEqual(listed.data["count"], 0)
+
+        self.client.force_authenticate(user=host)
+        ended = self.client.post(f"/api/v1/streams/{stream_id}/end/", {}, format="json")
+        self.assertEqual(ended.status_code, status.HTTP_200_OK)
+        self.assertEqual(ended.data["status"], LiveStream.Status.ENDED)
+        ivs_client.stop_stream.assert_not_called()
+        ivs_client.delete_stream_key.assert_called_once_with(
+            arn="arn:aws:ivs:us-east-1:123456789012:stream-key/idle"
+        )
+
+    @patch("api.management.commands.check_ivs.boto3.client")
+    def test_check_ivs_command_creates_and_cleans_temporary_resources(self, ivs_client_factory):
+        ivs_client = ivs_client_factory.return_value
+        ivs_client.create_channel.return_value = {
+            "channel": {"arn": "arn:aws:ivs:us-east-1:123456789012:channel/check"}
+        }
+        ivs_client.create_stream_key.return_value = {
+            "streamKey": {"arn": "arn:aws:ivs:us-east-1:123456789012:stream-key/check"}
+        }
+        ivs_client.get_stream.side_effect = ClientError(
+            {"Error": {"Code": "ChannelNotBroadcasting", "Message": "Channel is not broadcasting"}},
+            "GetStream",
+        )
+        ivs_client.stop_stream.side_effect = ClientError(
+            {"Error": {"Code": "ChannelNotBroadcasting", "Message": "Channel is not broadcasting"}},
+            "StopStream",
+        )
+        output = StringIO()
+
+        call_command("check_ivs", stdout=output)
+
+        ivs_client.delete_stream_key.assert_called_once_with(
+            arn="arn:aws:ivs:us-east-1:123456789012:stream-key/check"
+        )
+        ivs_client.delete_channel.assert_called_once_with(
+            arn="arn:aws:ivs:us-east-1:123456789012:channel/check"
+        )
+        ivs_client.get_stream.assert_called_once_with(
+            channelArn="arn:aws:ivs:us-east-1:123456789012:channel/check"
+        )
+        ivs_client.stop_stream.assert_called_once_with(
+            channelArn="arn:aws:ivs:us-east-1:123456789012:channel/check"
+        )
+        self.assertIn("create/read/stop/delete permissions", output.getvalue())
+        self.assertIn("temporary resources were removed", output.getvalue())
+
+    @patch("api.management.commands.check_ivs.boto3.client")
+    def test_check_ivs_command_cleans_channel_when_key_creation_fails(self, ivs_client_factory):
+        ivs_client = ivs_client_factory.return_value
+        ivs_client.create_channel.return_value = {
+            "channel": {"arn": "arn:aws:ivs:us-east-1:123456789012:channel/check"}
+        }
+        ivs_client.create_stream_key.side_effect = ClientError(
+            {"Error": {"Code": "AccessDeniedException", "Message": "Sensitive AWS response detail"}},
+            "CreateStreamKey",
+        )
+
+        with self.assertRaisesMessage(CommandError, "create_stream_key in us-east-1 (AccessDeniedException)"):
+            call_command("check_ivs", stdout=StringIO())
+
+        ivs_client.delete_channel.assert_called_once_with(
+            arn="arn:aws:ivs:us-east-1:123456789012:channel/check"
+        )
+
+
+class LiveStreamInteractionTests(APITestCase):
+    def test_host_can_post_and_list_live_chat_messages(self):
+        host = User.objects.create_user(username="chat-host", email="chat-host@example.com", password="StrongPass123!")
+        church = Church.objects.create(name="Chat Church", slug="chat-church", owner=host)
+        stream = LiveStream.objects.create(
+            church=church,
+            created_by=host,
+            title="Prayer service",
+            status=LiveStream.Status.LIVE,
+            scheduled_for=timezone.now(),
+            started_at=timezone.now(),
+        )
+        self.client.force_authenticate(user=host)
+
+        post_response = self.client.post(f"/api/v1/streams/{stream.id}/chat/", {"message": "Amen!"}, format="json")
+        self.assertEqual(post_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(post_response.data["message"], "Amen!")
+
+        list_response = self.client.get(f"/api/v1/streams/{stream.id}/chat/")
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data["count"], 1)
+        self.assertEqual(list_response.data["results"][0]["message"], "Amen!")
+
+    def test_viewer_join_increments_stream_count_and_leave_reduces_it(self):
+        host = User.objects.create_user(username="viewer-host", email="viewer-host@example.com", password="StrongPass123!")
+        viewer = User.objects.create_user(username="viewer-user", email="viewer-user@example.com", password="StrongPass123!")
+        church = Church.objects.create(name="Viewer Church", slug="viewer-church", owner=host)
+        stream = LiveStream.objects.create(
+            church=church,
+            created_by=host,
+            title="Worship live",
+            status=LiveStream.Status.LIVE,
+            scheduled_for=timezone.now(),
+            started_at=timezone.now(),
+            viewer_count=0,
+        )
+
+        self.client.force_authenticate(user=viewer)
+        join_response = self.client.post(f"/api/v1/streams/{stream.id}/join/", {"session_id": "sess-1"}, format="json")
+        self.assertEqual(join_response.status_code, status.HTTP_200_OK)
+        stream.refresh_from_db()
+        self.assertEqual(stream.viewer_count, 1)
+
+        leave_response = self.client.post(f"/api/v1/streams/{stream.id}/leave/", {"session_id": "sess-1"}, format="json")
+        self.assertEqual(leave_response.status_code, status.HTTP_200_OK)
+        stream.refresh_from_db()
+        self.assertEqual(stream.viewer_count, 0)
 
 
 class ChurchEntryTests(APITestCase):

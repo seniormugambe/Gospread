@@ -10,9 +10,10 @@ from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from .models import (
-    AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund, LiveStream, PrayerComment, PrayerRequest,
-    PaymentGatewayCheckout, SavedSermon, Scripture, Sermon, SermonShort, User,
-    WatchProgress, WorshipSlide, WorshipSong,
+    AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund,
+    LiveStream, LiveStreamChatMessage, PrayerComment, PrayerRequest, PaymentGatewayCheckout,
+    SavedSermon, Scripture, Sermon, SermonShort, User, WatchProgress, WorshipSlide,
+    WorshipSong,
 )
 
 
@@ -372,6 +373,23 @@ class LiveStreamSerializer(serializers.ModelSerializer):
         if obj.created_by:
             return obj.created_by.get_full_name() or obj.created_by.username
         return obj.church.owner.get_full_name() or obj.church.owner.username if obj.church else "Gospread Creator"
+
+
+class LiveStreamChatMessageSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    author_avatar = serializers.SerializerMethodField()
+    stream_id = serializers.IntegerField(source="stream.id", read_only=True)
+
+    class Meta:
+        model = LiveStreamChatMessage
+        fields = ("id", "stream_id", "author_name", "author_avatar", "message", "is_host", "is_moderator", "is_pinned", "created_at")
+        read_only_fields = ("id", "stream_id", "author_name", "author_avatar", "is_host", "is_moderator", "is_pinned", "created_at")
+
+    def get_author_name(self, obj):
+        return obj.author.get_full_name() or obj.author.username
+
+    def get_author_avatar(self, obj):
+        return obj.author.avatar_url or "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80"
 
 
 class ChurchEventSerializer(serializers.ModelSerializer):

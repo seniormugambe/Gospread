@@ -170,6 +170,19 @@ export default function LiveRecordingVODModal({
               </div>
             </div>
 
+            <div className="rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Auto Recap Preview</p>
+                  <h3 className="mt-1 text-base font-black text-white">{recordedData.title}</h3>
+                </div>
+                <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] font-black uppercase text-amber-300">Ready to publish</span>
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-slate-300">
+                {recordedData.description.split('\n\n').slice(0, 3).join(' • ')}
+              </p>
+            </div>
+
             {/* VOD Metadata Fields */}
             <div className="space-y-4 bg-[#18181c] border border-slate-800 rounded-3xl p-5">
               

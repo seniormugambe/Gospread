@@ -1,9 +1,9 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import (
-    Church, ChurchEvent, Donation, GivingFund, LiveStream, PrayerComment, PrayerRequest,
-    PaymentGatewayCheckout, SavedSermon, Scripture, Sermon, SermonShort, User,
-    WatchProgress, WorshipSlide, WorshipSong,
+    Church, ChurchEvent, Donation, GivingFund, LiveStream, LiveStreamChatMessage, LiveStreamViewer,
+    PrayerComment, PrayerRequest, PaymentGatewayCheckout, SavedSermon, Scripture, Sermon,
+    SermonShort, User, WatchProgress, WorshipSlide, WorshipSong,
 )
 
 @admin.register(User)
@@ -48,6 +48,22 @@ class LiveStreamAdmin(admin.ModelAdmin):
     search_fields = ("title", "description", "church__name")
     autocomplete_fields = ("church",)
     date_hierarchy = "scheduled_for"
+
+
+@admin.register(LiveStreamChatMessage)
+class LiveStreamChatMessageAdmin(admin.ModelAdmin):
+    list_display = ("stream", "author", "created_at", "is_host", "is_pinned")
+    list_filter = ("is_host", "is_moderator", "is_pinned", "created_at")
+    search_fields = ("message", "author__email", "stream__title")
+    autocomplete_fields = ("stream", "author")
+
+
+@admin.register(LiveStreamViewer)
+class LiveStreamViewerAdmin(admin.ModelAdmin):
+    list_display = ("stream", "user", "session_id", "is_active", "last_seen_at")
+    list_filter = ("is_active", "last_seen_at")
+    search_fields = ("session_id", "stream__title", "user__email")
+    autocomplete_fields = ("stream", "user")
 
 
 @admin.register(ChurchEvent)

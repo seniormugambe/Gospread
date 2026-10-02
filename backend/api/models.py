@@ -154,6 +154,38 @@ class LiveStream(models.Model):
         return self.title
 
 
+class LiveStreamChatMessage(models.Model):
+    stream = models.ForeignKey(LiveStream, on_delete=models.CASCADE, related_name="chat_messages")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="live_chat_messages")
+    message = models.TextField(max_length=500)
+    is_host = models.BooleanField(default=False)
+    is_moderator = models.BooleanField(default=False)
+    is_pinned = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.author}: {self.message[:60]}"
+
+
+class LiveStreamViewer(models.Model):
+    stream = models.ForeignKey(LiveStream, on_delete=models.CASCADE, related_name="live_viewers")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="live_stream_sessions")
+    session_id = models.CharField(max_length=120, db_index=True)
+    joined_at = models.DateTimeField(auto_now_add=True)
+    last_seen_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ("stream", "session_id")
+        ordering = ["-last_seen_at"]
+
+    def __str__(self):
+        return f"{self.stream.title} - {self.session_id}"
+
+
 class ChurchEvent(models.Model):
     class EventType(models.TextChoices):
         SERVICE = "service", "Service"

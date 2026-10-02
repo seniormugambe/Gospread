@@ -439,6 +439,7 @@ export default function CreatePage({
   const [liveMode, setLiveMode] = useState<'quick' | 'studio'>('quick');
   const [activeLiveStreamId, setActiveLiveStreamId] = useState<string | null>(null);
   const [ivsBroadcastCredentials, setIvsBroadcastCredentials] = useState<IvsBroadcastCredentials | null>(null);
+  const pendingLiveVideoRef = useRef<VideoStream | null>(null);
   const [livePublishError, setLivePublishError] = useState('');
   const [isPublishingLive, setIsPublishingLive] = useState(false);
   
@@ -653,7 +654,7 @@ export default function CreatePage({
       setLiveStreamKey(savedStream.stream_key);
       const persistedVideo = { ...newVideo, id: String(savedStream.id), streamUrl: savedStream.playback_url };
       setActiveLiveStreamId(persistedVideo.id);
-      onLiveCreated?.(persistedVideo);
+      pendingLiveVideoRef.current = persistedVideo;
       return true;
     } catch (error) {
       setLivePublishError(error instanceof Error ? error.message : 'Could not publish the live broadcast.');
@@ -661,6 +662,13 @@ export default function CreatePage({
     } finally {
       setIsPublishingLive(false);
     }
+  };
+
+  const handleIvsStreamStarted = () => {
+    const pendingVideo = pendingLiveVideoRef.current;
+    if (!pendingVideo) return;
+    pendingLiveVideoRef.current = null;
+    onLiveCreated?.(pendingVideo);
   };
 
   const startCameraPreview = async () => {
@@ -1064,8 +1072,10 @@ export default function CreatePage({
               speaker={liveSpeaker || ownerName}
               scripture={liveScripture || 'Isaiah 40:31'}
               mode="quick"
+              streamId={activeLiveStreamId || undefined}
               initialStream={cameraPreviewStream}
               ivsCredentials={ivsBroadcastCredentials}
+              onIvsStarted={handleIvsStreamStarted}
               onEnd={handleEndLiveStream}
               onBack={() => setStudioAction('live')}
           />
@@ -1088,6 +1098,7 @@ export default function CreatePage({
         <div className="mx-auto max-w-7xl">
           <LiveControlRoom
             currentUser={currentUser}
+            streamId={activeLiveStreamId}
             broadcastTitle={liveTitle || `Sunday Worship Celebration — ${ministryName}`}
             broadcastType={broadcastType}
             category={selectedCategory}
@@ -1096,6 +1107,7 @@ export default function CreatePage({
             streamKey={ivsBroadcastCredentials?.stream_key || ''}
             rtmpUrl={ivsBroadcastCredentials ? `rtmps://${ivsBroadcastCredentials.ingest_endpoint}:443/app` : ''}
             ivsCredentials={ivsBroadcastCredentials}
+            onIvsStarted={handleIvsStreamStarted}
             onEndStream={handleEndLiveStream}
             onBackToStudio={() => setStudioAction('live')}
           />

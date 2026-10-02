@@ -1,6 +1,7 @@
 import logging
 
 import boto3
+from botocore.exceptions import ClientError
 from django.db import transaction
 from django.db.models import Count, DecimalField, Q, Sum, Value
 from django.db.models.functions import Coalesce
@@ -13,11 +14,15 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from livekit import api as livekit_api
-from .models import AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund, LiveStream, PaymentGatewayCheckout, PrayerComment, PrayerRequest, Scripture, SavedSermon, Sermon, SermonShort, WatchProgress, WorshipSong
+from .models import (
+    AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund,
+    LiveStream, LiveStreamChatMessage, LiveStreamViewer, PaymentGatewayCheckout, PrayerComment,
+    PrayerRequest, Scripture, SavedSermon, Sermon, SermonShort, WatchProgress, WorshipSong,
+)
 from .permissions import IsPastorOwnerOrReadOnly
 from .serializers import (
     AudioSpaceSerializer, ChurchEventSerializer, ChurchSerializer, CommunityCommentSerializer, CommunityPostSerializer, DonationCheckoutSerializer, DonationSerializer,
-    GivingFundSerializer, LiveStreamSerializer, PaymentGatewayCheckoutSerializer,
+    GivingFundSerializer, LiveStreamChatMessageSerializer, LiveStreamSerializer, PaymentGatewayCheckoutSerializer,
     PrayerCommentSerializer, PrayerRequestSerializer, SavedSermonSerializer, ChangePasswordSerializer,
     GospreadTokenSerializer, ScriptureSerializer, SermonSerializer, SermonShortSerializer,
     GospreadTokenRefreshSerializer, SignupSerializer, UserSerializer, WatchProgressSerializer, WorshipSongSerializer,
@@ -378,11 +383,7 @@ class LiveStreamViewSet(viewsets.ModelViewSet):
             stream.ivs_channel_arn = channel_arn
             stream.ivs_stream_key_arn = stream_key_arn
             stream.playback_url = channel["playbackUrl"]
-            stream.status = LiveStream.Status.LIVE
-            stream.started_at = timezone.now()
-            stream.save(update_fields=(
-                "ivs_channel_arn", "ivs_stream_key_arn", "playback_url", "status", "started_at"
-            ))
+            stream.save(update_fields=("ivs_channel_arn", "ivs_stream_key_arn", "playback_url"))
 
             response_data = dict(self.get_serializer(stream).data)
             response_data.update({
@@ -415,12 +416,53 @@ class LiveStreamViewSet(viewsets.ModelViewSet):
             )
 
     @action(detail=True, methods=["post"])
+    def sync(self, request, pk=None):
+        stream = self.get_object()
+        if stream.status == LiveStream.Status.ENDED or not stream.ivs_channel_arn:
+            return Response({"active": False, "status": stream.status})
+
+        try:
+            ivs_client = boto3.client("ivs", region_name=settings.AWS_IVS_REGION)
+            ivs_stream = ivs_client.get_stream(channelArn=stream.ivs_channel_arn)["stream"]
+            is_active = ivs_stream.get("state") == "LIVE"
+        except ClientError as error:
+            error_code = error.response.get("Error", {}).get("Code", "ClientError")
+            if error_code in {"ResourceNotFoundException", "ChannelNotBroadcasting"}:
+                is_active = False
+            else:
+                logger.exception("Amazon IVS status check failed for stream %s", stream.id)
+                return Response(
+                    {"detail": f"Amazon IVS status check failed ({error_code})."},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+        except Exception as error:
+            logger.exception("Amazon IVS status check failed for stream %s", stream.id)
+            return Response(
+                {"detail": f"Amazon IVS status check failed ({type(error).__name__})."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        if is_active and stream.status != LiveStream.Status.LIVE:
+            stream.status = LiveStream.Status.LIVE
+            stream.started_at = timezone.now()
+            stream.save(update_fields=("status", "started_at"))
+        return Response({"active": is_active, "status": stream.status})
+
+    @action(detail=True, methods=["post"])
     def end(self, request, pk=None):
         stream = self.get_object()
         if stream.ivs_channel_arn:
             try:
                 ivs_client = boto3.client("ivs", region_name=settings.AWS_IVS_REGION)
-                ivs_client.stop_stream(channelArn=stream.ivs_channel_arn)
+                try:
+                    ivs_stream = ivs_client.get_stream(channelArn=stream.ivs_channel_arn)["stream"]
+                except ClientError as error:
+                    error_code = error.response.get("Error", {}).get("Code", "ClientError")
+                    if error_code not in {"ResourceNotFoundException", "ChannelNotBroadcasting"}:
+                        raise
+                    ivs_stream = None
+                if ivs_stream and ivs_stream.get("state") == "LIVE":
+                    ivs_client.stop_stream(channelArn=stream.ivs_channel_arn)
                 if stream.ivs_stream_key_arn:
                     ivs_client.delete_stream_key(arn=stream.ivs_stream_key_arn)
             except Exception:
@@ -433,7 +475,72 @@ class LiveStreamViewSet(viewsets.ModelViewSet):
         stream.status = LiveStream.Status.ENDED
         stream.ended_at = timezone.now()
         stream.save(update_fields=("status", "ended_at"))
+        stream.live_viewers.filter(is_active=True).update(is_active=False)
+        stream.viewer_count = 0
+        stream.save(update_fields=("viewer_count",))
         return Response(self.get_serializer(stream).data)
+
+    @action(detail=True, methods=["get", "post"], permission_classes=[permissions.IsAuthenticatedOrReadOnly])
+    def chat(self, request, pk=None):
+        stream = self.get_object()
+        if request.method == "GET":
+            queryset = stream.chat_messages.select_related("author").order_by("created_at")
+            page = self.paginate_queryset(queryset)
+            serializer = LiveStreamChatMessageSerializer(page or queryset, many=True, context={"request": request})
+            if page is not None:
+                return self.get_paginated_response(serializer.data)
+            return Response(serializer.data)
+
+        message_text = str(request.data.get("message", "")).strip()
+        if not message_text:
+            return Response({"detail": "A message is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if len(message_text) > 500:
+            return Response({"detail": "Message is too long."}, status=status.HTTP_400_BAD_REQUEST)
+
+        chat_message = LiveStreamChatMessage.objects.create(
+            stream=stream,
+            author=request.user,
+            message=message_text,
+            is_host=request.user == stream.created_by,
+            is_moderator=request.user.is_staff or request.user == stream.created_by,
+        )
+        return Response(LiveStreamChatMessageSerializer(chat_message, context={"request": request}).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], permission_classes=[permissions.AllowAny])
+    def join(self, request, pk=None):
+        stream = self.get_object()
+        session_id = str(request.data.get("session_id") or request.session.session_key or f"anon-{timezone.now().timestamp()}").strip()
+        if not session_id:
+            return Response({"detail": "A session identifier is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        viewer, created = LiveStreamViewer.objects.get_or_create(
+            stream=stream,
+            session_id=session_id,
+            defaults={"user": request.user if request.user.is_authenticated else None, "is_active": True},
+        )
+        viewer.user = request.user if request.user.is_authenticated else viewer.user
+        viewer.is_active = True
+        viewer.save(update_fields=("user", "is_active", "last_seen_at"))
+
+        stream.viewer_count = stream.live_viewers.filter(is_active=True).count()
+        stream.save(update_fields=("viewer_count",))
+        return Response({"joined": created, "viewer_count": stream.viewer_count, "session_id": session_id})
+
+    @action(detail=True, methods=["post"], permission_classes=[permissions.AllowAny])
+    def leave(self, request, pk=None):
+        stream = self.get_object()
+        session_id = str(request.data.get("session_id") or "").strip()
+        if not session_id:
+            return Response({"detail": "A session identifier is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        viewer = stream.live_viewers.filter(session_id=session_id).first()
+        if viewer:
+            viewer.is_active = False
+            viewer.save(update_fields=("is_active", "last_seen_at"))
+            stream.viewer_count = stream.live_viewers.filter(is_active=True).count()
+            stream.save(update_fields=("viewer_count",))
+
+        return Response({"viewer_count": stream.viewer_count, "left": bool(viewer)})
 
 
 class ChurchEventViewSet(viewsets.ModelViewSet):

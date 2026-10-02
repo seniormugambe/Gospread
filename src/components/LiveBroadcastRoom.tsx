@@ -19,6 +19,7 @@ import {
 import { UserSession } from './AuthModal';
 import { extractYouTubeId } from '../utils/videoPlayback';
 import { IvsBroadcastCredentials, startIvsBroadcast, stopIvsBroadcast } from '../services/ivsBroadcast';
+import { djangoApi } from '../services/djangoApi';
 
 interface LiveBroadcastRoomProps {
   currentUser?: UserSession;
@@ -28,8 +29,10 @@ interface LiveBroadcastRoomProps {
   category: string;
   scripture: string;
   mode: 'quick' | 'studio';
+  streamId?: string | number;
   initialStream?: MediaStream | null;
   ivsCredentials: IvsBroadcastCredentials | null;
+  onIvsStarted: () => void;
   onEnd: (data: {
     title: string;
     description: string;
@@ -55,8 +58,10 @@ export default function LiveBroadcastRoom({
   category,
   scripture,
   mode,
+  streamId,
   initialStream,
   ivsCredentials,
+  onIvsStarted,
   onEnd,
   onBack,
 }: LiveBroadcastRoomProps) {
@@ -74,6 +79,11 @@ export default function LiveBroadcastRoom({
   const [isStartingQuickLive, setIsStartingQuickLive] = useState(false);
   const quickPreviewRef = useRef<HTMLVideoElement>(null);
   const broadcastClientRef = useRef<Awaited<ReturnType<typeof startIvsBroadcast>> | null>(null);
+  const onIvsStartedRef = useRef(onIvsStarted);
+
+  useEffect(() => {
+    onIvsStartedRef.current = onIvsStarted;
+  }, [onIvsStarted]);
 
   useEffect(() => {
     if (mode !== 'quick') return;
@@ -102,6 +112,36 @@ export default function LiveBroadcastRoom({
   }, [mode, quickStream]);
 
   useEffect(() => () => stopIvsBroadcast(broadcastClientRef.current), []);
+
+  useEffect(() => {
+    if (mode !== 'quick' || !isQuickLive || !streamId) return;
+    let stopped = false;
+    let checking = false;
+    let timer = 0;
+    const syncStream = async () => {
+      if (stopped || checking) return;
+      checking = true;
+      try {
+        const result = await djangoApi.syncLiveStream(streamId);
+        if (result.active) {
+          stopped = true;
+          window.clearInterval(timer);
+          onIvsStartedRef.current();
+        }
+      } catch (error) {
+        console.warn('IVS stream status could not be synchronized:', error);
+      } finally {
+        checking = false;
+      }
+    };
+
+    void syncStream();
+    timer = window.setInterval(() => void syncStream(), 5000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [mode, isQuickLive, streamId]);
 
   // Keep elapsed time for either the Studio monitor or the device-first quick live.
   useEffect(() => {

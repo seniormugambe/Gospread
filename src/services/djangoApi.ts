@@ -222,6 +222,24 @@ export interface PrayerRequestApi {
   created_at: string;
 }
 
+export interface LiveChatMessageApi {
+  id: number;
+  stream_id: number;
+  author_name: string;
+  author_avatar: string;
+  message: string;
+  is_host: boolean;
+  is_moderator: boolean;
+  is_pinned: boolean;
+  created_at: string;
+}
+
+export interface LiveViewerSessionApi {
+  joined: boolean;
+  viewer_count: number;
+  session_id: string;
+}
+
 export interface AudioSpaceTokenResponse {
   server_url: string;
   participant_token: string;
@@ -679,6 +697,32 @@ class DjangoApiClient {
     return this.getVideos(category, true);
   }
 
+  public async getLiveStreamChat(streamId: string | number): Promise<LiveChatMessageApi[]> {
+    const response = await this.request<{ results?: LiveChatMessageApi[]; count?: number; }>(`/streams/${encodeURIComponent(String(streamId))}/chat/`);
+    return Array.isArray(response) ? response : (response.results || []);
+  }
+
+  public async postLiveStreamChat(streamId: string | number, message: string): Promise<LiveChatMessageApi> {
+    return this.request<LiveChatMessageApi>(`/streams/${encodeURIComponent(String(streamId))}/chat/`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    });
+  }
+
+  public async joinLiveStream(streamId: string | number, sessionId: string): Promise<LiveViewerSessionApi> {
+    return this.request<LiveViewerSessionApi>(`/streams/${encodeURIComponent(String(streamId))}/join/`, {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+  }
+
+  public async leaveLiveStream(streamId: string | number, sessionId: string): Promise<{ viewer_count: number; left: boolean }> {
+    return this.request<{ viewer_count: number; left: boolean }>(`/streams/${encodeURIComponent(String(streamId))}/leave/`, {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+  }
+
   public async createLiveStream(stream: {
     title: string;
     description?: string;
@@ -705,6 +749,12 @@ class DjangoApiClient {
 
   public async endLiveStream(streamId: string): Promise<void> {
     await this.request(`/streams/${encodeURIComponent(streamId)}/end/`, {
+      method: 'POST',
+    });
+  }
+
+  public async syncLiveStream(streamId: string | number): Promise<{ active: boolean; status: string }> {
+    return this.request(`/streams/${encodeURIComponent(String(streamId))}/sync/`, {
       method: 'POST',
     });
   }
