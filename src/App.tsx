@@ -99,9 +99,6 @@ import {
   AudioTrack,
   ChatMessage,
   ReactionType,
-  GRACE_SHORTS,
-  LIVE_VIDEO_STREAMS,
-  AUDIO_TRACKS,
 } from './data/gospelData';
 
 const LEGACY_PROFILE_PLACEHOLDERS = new Set([
@@ -281,27 +278,8 @@ export default function App() {
     setIsPipDocked(false);
     setActiveVideo(null);
   };
-  const [videoStreams, setVideoStreams] = useState<VideoStream[]>(LIVE_VIDEO_STREAMS);
-  const [shorts, setShorts] = useState<VideoStream[]>(() =>
-    GRACE_SHORTS.map(s => ({
-      id: s.id,
-      title: s.title,
-      speakerOrArtist: s.speaker,
-      churchOrMinistry: s.church,
-      channelAvatar: s.avatar,
-      subscribersCount: 'Verified',
-      likesCount: s.likes,
-      category: 'Sermon',
-      isLive: false,
-      viewersCount: s.amensCount * 12,
-      viewsText: `${s.likes} likes`,
-      duration: s.duration,
-      thumbnail: s.thumbnail,
-      description: s.tags.join(' '),
-      date: 'Today',
-      videoUrl: s.videoUrl,
-    }))
-  );
+  const [videoStreams, setVideoStreams] = useState<VideoStream[]>([]);
+  const [shorts, setShorts] = useState<VideoStream[]>([]);
   const [churches, setChurches] = useState<Awaited<ReturnType<typeof djangoApi.getChurchLocations>>>([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
   useEffect(() => {
@@ -327,76 +305,24 @@ export default function App() {
   useEffect(() => {
     let isMounted = true;
     const loadMedia = async () => {
-      setIsYoutubeLoading(true);
+      setIsYoutubeLoading(false);
+
       try {
         const backendChurches = await djangoApi.getChurchLocations();
         if (isMounted) setChurches(backendChurches);
       } catch (e) {
-        console.warn('Backend churches notice (using sanctuary directory):', e);
+        console.warn('Backend churches notice (home page intentionally empty):', e);
       }
 
-      try {
-        const [backendVideos, youtubeResult] = await Promise.all([
-          djangoApi.getVideos(),
-          youtubeApi.searchGospelVideos('Gospel Live Worship', true).catch(() => ({
-            videos: [],
-            isRealYoutubeData: false,
-          })),
-        ]);
-        if (isMounted) {
-          const youtubeLiveVideos = youtubeResult.isRealYoutubeData
-            ? youtubeResult.videos
-                .filter(video => video.isLive)
-                .map(video => ({ ...video, id: `youtube-${video.id}` }))
-            : [];
-          setVideoStreams(mergeVideoStreams(
-            backendVideos.length > 0 ? backendVideos : LIVE_VIDEO_STREAMS,
-            youtubeLiveVideos,
-          ));
-        }
-      } catch (e) {
-        console.warn('Backend media notice (using local streams):', e);
-        if (isMounted) {
-          setVideoStreams(LIVE_VIDEO_STREAMS);
-        }
+      if (isMounted) {
+        setVideoStreams([]);
+        setShorts([]);
+        setAudioQueue([]);
+        setCurrentAudio(null);
       }
-
-      try {
-        const backendShorts = await djangoApi.getShorts();
-        if (isMounted && backendShorts && backendShorts.length > 0) {
-          setShorts(backendShorts);
-        }
-      } catch (e) {
-        console.warn('Backend shorts notice (using local shorts):', e);
-      }
-
-      try {
-        const backendTracks = await djangoApi.getAudioTracks();
-        if (isMounted && backendTracks && backendTracks.length > 0) {
-          setAudioQueue(backendTracks);
-          if (!currentAudio && backendTracks[0]) {
-            setCurrentAudio(backendTracks[0]);
-          }
-        } else if (isMounted) {
-          setAudioQueue(AUDIO_TRACKS);
-          if (!currentAudio && AUDIO_TRACKS[0]) {
-            setCurrentAudio(AUDIO_TRACKS[0]);
-          }
-        }
-      } catch (e) {
-        console.warn('Backend audio tracks notice (using local playlist):', e);
-        if (isMounted) {
-          setAudioQueue(AUDIO_TRACKS);
-          if (!currentAudio && AUDIO_TRACKS[0]) {
-            setCurrentAudio(AUDIO_TRACKS[0]);
-          }
-        }
-      }
-
-      if (isMounted) setIsYoutubeLoading(false);
     };
 
-    loadMedia();
+    void loadMedia();
     return () => { isMounted = false; };
   }, []);
 

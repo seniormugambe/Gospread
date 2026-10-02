@@ -1,7 +1,7 @@
 // Production YouTube Data API v3 Service for Gospread Platform
 // Integrates official YouTube Data API endpoints for live gospel streams, sermons, and channels.
 
-import { VideoStream, LIVE_VIDEO_STREAMS } from '../data/gospelData';
+import { VideoStream } from '../data/gospelData';
 import { decodeHtml } from '../lib/utils';
 
 // Access YouTube API Key from client environment variables or provided default
@@ -204,16 +204,7 @@ class YouTubeApiService {
    * Fallback to curated gospel streams when API key is missing or quota limited
    */
   private getFallbackVideos(query: string, isLiveOnly: boolean): VideoStream[] {
-    let list = [...LIVE_VIDEO_STREAMS];
-    if (isLiveOnly) {
-      list = list.filter(v => v.isLive);
-    }
-    if (query && query.toLowerCase() !== 'gospel live worship sermon') {
-      const q = query.toLowerCase();
-      const filtered = list.filter(v => v.title.toLowerCase().includes(q) || v.speakerOrArtist.toLowerCase().includes(q));
-      return filtered.length > 0 ? filtered : list;
-    }
-    return list;
+    return [];
   }
 }
 
