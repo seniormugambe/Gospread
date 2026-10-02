@@ -634,6 +634,10 @@ export default function CreatePage({
     };
 
     try {
+      if (!djangoApi.getAccessToken() && currentUser?.token) {
+        djangoApi.setTokens(currentUser.token);
+      }
+
       if (!currentUser?.isLoggedIn || !djangoApi.getAccessToken()) {
         throw new Error('Your Gospread session is not connected to the API. Sign out and sign back in before starting a shared broadcast.');
       }
