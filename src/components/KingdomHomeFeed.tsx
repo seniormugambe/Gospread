@@ -753,11 +753,11 @@ export default function KingdomHomeFeed({
         </div>
 
         {/* Category Filter Pills */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <div className="flex w-full min-w-0 flex-nowrap touch-pan-x overscroll-x-contain gap-2 overflow-x-auto pb-1 scrollbar-none">
           <button
             type="button"
             onClick={() => setSelectedFilter('All')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-black shrink-0 transition ${
+            className={`flex min-h-11 items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-black shrink-0 transition ${
               selectedFilter === 'All'
                 ? 'bg-amber-400 border-amber-300 text-slate-950 shadow-lg shadow-amber-400/20'
                 : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:border-amber-500/50 hover:text-white'
@@ -774,7 +774,7 @@ export default function KingdomHomeFeed({
                 key={tab.id}
                 type="button"
                 onClick={() => setSelectedFilter(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-black shrink-0 transition ${
+                className={`flex min-h-11 items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-black shrink-0 transition ${
                   isActive
                     ? 'bg-amber-400 border-amber-300 text-slate-950 shadow-lg shadow-amber-400/20'
                     : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:border-amber-500/50 hover:text-white'
