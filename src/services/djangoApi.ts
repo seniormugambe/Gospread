@@ -698,6 +698,13 @@ class DjangoApiClient {
     });
   }
 
+  public async updateLiveStreamPlayback(streamId: string, playbackUrl: string): Promise<void> {
+    await this.request(`/streams/${encodeURIComponent(streamId)}/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ playback_url: playbackUrl }),
+    });
+  }
+
   public async getShorts(): Promise<VideoStream[]> {
     try {
       const res = await this.request<any[] | { results: any[] }>('/shorts/').catch(() => []);

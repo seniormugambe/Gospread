@@ -187,6 +187,7 @@ export interface CreatePageProps {
   onPublishSuccess: (newStream: VideoStream) => void;
   onLiveCreated?: (newStream: VideoStream, replacedId?: string) => void;
   onLiveEnded?: (streamId: string) => void;
+  onLivePlaybackUpdated?: (streamId: string, playbackUrl: string) => void;
   onCancel: () => void;
   activeAudioSpace?: ActiveAudioSpace | null;
   onAudioSpaceChange?: (space: ActiveAudioSpace | null) => void;
@@ -290,6 +291,7 @@ export default function CreatePage({
   onPublishSuccess, 
   onLiveCreated,
   onLiveEnded,
+  onLivePlaybackUpdated,
   onCancel,
   onAudioSpaceChange,
   theme = 'dark'
@@ -1072,6 +1074,14 @@ export default function CreatePage({
             scripture={liveScripture || 'Isaiah 40:31'}
             streamKey={liveStreamKey}
             rtmpUrl={rtmpServerUrl}
+            onPlaybackUrlChange={(playbackUrl) => {
+              if (!activeLiveStreamId) return;
+              void djangoApi.updateLiveStreamPlayback(activeLiveStreamId, playbackUrl)
+                .then(() => onLivePlaybackUpdated?.(activeLiveStreamId, playbackUrl))
+                .catch(error => {
+                  setLivePublishError(error instanceof Error ? error.message : 'Could not connect the live video source.');
+                });
+            }}
             onEndStream={handleEndLiveStream}
             onBackToStudio={() => setStudioAction('live')}
           />

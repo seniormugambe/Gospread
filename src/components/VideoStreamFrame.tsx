@@ -397,6 +397,16 @@ export default function VideoStreamFrame({
             ))}
           </div>
         </div>
+      ) : !hasRealPlayback && video.isLive ? (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-slate-950 px-6 text-center text-white">
+          <Radio className="h-10 w-10 text-red-500" />
+          <div>
+            <h2 className="text-base font-bold">Live source not connected</h2>
+            <p className="mt-1 max-w-md text-xs text-slate-400">
+              The host has not connected a YouTube live video or stream playback URL yet.
+            </p>
+          </div>
+        </div>
       ) : !hasRealPlayback ? (
         <img
           src={activeFrameSrc}

@@ -875,6 +875,12 @@ export default function App() {
     ));
   };
 
+  const handleLivePlaybackUpdated = (streamId: string, playbackUrl: string) => {
+    setVideoStreams(prev => prev.map(stream =>
+      stream.id === streamId ? { ...stream, streamUrl: playbackUrl, videoUrl: playbackUrl } : stream
+    ));
+  };
+
   const handleNavigateHome = () => {
     setActiveTab('platform');
     setSelectedCategory('All');
@@ -1635,6 +1641,7 @@ export default function App() {
                 onPublishSuccess={handlePublishSuccess}
                 onLiveCreated={handleLiveCreated}
                 onLiveEnded={handleLiveEnded}
+                onLivePlaybackUpdated={handleLivePlaybackUpdated}
                 onCancel={handleNavigateHome}
                 activeAudioSpace={activeAudioSpace}
                 onAudioSpaceChange={handleAudioSpaceChange}

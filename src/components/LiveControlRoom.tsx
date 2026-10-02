@@ -89,6 +89,7 @@ interface LiveControlRoomProps {
   streamKey: string;
   rtmpUrl: string;
   youtubeVideoId?: string;
+  onPlaybackUrlChange?: (playbackUrl: string) => void;
   onEndStream: (recordedData: {
     title: string;
     description: string;
@@ -116,6 +117,7 @@ export default function LiveControlRoom({
   streamKey,
   rtmpUrl,
   youtubeVideoId: initialYoutubeVideoId,
+  onPlaybackUrlChange,
   onEndStream,
   onBackToStudio
 }: LiveControlRoomProps) {
@@ -130,6 +132,15 @@ export default function LiveControlRoom({
     initialYoutubeVideoId ? 'youtube' : 'webcam'
   );
   const [youtubeVideoId, setYoutubeVideoId] = useState(initialYoutubeVideoId || '');
+
+  useEffect(() => {
+    if (videoSourceMode !== 'youtube') {
+      onPlaybackUrlChange?.('');
+      return;
+    }
+    const videoId = youtubeVideoId.match(/^[\w-]{11}$/)?.[0];
+    onPlaybackUrlChange?.(videoId ? `https://www.youtube.com/watch?v=${videoId}` : '');
+  }, [videoSourceMode, youtubeVideoId, onPlaybackUrlChange]);
 
   // Webcam & Audio Stream state
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -453,8 +464,12 @@ export default function LiveControlRoom({
       totalWorshippers: worshipperCount + 890,
       peakWorshippers: peakWorshippers,
       prayersCount: prayerRequests.length + 31,
-      thumbnail: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
-      videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+      thumbnail: videoSourceMode === 'youtube' && youtubeVideoId
+        ? `https://i.ytimg.com/vi/${youtubeVideoId}/maxresdefault.jpg`
+        : '',
+      videoUrl: videoSourceMode === 'youtube' && /^[\w-]{11}$/.test(youtubeVideoId)
+        ? `https://www.youtube.com/watch?v=${youtubeVideoId}`
+        : ''
     });
   };
 
@@ -587,7 +602,11 @@ export default function LiveControlRoom({
                       type="text"
                       placeholder="e.g. dQw4w9WgXcQ"
                       value={youtubeVideoId}
-                      onChange={(e) => setYoutubeVideoId(e.target.value.trim())}
+                      onChange={(e) => {
+                        const input = e.target.value.trim();
+                        const videoId = input.match(/^[\w-]{11}$/)?.[0];
+                        setYoutubeVideoId(videoId || input);
+                      }}
                       className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none"
                     />
                     <a
