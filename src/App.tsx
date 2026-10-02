@@ -1069,7 +1069,6 @@ export default function App() {
                 setFollowToast('🔔 Notifications are active for followed ministries');
                 setTimeout(() => setFollowToast(null), 3000);
               }}
-              onOpenDjango={() => setShowDjangoModal(true)}
               onOpenAuth={() => setShowAuthModal(true)}
               onOpenAuthPage={handleOpenAuthPage}
               onLogout={() => {

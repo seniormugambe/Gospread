@@ -9,7 +9,6 @@ import {
   Sun,
   ShieldCheck,
   ChevronRight,
-  Database,
   Bookmark,
   Users,
   Heart,
@@ -33,7 +32,6 @@ interface UserAccountMenuDropdownProps {
   onOpenSaved?: () => void;
   onOpenPrayer?: () => void;
   onOpenNotifications?: () => void;
-  onOpenDjango: () => void;
   onOpenAuth: () => void;
   onOpenAuthPage?: (mode?: 'signin' | 'signup') => void;
   onLogout?: () => void;
@@ -54,7 +52,6 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
   onOpenSaved,
   onOpenPrayer,
   onOpenNotifications,
-  onOpenDjango,
   onOpenAuth,
   onOpenAuthPage,
   onLogout,
@@ -307,21 +304,6 @@ export const UserAccountMenuDropdown: React.FC<UserAccountMenuDropdownProps> = (
           </button>
 
           <hr className="border-slate-800/90 my-1" />
-
-          {/* Django Backend Inspector */}
-          <button
-            onClick={() => {
-              onClose();
-              onOpenDjango();
-            }}
-            className="w-full flex items-center justify-between px-3 py-1.5 rounded-2xl hover:bg-slate-800/80 text-slate-400 hover:text-emerald-300 transition group text-[11px]"
-          >
-            <div className="flex items-center gap-2">
-              <Database className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Django Backend Status</span>
-            </div>
-            <span className="text-[9px] text-emerald-400 font-mono">v5.0 REST</span>
-          </button>
 
           {isLoggedIn ? (
             <button
