@@ -931,7 +931,7 @@ export default function App() {
   });
 
   return (
-    <div className={`min-h-screen font-sans selection:bg-pink-500 selection:text-white flex flex-col pb-20 transition-all duration-500 relative overflow-x-hidden ${theme === 'light' ? 'light-theme text-[#0f172a]' : 'bg-[#0f0f0f] text-slate-100'}`}>
+    <div className={`min-h-screen font-sans selection:bg-pink-500 selection:text-white flex flex-col pb-20 transition-all duration-500 relative overflow-x-clip ${theme === 'light' ? 'light-theme text-[#0f172a]' : 'bg-[#0f0f0f] text-slate-100'}`}>
       
       {/* ☁️ FLOATING SUNSET PINK & BLUE CLOUD BACKDROP LAYERS */}
       {theme === 'light' && (
