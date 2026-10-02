@@ -133,6 +133,13 @@ const PUBLIC_READ_ENDPOINTS = new Set([
   '/shorts/',
   '/worship-songs/',
 ]);
+const PUBLIC_AUTH_ENDPOINTS = new Set([
+  '/auth/token/',
+  '/auth/signup/',
+  '/auth/login/',
+  '/auth/register/',
+  '/auth/logout/',
+]);
 
 export interface DjangoApiError {
   detail?: string;
@@ -346,6 +353,7 @@ class DjangoApiClient {
     const csrfToken = this.getCsrfToken();
     const method = options.method?.toUpperCase() || 'GET';
     const isPublicRead = PUBLIC_READ_ENDPOINTS.has(cleanEndpoint) && ['GET', 'HEAD', 'OPTIONS'].includes(method);
+    const isPublicAuth = PUBLIC_AUTH_ENDPOINTS.has(cleanEndpoint);
 
     const headers: Record<string, string> = {
       'Accept': 'application/json',
@@ -355,7 +363,7 @@ class DjangoApiClient {
       headers['Content-Type'] = 'application/json';
     }
 
-    if (token && !isPublicRead) {
+    if (token && !isPublicRead && !isPublicAuth) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
