@@ -804,10 +804,17 @@ export default function CreatePage({
   };
 
   // File Selector Handler
+  const MAX_VIDEO_SIZE_BYTES = 10 * 1024 * 1024 * 1024; // 10 GB
   const handleFileChosen = (file: File) => {
     // Validate file type
     if (!file.type.startsWith('video/')) {
       setExternalImportError('Please select a video file (MP4, MOV, AVI, etc.).');
+      return;
+    }
+    // Validate file size
+    if (file.size > MAX_VIDEO_SIZE_BYTES) {
+      const sizeGB = (file.size / (1024 * 1024 * 1024)).toFixed(1);
+      setExternalImportError(`File is too large (${sizeGB} GB). Maximum allowed size is 10 GB.`);
       return;
     }
     setExternalImportError(null);
@@ -1033,51 +1040,52 @@ export default function CreatePage({
   };
 
   // External Import Handler 1: YouTube
+  // NOTE: Server-side YouTube downloading is not yet implemented.
+  // We validate the URL and show a clear message rather than faking progress.
   const handleYoutubeImportSubmit = (e: FormEvent) => {
     e.preventDefault();
     setExternalImportError(null);
-    if (!youtubeImportUrl.trim()) return;
+    const url = youtubeImportUrl.trim();
+    if (!url) return;
 
-    setIsImportingExternal(true);
+    // Basic YouTube URL validation
+    const ytPattern = /^https?:\/\/(www\.)?(youtube\.com\/(watch\?v=|shorts\/)|youtu\.be\/)[\w-]{8,}/;
+    if (!ytPattern.test(url)) {
+      setExternalImportError('Please enter a valid YouTube video URL (e.g. https://www.youtube.com/watch?v=...).');
+      return;
+    }
 
-    setTimeout(() => {
-      setIsImportingExternal(false);
-      // Auto populate title and metadata from video URL
-      setUploadTitle(`Sunday Worship & Prophetic Word — ${ministryName}`);
-      setUploadSpeaker(ownerName);
-      setUploadThumbnail('https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80');
-      setSelectedFile({
-        name: `YouTube_Import_${Date.now()}.mp4`,
-        sizeFormatted: '1.2 GB',
-        sizeBytes: 1.2 * 1024 * 1024 * 1024,
-        type: 'video/mp4'
-      });
-      setUploadStep('details');
-    }, 1200);
+    setExternalImportError(
+      'YouTube import is not yet available. Please download the video first and upload it from your device.',
+    );
   };
 
   // External Import Handler 2: Direct Video URL / Cloud Source
+  // NOTE: Remote URL ingestion is not yet implemented on the backend.
+  // We validate the URL format and show a clear message instead of faking progress.
   const handleDirectUrlImportSubmit = (e: FormEvent) => {
     e.preventDefault();
     setExternalImportError(null);
-    if (!videoDirectUrl.trim()) return;
+    const url = videoDirectUrl.trim();
+    if (!url) return;
 
-    setIsImportingExternal(true);
+    // Basic URL + video-extension check
+    const urlPattern = /^https?:\/\/.+/;
+    if (!urlPattern.test(url)) {
+      setExternalImportError('Please enter a valid URL starting with https://');
+      return;
+    }
 
-    setTimeout(() => {
-      setIsImportingExternal(false);
-      const urlParts = videoDirectUrl.split('/');
-      const fileName = urlParts[urlParts.length - 1] || 'Sermon_Master_1080p.mp4';
-      setUploadTitle(fileName.replace(/[-_.]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
-      setUploadThumbnail('https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80');
-      setSelectedFile({
-        name: fileName,
-        sizeFormatted: '2.4 GB',
-        sizeBytes: 2.4 * 1024 * 1024 * 1024,
-        type: 'video/mp4'
-      });
-      setUploadStep('details');
-    }, 1200);
+    const lowerUrl = url.toLowerCase();
+    const hasVideoExt = ['.mp4', '.mov', '.webm', '.mkv', '.avi', '.m3u8'].some(ext => lowerUrl.includes(ext));
+    if (!hasVideoExt) {
+      setExternalImportError('The URL must point directly to a video file (e.g. .mp4, .mov, .webm).');
+      return;
+    }
+
+    setExternalImportError(
+      'Remote URL ingestion is not yet available. Please download the file and upload it from your device.',
+    );
   };
 
   // Submit Handler for Action 3: Schedule Broadcast
@@ -2231,6 +2239,18 @@ export default function CreatePage({
                     </div>
                   </div>
 
+                  {/* Device upload validation / pre-flight error */}
+                  {externalImportError && uploadMode === 'device' && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/30 flex items-start gap-2.5"
+                    >
+                      <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                      <p className="text-xs text-rose-300 font-semibold leading-relaxed">{externalImportError}</p>
+                    </motion.div>
+                  )}
+
                 </>
               )}
 
@@ -2260,16 +2280,23 @@ export default function CreatePage({
                         type="url"
                         required
                         value={videoDirectUrl}
-                        onChange={(e) => setVideoDirectUrl(e.target.value)}
+                        onChange={(e) => { setVideoDirectUrl(e.target.value); setExternalImportError(null); }}
                         placeholder="https://storage.googleapis.com/ministry-media/sundayservice_1080p.mp4"
                         className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none font-mono"
                       />
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 text-xs text-slate-400 flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span>Gospread will stream and transcode the remote video asset directly to CDN edge nodes.</span>
+                    <div className="p-3.5 rounded-2xl bg-amber-950/30 border border-amber-500/20 text-xs text-amber-300 flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <span>Remote URL ingestion is <strong>not yet available</strong>. Please download the video and upload it from your device instead.</span>
                     </div>
+
+                    {externalImportError && uploadMode === 'url' && (
+                      <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-xs text-rose-300 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                        <span>{externalImportError}</span>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-end gap-3 pt-2">
                       <button
@@ -2328,16 +2355,23 @@ export default function CreatePage({
                         type="url"
                         required
                         value={youtubeImportUrl}
-                        onChange={(e) => setYoutubeImportUrl(e.target.value)}
+                        onChange={(e) => { setYoutubeImportUrl(e.target.value); setExternalImportError(null); }}
                         placeholder="https://www.youtube.com/watch?v=sermon_id or https://youtu.be/..."
                         className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-red-500 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none font-mono"
                       />
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-red-950/30 border border-red-500/20 text-xs text-slate-300 flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-                      <span>Automatic Metadata Extraction: Gospread will pull your high-res thumbnail, title, and timestamps.</span>
+                    <div className="p-3.5 rounded-2xl bg-amber-950/30 border border-amber-500/20 text-xs text-amber-300 flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <span>YouTube direct import is <strong>not yet available</strong>. Please download the video first and upload it from your device.</span>
                     </div>
+
+                    {externalImportError && uploadMode === 'youtube' && (
+                      <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-xs text-rose-300 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                        <span>{externalImportError}</span>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-end gap-3 pt-2">
                       <button
@@ -2356,12 +2390,12 @@ export default function CreatePage({
                         {isImportingExternal ? (
                           <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Extracting YouTube Metadata...</span>
+                            <span>Validating...</span>
                           </>
                         ) : (
                           <>
                             <Youtube className="w-4 h-4" />
-                            <span>Import from YouTube</span>
+                            <span>Check URL</span>
                             <ArrowRight className="w-4 h-4" />
                           </>
                         )}
@@ -2441,34 +2475,55 @@ export default function CreatePage({
                   onClick={() => {
                     setUploadStep('select');
                     setSelectedFile(null);
+                    setSelectedMediaFile(null);
                     setUploadProgressPercent(0);
+                    setUploadedBytes(0);
+                    setExternalImportError(null);
+                    uploadedSermonRef.current = null;
                   }}
                   className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
                 >
                   Cancel Upload
                 </button>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsUploadPaused(!isUploadPaused)}
-                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold transition"
-                  >
-                    {isUploadPaused ? 'Resume Upload' : 'Pause Upload'}
-                  </button>
+                {isRealUploadInProgress && (
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                    <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                    <span>Uploading to server…</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Upload failure banner with retry */}
+              {externalImportError && !isRealUploadInProgress && (
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                >
+                  <div className="flex items-start gap-2.5 text-xs text-rose-300">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
+                    <span className="font-semibold leading-relaxed">{externalImportError}</span>
+                  </div>
                   <button
                     type="button"
                     onClick={() => {
-                      setUploadProgressPercent(100);
-                      setUploadedBytes(totalBytes);
-                      setUploadStep('processing');
+                      setExternalImportError(null);
+                      setUploadProgressPercent(0);
+                      setUploadedBytes(0);
+                      setIsRealUploadInProgress(false);
+                      uploadedSermonRef.current = null;
+                      // Re-trigger the upload useEffect by briefly resetting to select then back
+                      setUploadStep('select');
+                      // Small delay lets state flush before the user re-picks the file
                     }}
-                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition"
+                    className="shrink-0 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
                   >
-                    Skip to Processing
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Try Again
                   </button>
-                </div>
-              </div>
+                </motion.div>
+              )}
             </motion.div>
           )}
 
