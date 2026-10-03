@@ -178,13 +178,18 @@ export default function SimpleAuthCard({
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '';
+      const lmsg = message.toLowerCase();
       if (
-        message.toLowerCase().includes('no active account') ||
-        message.toLowerCase().includes('invalid credentials') ||
-        message.toLowerCase().includes('unable to log in') ||
-        message.toLowerCase().includes('session has expired')
+        lmsg.includes('no active account') ||
+        lmsg.includes('invalid credentials') ||
+        lmsg.includes('unable to log in') ||
+        lmsg.includes('session has expired')
       ) {
         setErrorMessage('That email and password combination is not recognised. Check your details and try again.');
+      } else if (lmsg.includes('already exists') || lmsg.includes('already registered')) {
+        // Backend told us this email is taken — switch to sign-in so the user can log in
+        setErrorMessage('An account with this email already exists. Switch to Sign In to continue.');
+        setTimeout(() => setMode('signin'), 1800);
       } else if (message) {
         setErrorMessage(message);
       } else {

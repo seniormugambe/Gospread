@@ -87,6 +87,14 @@ class SignupSerializer(serializers.ModelSerializer):
         fields = ("id", "email", "password", "name", "church_name", "church_id", "role")
         read_only_fields = ("id",)
 
+    def validate_email(self, value):
+        email = value.strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError(
+                "An account with this email already exists. Please sign in instead."
+            )
+        return email
+
     def validate(self, attrs):
         attrs["email"] = attrs["email"].strip().lower()
         return attrs
