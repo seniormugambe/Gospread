@@ -401,7 +401,9 @@ class DjangoApiClient {
 
       const canRefresh = Boolean(token && this.getRefreshToken())
         && !cleanEndpoint.startsWith('/auth/token/refresh/')
-        && !cleanEndpoint.startsWith('/auth/logout/');
+        && !cleanEndpoint.startsWith('/auth/logout/')
+        && !cleanEndpoint.startsWith('/auth/token/')
+        && !cleanEndpoint.startsWith('/auth/login/');
       if (response.status === 401 && canRefresh) {
         const refreshedToken = await this.refreshAccessToken();
         if (refreshedToken) {
@@ -426,7 +428,14 @@ class DjangoApiClient {
         });
       }
 
-      if (response.status === 401 && token && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      // Only clear session on 401 for authenticated non-auth endpoints.
+      // Never clear on login/signup endpoints — their 401 means wrong password,
+      // not an expired session, and the real error must surface to the user.
+      const isAuthEndpoint = cleanEndpoint.startsWith('/auth/token/')
+        || cleanEndpoint.startsWith('/auth/login/')
+        || cleanEndpoint.startsWith('/auth/signup/')
+        || cleanEndpoint.startsWith('/auth/register/');
+      if (response.status === 401 && token && !['GET', 'HEAD', 'OPTIONS'].includes(method) && !isAuthEndpoint) {
         this.clearTokens();
         localStorage.removeItem('gospread_user_session');
         throw new Error('Your session has expired. Please sign in again.');
@@ -440,8 +449,16 @@ class DjangoApiClient {
 
       if (!response.ok) {
         const errorData: DjangoApiError = await response.json().catch(() => ({ detail: response.statusText }));
-        const errorMessage = errorData.detail || errorData.non_field_errors?.[0] || Object.values(errorData)[0] || `Django API Error: ${response.status}`;
-        throw new Error(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage));
+        // Walk through common DRF error shapes to find the most useful message
+        let errorMessage: string =
+          errorData.detail ||
+          errorData.non_field_errors?.[0] ||
+          (Array.isArray(Object.values(errorData)[0])
+            ? (Object.values(errorData)[0] as string[])[0]
+            : Object.values(errorData)[0]) ||
+          `API Error ${response.status}`;
+        if (typeof errorMessage !== 'string') errorMessage = JSON.stringify(errorMessage);
+        throw new Error(errorMessage);
       }
 
       return await response.json();

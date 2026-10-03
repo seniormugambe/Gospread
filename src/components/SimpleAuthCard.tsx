@@ -178,17 +178,13 @@ export default function SimpleAuthCard({
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '';
-      // Map known backend messages to user-friendly text
       if (
         message.toLowerCase().includes('no active account') ||
         message.toLowerCase().includes('invalid credentials') ||
-        message.toLowerCase().includes('unable to log in')
+        message.toLowerCase().includes('unable to log in') ||
+        message.toLowerCase().includes('session has expired')
       ) {
         setErrorMessage('That email and password combination is not recognised. Check your details and try again.');
-      } else if (message.toLowerCase().includes('password')) {
-        setErrorMessage(message); // surface password validation errors directly (too short, too common, etc.)
-      } else if (message.toLowerCase().includes('email')) {
-        setErrorMessage(message);
       } else if (message) {
         setErrorMessage(message);
       } else {
