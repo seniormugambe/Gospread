@@ -582,37 +582,75 @@ class DjangoApiClient {
 
     // Use XHR for real upload progress; fall back to fetch when no callback needed
     if (onProgress) {
-      return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        const token = this.getAccessToken();
-        xhr.open('POST', `${this.baseUrl}/sermons/`);
-        xhr.setRequestHeader('Accept', 'application/json');
-        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-        xhr.upload.addEventListener('progress', (event) => {
-          if (event.lengthComputable) {
-            onProgress(Math.round((event.loaded / event.total) * 100), event.loaded, event.total);
-          }
-        });
-        xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              resolve(JSON.parse(xhr.responseText));
-            } catch {
-              resolve({});
+      // Ensure we have a fresh token before starting — refresh if possible
+      let token = this.getAccessToken();
+      if (!token) {
+        // No token at all — the user is not signed in
+        throw new Error('You must be signed in to upload media.');
+      }
+
+      // If a refresh token exists, proactively refresh to avoid mid-upload expiry
+      const refreshToken = this.getRefreshToken();
+      if (refreshToken) {
+        try {
+          const refreshed = await this.refreshAccessToken();
+          if (refreshed) token = refreshed;
+        } catch {
+          // Refresh failed; proceed with existing token and let the 401 handler below deal with it
+        }
+      }
+
+      const sendXhr = (authToken: string): Promise<any> =>
+        new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', `${this.baseUrl}/sermons/`);
+          xhr.setRequestHeader('Accept', 'application/json');
+          xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+          xhr.upload.addEventListener('progress', (event) => {
+            if (event.lengthComputable) {
+              onProgress(Math.round((event.loaded / event.total) * 100), event.loaded, event.total);
             }
-          } else {
-            let message = `Upload failed (${xhr.status})`;
-            try {
-              const err = JSON.parse(xhr.responseText);
-              message = err.detail || err.non_field_errors?.[0] || Object.values(err)[0] || message;
-            } catch { /* ignore */ }
-            reject(new Error(typeof message === 'string' ? message : JSON.stringify(message)));
-          }
+          });
+          xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try { resolve(JSON.parse(xhr.responseText)); } catch { resolve({}); }
+            } else {
+              // Pass the status and raw response back so the caller can retry on 401
+              const err = new Error(`HTTP_${xhr.status}`);
+              (err as any).status = xhr.status;
+              (err as any).responseText = xhr.responseText;
+              reject(err);
+            }
+          });
+          xhr.addEventListener('error', () => reject(new Error('Network error — upload could not be completed.')));
+          xhr.addEventListener('abort', () => reject(new Error('Upload was cancelled.')));
+          xhr.send(formData);
         });
-        xhr.addEventListener('error', () => reject(new Error('Network error — upload could not be completed.')));
-        xhr.addEventListener('abort', () => reject(new Error('Upload was cancelled.')));
-        xhr.send(formData);
-      });
+
+      try {
+        return await sendXhr(token);
+      } catch (err: any) {
+        // On 401, try once to refresh the token and retry the upload
+        if (err?.status === 401) {
+          const retryToken = await this.refreshAccessToken().catch(() => null);
+          if (retryToken) {
+            return await sendXhr(retryToken);
+          }
+          // Refresh failed — session is fully expired
+          this.clearTokens();
+          localStorage.removeItem('gospread_user_session');
+          throw new Error('Your session has expired. Please sign in again and retry the upload.');
+        }
+        // Parse backend error message from non-401 failures
+        let message = err?.message || 'Upload failed. Please try again.';
+        if (err?.responseText) {
+          try {
+            const parsed = JSON.parse(err.responseText);
+            message = parsed.detail || parsed.non_field_errors?.[0] || Object.values(parsed)[0] || message;
+          } catch { /* ignore */ }
+        }
+        throw new Error(typeof message === 'string' ? message : JSON.stringify(message));
+      }
     }
 
     return await this.request('/sermons/', { method: 'POST', body: formData });
