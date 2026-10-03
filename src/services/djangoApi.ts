@@ -540,16 +540,19 @@ class DjangoApiClient {
     return await this.request<UserProfileData>('/auth/me/');
   }
 
-  public async createSermon(payload: {
-    title: string;
-    speaker: string;
-    description?: string;
-    category?: string;
-    kind?: 'video' | 'audio' | 'article';
-    is_published?: boolean;
-    media_file: File;
-    thumbnail_url?: string;
-  }): Promise<any> {
+  public async createSermon(
+    payload: {
+      title: string;
+      speaker: string;
+      description?: string;
+      category?: string;
+      kind?: 'video' | 'audio' | 'article';
+      is_published?: boolean;
+      media_file: File;
+      thumbnail_url?: string;
+    },
+    onProgress?: (percent: number, uploadedBytes: number, totalBytes: number) => void,
+  ): Promise<any> {
     const formData = new FormData();
     formData.append('title', payload.title);
     formData.append('speaker', payload.speaker);
@@ -558,10 +561,83 @@ class DjangoApiClient {
     formData.append('kind', payload.kind || 'video');
     formData.append('is_published', String(payload.is_published ?? true));
     formData.append('media_file', payload.media_file);
-    if (payload.thumbnail_url && !payload.thumbnail_url.startsWith('data:')) {
-      formData.append('thumbnail_url', payload.thumbnail_url);
+
+    // Handle thumbnail: send as a file when it's a data URI, otherwise as a URL string
+    if (payload.thumbnail_url) {
+      if (payload.thumbnail_url.startsWith('data:')) {
+        // Convert data URI → Blob → File so the backend stores it properly
+        const [header, base64] = payload.thumbnail_url.split(',');
+        const mimeMatch = header.match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const ext = mime.split('/')[1] || 'jpg';
+        const thumbFile = new File([bytes], `thumbnail.${ext}`, { type: mime });
+        formData.append('thumbnail_file', thumbFile);
+      } else {
+        formData.append('thumbnail_url', payload.thumbnail_url);
+      }
     }
+
+    // Use XHR for real upload progress; fall back to fetch when no callback needed
+    if (onProgress) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const token = this.getAccessToken();
+        xhr.open('POST', `${this.baseUrl}/sermons/`);
+        xhr.setRequestHeader('Accept', 'application/json');
+        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            onProgress(Math.round((event.loaded / event.total) * 100), event.loaded, event.total);
+          }
+        });
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              resolve(JSON.parse(xhr.responseText));
+            } catch {
+              resolve({});
+            }
+          } else {
+            let message = `Upload failed (${xhr.status})`;
+            try {
+              const err = JSON.parse(xhr.responseText);
+              message = err.detail || err.non_field_errors?.[0] || Object.values(err)[0] || message;
+            } catch { /* ignore */ }
+            reject(new Error(typeof message === 'string' ? message : JSON.stringify(message)));
+          }
+        });
+        xhr.addEventListener('error', () => reject(new Error('Network error — upload could not be completed.')));
+        xhr.addEventListener('abort', () => reject(new Error('Upload was cancelled.')));
+        xhr.send(formData);
+      });
+    }
+
     return await this.request('/sermons/', { method: 'POST', body: formData });
+  }
+
+  /** Verify that the authenticated user has a church profile before uploading. */
+  public async checkUserHasChurch(): Promise<boolean> {
+    try {
+      const token = this.getAccessToken();
+      if (!token) return false;
+      const response = await fetch(`${this.baseUrl}/churches/?limit=1`, {
+        headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) return false;
+      const data = await response.json() as any[] | { results: any[]; count?: number };
+      // Check if there are churches owned by this user — /churches/ only returns
+      // churches the user owns when authenticated (filtered server-side by owner)
+      const list = Array.isArray(data) ? data : (data.results || []);
+      // Filter to only owned churches (owner field == current user) if the API
+      // doesn't pre-filter; fall back to treating a non-empty list as sufficient.
+      return list.length > 0;
+    } catch {
+      // Network down — don't block the UI, let the backend reject if needed
+      return true;
+    }
   }
 
   public async logout(): Promise<void> {

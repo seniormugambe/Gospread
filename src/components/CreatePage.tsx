@@ -386,6 +386,12 @@ export default function CreatePage({
   const [totalBytes, setTotalBytes] = useState(1.8 * 1024 * 1024 * 1024); // default ~1.8 GB
   const [uploadSpeed, setUploadSpeed] = useState('');
   const [isUploadPaused, setIsUploadPaused] = useState(false);
+  // Tracks whether the 'uploading' step is a real XHR upload (true) or the
+  // processing/transcoding animation that follows it (false).
+  const [isRealUploadInProgress, setIsRealUploadInProgress] = useState(false);
+  // Holds the resolved sermon object returned from createSermon() so that
+  // handleFinalUploadPublish can build the VideoStream without re-uploading.
+  const uploadedSermonRef = useRef<any>(null);
 
   // Video processing stages state
   const [processingPercent, setProcessingPercent] = useState(0);
@@ -532,26 +538,63 @@ export default function CreatePage({
     }
   }, [currentUser]);
 
-  // Handle Direct Video Upload Simulation
+  // Handle Direct Video Upload — real XHR upload with progress tracking
   useEffect(() => {
-    let timer: any;
-    if (uploadStep === 'uploading' && !isUploadPaused) {
-      timer = setInterval(() => {
-        setUploadProgressPercent(prev => {
-          if (prev >= 100) {
-            clearInterval(timer);
-            setUploadStep('processing');
-            return 100;
-          }
-          const next = prev + Math.floor(Math.random() * 6) + 4;
-          const capped = Math.min(next, 100);
-          setUploadedBytes(Math.floor((capped / 100) * totalBytes));
-          return capped;
-        });
-      }, 350);
-    }
-    return () => clearInterval(timer);
-  }, [uploadStep, isUploadPaused, totalBytes]);
+    if (uploadStep !== 'uploading' || isRealUploadInProgress || !selectedMediaFile) return;
+
+    let cancelled = false;
+    setIsRealUploadInProgress(true);
+    setExternalImportError(null);
+    uploadedSermonRef.current = null;
+
+    const isScheduled = publishActionOption === 'schedule';
+    const isDraft = publishActionOption === 'save_draft';
+    const formattedTakeaways = keyTakeaways.length > 0
+      ? `\n\nKey Takeaways:\n${keyTakeaways.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
+      : '';
+
+    djangoApi.createSermon(
+      {
+        title: uploadTitle || selectedFile?.name?.replace(/\.[^/.]+$/, '') || 'Untitled Sermon',
+        speaker: uploadSpeaker || ownerName,
+        description: `${uploadDescription}${formattedTakeaways}`,
+        category: uploadCategory,
+        kind: 'video',
+        is_published: !isDraft && !isScheduled,
+        media_file: selectedMediaFile,
+        thumbnail_url: uploadThumbnail || undefined,
+      },
+      (percent, loaded, total) => {
+        if (cancelled) return;
+        setUploadProgressPercent(percent);
+        setUploadedBytes(loaded);
+        setTotalBytes(total);
+      },
+    )
+      .then((sermon) => {
+        if (cancelled) return;
+        uploadedSermonRef.current = sermon;
+        setUploadProgressPercent(100);
+        setUploadStep('processing');
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setUploadStep('select');
+        setUploadProgressPercent(0);
+        setExternalImportError(
+          error instanceof Error ? error.message : 'Upload failed. Please try again.',
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setIsRealUploadInProgress(false);
+      });
+
+    return () => {
+      cancelled = true;
+      setIsRealUploadInProgress(false);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadStep]);
 
   // Handle Cloud Transcoding & Metadata Processing Simulation
   useEffect(() => {
@@ -762,6 +805,13 @@ export default function CreatePage({
 
   // File Selector Handler
   const handleFileChosen = (file: File) => {
+    // Validate file type
+    if (!file.type.startsWith('video/')) {
+      setExternalImportError('Please select a video file (MP4, MOV, AVI, etc.).');
+      return;
+    }
+    setExternalImportError(null);
+
     setSelectedMediaFile(file);
     const sizeInGB = (file.size / (1024 * 1024 * 1024)).toFixed(1);
     const sizeFormatted = file.size > 1024 * 1024 * 1024 
@@ -779,6 +829,7 @@ export default function CreatePage({
     setUploadProgressPercent(0);
     setProcessingPercent(0);
     setProcessingStepIndex(0);
+    uploadedSermonRef.current = null;
     
     // Suggest Title from file name if generic
     const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
@@ -786,7 +837,25 @@ export default function CreatePage({
       setUploadTitle(cleanName.charAt(0).toUpperCase() + cleanName.slice(1));
     }
 
-    setUploadStep('uploading');
+    // Check church association before starting the upload
+    if (!currentUser?.isLoggedIn) {
+      setExternalImportError('You must be signed in to upload videos.');
+      onRequireAuth?.();
+      return;
+    }
+
+    djangoApi.checkUserHasChurch().then((hasChurch) => {
+      if (!hasChurch) {
+        setExternalImportError(
+          'You need a church or ministry profile before uploading media. Set one up in your account settings first.',
+        );
+        return;
+      }
+      setUploadStep('uploading');
+    }).catch(() => {
+      // If the check itself errors, let the upload proceed and show the backend error if it fails
+      setUploadStep('uploading');
+    });
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -853,10 +922,22 @@ export default function CreatePage({
   };
 
   // Final Publish Handler for Action 1: Upload Video
+  // The actual file upload happens as soon as the user selects a file (see the
+  // uploading useEffect above). By the time the user reaches this step the
+  // sermon record already exists in the backend (uploadedSermonRef.current).
   const handleFinalUploadPublish = async (e: FormEvent) => {
     e.preventDefault();
+    setExternalImportError(null);
+
+    // Guard: file must have been selected
     if (!selectedMediaFile) {
       setExternalImportError('Choose a video file before publishing.');
+      return;
+    }
+
+    // Guard: upload must have succeeded
+    if (!uploadedSermonRef.current) {
+      setExternalImportError('Your video is still uploading or the upload failed. Please wait or re-select the file.');
       return;
     }
 
@@ -866,17 +947,6 @@ export default function CreatePage({
       ? `\n\nKey Takeaways:\n${keyTakeaways.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
       : '';
 
-    try {
-      const uploadedSermon = await djangoApi.createSermon({
-        title: uploadTitle || 'Sunday Worship Service',
-        speaker: uploadSpeaker || ownerName,
-        description: `${uploadDescription}${formattedTakeaways}`,
-        category: uploadCategory,
-        kind: 'video',
-        is_published: !isDraft && !isScheduled,
-        media_file: selectedMediaFile,
-        thumbnail_url: uploadThumbnail,
-      });
     prepareGlobalRegistration();
 
     // Map Category to VideoStream Category
@@ -889,7 +959,7 @@ export default function CreatePage({
     const visibilityBadgeText = videoVisibility === 'public' ? 'Public' : videoVisibility === 'unlisted' ? 'Unlisted' : 'Private';
 
     const newVideo: VideoStream = {
-      id: String(uploadedSermon.id || `vod-${Date.now()}`),
+      id: String(uploadedSermonRef.current.id || `vod-${Date.now()}`),
       title: isScheduled ? `[UPCOMING] ${uploadTitle || 'Sunday Worship Service'}` : isDraft ? `[DRAFT] ${uploadTitle || 'Sunday Worship Service'}` : uploadTitle || 'Sunday Worship Service',
       speakerOrArtist: uploadSpeaker || ownerName,
       churchOrMinistry: uploadMinistry || ministryName,
@@ -910,11 +980,17 @@ export default function CreatePage({
       date: isScheduled ? formattedScheduleText : isDraft ? 'Saved in Creator Drafts' : 'Uploaded Just Now'
     };
 
+    // Reset upload state so the flow is clean for the next upload
+    uploadedSermonRef.current = null;
+    setSelectedMediaFile(null);
+    setSelectedFile(null);
+    setUploadProgressPercent(0);
+    setUploadedBytes(0);
+    setProcessingPercent(0);
+    setProcessingStepIndex(0);
+
     setCreatedStream(newVideo);
     setIsSubmitted(true);
-    } catch (error) {
-      setExternalImportError(error instanceof Error ? error.message : 'Media upload failed.');
-    }
   };
 
   // Submit Handler for Action 2: Go Live
