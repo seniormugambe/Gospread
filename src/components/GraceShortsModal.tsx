@@ -13,23 +13,52 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { GRACE_SHORTS, GraceShort } from '../data/gospelData';
+import { GRACE_SHORTS, GraceShort, VideoStream } from '../data/gospelData';
 import { GivingTarget } from './GivingModal';
 
 interface GraceShortsModalProps {
   onClose: () => void;
   onOpenGivingModal: (target: GivingTarget) => void;
   initialShortId?: string;
+  /** Live shorts from the Django backend (from /shorts/ + short-duration /sermons/) */
+  shorts?: VideoStream[];
+  onSelectVideo?: (video: VideoStream) => void;
+}
+
+/** Normalise a VideoStream into the shape GraceShortsModal expects internally */
+function videoStreamToGraceShort(v: VideoStream): GraceShort {
+  return {
+    id: v.id,
+    title: v.title,
+    speaker: v.speakerOrArtist,
+    church: v.churchOrMinistry,
+    avatar: v.channelAvatar,
+    likes: v.likesCount,
+    amensCount: v.viewersCount ?? 0,
+    videoUrl: v.videoUrl || v.thumbnail,
+    thumbnail: v.thumbnail,
+    duration: v.duration || '0:45',
+    tags: [v.category],
+  };
 }
 
 export default function GraceShortsModal({
   onClose,
   onOpenGivingModal,
-  initialShortId
+  initialShortId,
+  shorts = [],
+  onSelectVideo,
 }: GraceShortsModalProps) {
+  // Prefer live backend shorts; fall back to curated GRACE_SHORTS
+  const allShorts: GraceShort[] = shorts.length > 0
+    ? shorts.map(videoStreamToGraceShort)
+    : GRACE_SHORTS;
+  // Map back from GraceShort id → VideoStream for the play callback
+  const videoStreamById = new Map(shorts.map(v => [v.id, v]));
+
   const [currentIndex, setCurrentIndex] = useState(() => {
     if (initialShortId) {
-      const idx = GRACE_SHORTS.findIndex((s) => s.id === initialShortId);
+      const idx = allShorts.findIndex((s) => s.id === initialShortId);
       if (idx !== -1) return idx;
     }
     return 0;
@@ -38,19 +67,19 @@ export default function GraceShortsModal({
   const [amensCountMap, setAmensCountMap] = useState<Record<string, number>>({});
   const [isMuted, setIsMuted] = useState(false);
 
-  const hasShorts = GRACE_SHORTS.length > 0;
-  const currentShort = hasShorts ? GRACE_SHORTS[currentIndex] : null;
+  const hasShorts = allShorts.length > 0;
+  const currentShort = hasShorts ? allShorts[currentIndex] : null;
   const isLiked = currentShort ? (likedMap[currentShort.id] || false) : false;
   const amens = currentShort ? (amensCountMap[currentShort.id] || currentShort.amensCount) : 0;
 
   const handleNext = () => {
     if (!hasShorts) return;
-    setCurrentIndex((prev) => (prev + 1) % GRACE_SHORTS.length);
+    setCurrentIndex((prev) => (prev + 1) % allShorts.length);
   };
 
   const handlePrev = () => {
     if (!hasShorts) return;
-    setCurrentIndex((prev) => (prev === 0 ? GRACE_SHORTS.length - 1 : prev - 1));
+    setCurrentIndex((prev) => (prev === 0 ? allShorts.length - 1 : prev - 1));
   };
 
   const handleToggleAmen = () => {

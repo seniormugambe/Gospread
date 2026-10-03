@@ -618,28 +618,6 @@ class DjangoApiClient {
     return await this.request('/sermons/', { method: 'POST', body: formData });
   }
 
-  /** Verify that the authenticated user has a church profile before uploading. */
-  public async checkUserHasChurch(): Promise<boolean> {
-    try {
-      const token = this.getAccessToken();
-      if (!token) return false;
-      const response = await fetch(`${this.baseUrl}/churches/?limit=1`, {
-        headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) return false;
-      const data = await response.json() as any[] | { results: any[]; count?: number };
-      // Check if there are churches owned by this user — /churches/ only returns
-      // churches the user owns when authenticated (filtered server-side by owner)
-      const list = Array.isArray(data) ? data : (data.results || []);
-      // Filter to only owned churches (owner field == current user) if the API
-      // doesn't pre-filter; fall back to treating a non-empty list as sufficient.
-      return list.length > 0;
-    } catch {
-      // Network down — don't block the UI, let the backend reject if needed
-      return true;
-    }
-  }
-
   public async logout(): Promise<void> {
     const refresh = this.getRefreshToken();
     this.clearTokens();
@@ -714,6 +692,7 @@ class DjangoApiClient {
 
     // Map sermons
     for (const s of sermonsData) {
+      const durationSec: number = s.duration_seconds || 0;
       videoList.push({
         id: String(s.id),
         title: s.title,
@@ -724,9 +703,11 @@ class DjangoApiClient {
         likesCount: `${s.view_count || 0}`,
         category: s.category || 'Sermon',
         isLive: false,
+        // Sermons ≤ 3 min are treated as short-form clips in the home feed
+        isShort: durationSec > 0 && durationSec <= 180,
         viewersCount: s.view_count || 0,
         viewsText: `${s.view_count || 0} views`,
-        duration: s.duration_seconds ? `${Math.floor(s.duration_seconds / 60)}:${String(s.duration_seconds % 60).padStart(2, '0')}` : '45:00',
+        duration: durationSec ? `${Math.floor(durationSec / 60)}:${String(durationSec % 60).padStart(2, '0')}` : '45:00',
         thumbnail: s.thumbnail_url || 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&w=800&q=80',
         description: s.description || '',
         date: s.published_at ? new Date(s.published_at).toLocaleDateString() : 'Recent',
@@ -848,16 +829,17 @@ class DjangoApiClient {
       const items = Array.isArray(res) ? res : (res?.results || []);
       if (items.length > 0) {
         return items.map((short: any) => ({
-          id: String(short.id),
+          id: `short-${short.id}`,
           title: short.title,
           speakerOrArtist: short.speaker || short.church_name || 'Ministry Leader',
           churchOrMinistry: short.church_name || 'Gospread Ministry',
           channelAvatar: short.thumbnail_url || 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
           subscribersCount: 'Verified',
-          likesCount: String(short.like_count || '15K'),
-          category: 'Sermon',
+          likesCount: String(short.like_count || '0'),
+          category: 'Sermon' as const,
           isLive: false,
-          viewersCount: short.view_count || 1200,
+          isShort: true,
+          viewersCount: short.view_count || 0,
           viewsText: `${short.view_count || 0} views`,
           duration: short.duration_seconds ? `${Math.floor(short.duration_seconds / 60)}:${String(short.duration_seconds % 60).padStart(2, '0')}` : '0:45',
           thumbnail: short.thumbnail_url || 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=600&q=80',

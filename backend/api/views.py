@@ -289,14 +289,43 @@ class SermonViewSet(viewsets.ModelViewSet):
         return queryset.filter(is_published=True)
 
     def perform_create(self, serializer):
-        church = serializer.validated_data.get("church") or self.request.user.owned_churches.order_by("created_at").first()
+        church = serializer.validated_data.get("church")
+
         if church is None:
-            from rest_framework.exceptions import ValidationError
-            raise ValidationError({"church": "Create a church profile before uploading media."})
+            # Use the uploader's own church if they have one
+            church = self.request.user.owned_churches.order_by("created_at").first()
+
+        if church is None:
+            # Any authenticated user can upload — auto-create a personal channel so
+            # they don't have to set up a church profile first.
+            from django.utils.text import slugify as _slugify
+            name = (
+                self.request.user.get_full_name()
+                or self.request.user.username
+                or self.request.user.email.split("@")[0]
+            ).strip() or "My Channel"
+            base_slug = _slugify(name) or "channel"
+            slug = base_slug
+            suffix = 1
+            while Church.objects.filter(slug=slug).exists():
+                suffix += 1
+                slug = f"{base_slug}-{suffix}"
+            church = Church.objects.create(
+                name=name,
+                slug=slug,
+                owner=self.request.user,
+            )
+
         if church.owner_id != self.request.user.id:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You can only publish sermons for your own church.")
-        serializer.save(church=church)
+
+        # Set published_at when publishing immediately so date-based queries work
+        publish = serializer.validated_data.get("is_published", False)
+        if publish:
+            serializer.save(church=church, published_at=timezone.now())
+        else:
+            serializer.save(church=church)
 
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def save(self, request, pk=None):

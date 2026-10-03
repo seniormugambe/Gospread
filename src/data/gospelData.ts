@@ -8,6 +8,8 @@ export interface VideoStream {
   likesCount: string;
   category: 'Live Worship' | 'Sermon' | 'Choir Special' | 'Bible Study' | 'Gospel Music';
   isLive: boolean;
+  /** True when this stream is a short-form clip (≤ 3 min), sourced from /shorts/ */
+  isShort?: boolean;
   viewersCount?: number;
   viewsText?: string;
   duration?: string;

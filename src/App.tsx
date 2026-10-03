@@ -335,11 +335,18 @@ export default function App() {
         console.warn('Backend churches notice (home page intentionally empty):', e);
       }
 
-      if (isMounted) {
-        setVideoStreams([]);
-        setShorts([]);
-        setAudioQueue([]);
-        setCurrentAudio(null);
+      // Fetch videos and shorts in parallel on initial mount
+      try {
+        const [backendVideos, backendShorts] = await Promise.all([
+          djangoApi.getVideos(),
+          djangoApi.getShorts(),
+        ]);
+        if (isMounted) {
+          if (backendVideos.length > 0) setVideoStreams(backendVideos);
+          if (backendShorts.length > 0) setShorts(backendShorts);
+        }
+      } catch (e) {
+        console.warn('Backend media notice:', e);
       }
     };
 
@@ -351,14 +358,25 @@ export default function App() {
     let isMounted = true;
     const refreshPlatformVideos = async () => {
       try {
-        const backendVideos = await djangoApi.getVideos();
-        if (isMounted && backendVideos.length > 0) {
-          setVideoStreams(previous => mergeVideoStreams(previous, backendVideos));
+        const [backendVideos, backendShorts] = await Promise.all([
+          djangoApi.getVideos(),
+          djangoApi.getShorts(),
+        ]);
+        if (isMounted) {
+          if (backendVideos.length > 0) {
+            setVideoStreams(previous => mergeVideoStreams(previous, backendVideos));
+          }
+          if (backendShorts.length > 0) {
+            setShorts(previous => mergeVideoStreams(previous, backendShorts));
+          }
         }
       } catch (error) {
         console.warn('Live broadcast refresh notice:', error);
       }
     };
+
+    // Run once immediately so the feed populates without waiting 30s
+    void refreshPlatformVideos();
 
     const refreshInterval = window.setInterval(refreshPlatformVideos, 30_000);
     return () => {
@@ -841,8 +859,14 @@ export default function App() {
   };
 
   const handlePublishSuccess = (newStream: VideoStream) => {
-    setVideoStreams(prev => [newStream, ...prev]);
-    setActiveVideo(newStream);
+    if (newStream.isShort) {
+      // Short-form clip — goes into the shorts reel
+      setShorts(prev => [newStream, ...prev.filter(s => s.id !== newStream.id)]);
+    } else {
+      // Normal video — prepend to the main feed
+      setVideoStreams(prev => [newStream, ...prev.filter(s => s.id !== newStream.id)]);
+    }
+    setActiveVideo(newStream.isShort ? null : newStream);
     setActiveTab('platform');
   };
 

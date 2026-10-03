@@ -844,25 +844,15 @@ export default function CreatePage({
       setUploadTitle(cleanName.charAt(0).toUpperCase() + cleanName.slice(1));
     }
 
-    // Check church association before starting the upload
+    // Only require the user to be signed in — the backend auto-provisions a
+    // personal channel for any authenticated user on first upload.
     if (!currentUser?.isLoggedIn) {
       setExternalImportError('You must be signed in to upload videos.');
       onRequireAuth?.();
       return;
     }
 
-    djangoApi.checkUserHasChurch().then((hasChurch) => {
-      if (!hasChurch) {
-        setExternalImportError(
-          'You need a church or ministry profile before uploading media. Set one up in your account settings first.',
-        );
-        return;
-      }
-      setUploadStep('uploading');
-    }).catch(() => {
-      // If the check itself errors, let the upload proceed and show the backend error if it fails
-      setUploadStep('uploading');
-    });
+    setUploadStep('uploading');
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
