@@ -93,6 +93,14 @@ MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "api.User"
 
+# Use email-based authentication instead of Django's default username lookup.
+# SimpleJWT's TokenObtainPairSerializer calls django.contrib.auth.authenticate()
+# which forwards credentials as username= — EmailBackend resolves that to the
+# email field so login works correctly.
+AUTHENTICATION_BACKENDS = [
+    "api.backends.EmailBackend",
+]
+
 CORS_ALLOW_HEADERS = [
     "accept",
     "accept-encoding",
