@@ -1,18 +1,38 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import (
-    Church, ChurchEvent, Donation, GivingFund, LiveStream, LiveStreamChatMessage, LiveStreamViewer,
+    AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost,
+    Donation, GivingFund, LiveStream, LiveStreamChatMessage, LiveStreamViewer,
     PrayerComment, PrayerRequest, PaymentGatewayCheckout, SavedSermon, Scripture, Sermon,
     SermonShort, User, WatchProgress, WorshipSlide, WorshipSong,
 )
 
+
 @admin.register(User)
 class GospreadUserAdmin(UserAdmin):
-    fieldsets = UserAdmin.fieldsets + (("Gospread", {"fields": ("avatar_url",)}),)
-    add_fieldsets = UserAdmin.add_fieldsets + (("Gospread", {"fields": ("email",)}),)
-    list_display = ("email", "username", "is_staff", "is_active")
-    list_filter = ("is_staff", "is_active")
+    # Use email as the primary identifier throughout the admin
+    ordering = ("email",)
+    list_display = ("email", "username", "first_name", "last_name", "role", "is_staff", "is_active", "date_joined")
+    list_filter = ("role", "is_staff", "is_active", "is_superuser")
     search_fields = ("email", "username", "first_name", "last_name")
+    readonly_fields = ("date_joined", "last_login")
+
+    # Replace the default fieldsets so email appears at the top and is editable
+    fieldsets = (
+        (None, {"fields": ("email", "username", "password")}),
+        ("Personal info", {"fields": ("first_name", "last_name", "avatar_url", "bio")}),
+        ("Gospread", {"fields": ("role", "praise_xp", "streak_days", "last_checkin_date", "total_study_minutes")}),
+        ("Permissions", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
+        ("Important dates", {"fields": ("last_login", "date_joined")}),
+    )
+
+    # Fieldset shown when creating a new user via the admin
+    add_fieldsets = (
+        (None, {
+            "classes": ("wide",),
+            "fields": ("email", "username", "first_name", "last_name", "password1", "password2", "role", "is_staff", "is_active"),
+        }),
+    )
 
 
 @admin.register(Church)
@@ -155,3 +175,26 @@ class ScriptureAdmin(admin.ModelAdmin):
     list_display = ("reference", "translation", "is_active")
     list_filter = ("translation", "is_active")
     search_fields = ("reference", "text")
+
+
+class CommunityCommentInline(admin.TabularInline):
+    model = CommunityComment
+    extra = 0
+    autocomplete_fields = ("author",)
+
+
+@admin.register(CommunityPost)
+class CommunityPostAdmin(admin.ModelAdmin):
+    list_display = ("title", "author", "category", "is_anonymous", "created_at")
+    list_filter = ("category", "is_anonymous", "created_at")
+    search_fields = ("title", "content", "author__email", "scripture_reference")
+    autocomplete_fields = ("author", "church")
+    inlines = (CommunityCommentInline,)
+
+
+@admin.register(AudioSpace)
+class AudioSpaceAdmin(admin.ModelAdmin):
+    list_display = ("title", "host", "ministry_name", "is_live", "started_at", "ended_at")
+    list_filter = ("is_live", "started_at")
+    search_fields = ("title", "topic", "room_name", "host__email", "ministry_name")
+    autocomplete_fields = ("host",)
