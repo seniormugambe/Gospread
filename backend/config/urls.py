@@ -8,6 +8,7 @@ urlpatterns = [
     path("api/v1/", include("api.urls")),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Serve uploaded media files — in production Render uses the filesystem within
+# the same process, so this is required for media_url resolution to work.
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
