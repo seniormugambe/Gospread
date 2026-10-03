@@ -13,6 +13,7 @@ services:
     startCommand: >-
       test -n "$DATABASE_URL" || { echo "DATABASE_URL must be configured on Render to persist user accounts." >&2; exit 1; };
       python manage.py migrate --noinput &&
+      python manage.py ensure_superuser &&
       gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: DJANGO_SECRET_KEY
@@ -23,6 +24,10 @@ services:
         sync: false
       - key: DJANGO_ALLOWED_HOSTS
         value: "gospread-api.onrender.com,localhost,127.0.0.1"
+      - key: DJANGO_SUPERUSER_EMAIL
+        sync: false
+      - key: DJANGO_SUPERUSER_PASSWORD
+        sync: false
       - key: AWS_IVS_REGION
         value: "us-east-1"
       - key: AWS_ACCESS_KEY_ID
