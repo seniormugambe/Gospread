@@ -251,6 +251,17 @@ class SermonUploadSessionTests(APITestCase):
         self.assertEqual(repeated_complete.status_code, status.HTTP_200_OK)
         self.assertEqual(repeated_complete.data["id"], sermon.id)
 
+    def test_creator_without_church_can_complete_upload(self):
+        self.church.delete()
+        upload_id, started, file_bytes, _metadata = self.start_upload()
+        self.assertEqual(started.status_code, status.HTTP_200_OK)
+        self.assertEqual(self.put_chunk(upload_id, 0, file_bytes).status_code, status.HTTP_200_OK)
+
+        completed = self.client.post(f"/api/v1/sermons/uploads/{upload_id}/complete/")
+
+        self.assertEqual(completed.status_code, status.HTTP_201_CREATED, completed.data)
+        self.assertTrue(Church.objects.filter(owner=self.user).exists())
+
     def test_upload_sessions_are_private_to_their_owner(self):
         upload_id, started, file_bytes, _metadata = self.start_upload()
         self.assertEqual(started.status_code, status.HTTP_200_OK)
@@ -666,8 +677,8 @@ class ChurchEntryTests(APITestCase):
             "is_published": True,
         }, format="json")
 
-        self.assertEqual(sermon.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("church", sermon.data)
+        self.assertEqual(sermon.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(Church.objects.filter(owner=pastor).exists())
         self.assertEqual(short.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("church", short.data)
 

@@ -52,7 +52,15 @@ def _save_sermon_for_user(serializer, user):
     if church is None:
         church = user.owned_churches.order_by("created_at").first()
     if church is None:
-        raise ValidationError({"church": "Create a church or channel before uploading a sermon."})
+        from django.utils.text import slugify
+        name = (user.get_full_name() or user.username or user.email.split("@")[0]).strip() or "My Channel"
+        base_slug = slugify(name) or "channel"
+        slug = base_slug
+        suffix = 1
+        while Church.objects.filter(slug=slug).exists():
+            suffix += 1
+            slug = f"{base_slug}-{suffix}"
+        church = Church.objects.create(name=name, slug=slug, owner=user)
     if church.owner_id != user.id:
         from rest_framework.exceptions import PermissionDenied
         raise PermissionDenied("You can only publish sermons for your own church.")
