@@ -52,3 +52,5 @@ Video upload sessions accept files up to 10 GB in 8 MiB chunks and expire after 
 Partial chunks are stored under `MEDIA_ROOT/resumable_uploads`; use persistent shared storage before running multiple API instances or expecting in-flight uploads to survive an instance replacement.
 
 Scheduled sermons remain unpublished until their scheduled time. Sermon-feed requests publish overdue entries; deployments that need publication even when no feed is requested should run `python manage.py publish_scheduled_sermons` periodically.
+
+The Render prototype can start without `DATABASE_URL`; Django then uses SQLite at `backend/db.sqlite3`. Render's default service filesystem is ephemeral, so SQLite data can be lost when the instance is replaced or redeployed and is not suitable for durable accounts. When switching to PostgreSQL, set `DATABASE_URL` in the Render service environment (or link it to a Render database); Django will use it automatically.

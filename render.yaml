@@ -11,7 +11,6 @@ services:
       pip install -r requirements.txt
       python manage.py collectstatic --noinput
     startCommand: >-
-      test -n "$DATABASE_URL" || { echo "DATABASE_URL must be configured on Render to persist user accounts." >&2; exit 1; };
       python manage.py migrate --noinput &&
       python manage.py ensure_superuser &&
       gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
