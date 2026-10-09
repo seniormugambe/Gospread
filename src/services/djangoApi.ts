@@ -76,6 +76,7 @@ export interface VideoStream {
   likesCount: string;
   category: 'Live Worship' | 'Sermon' | 'Choir Special' | 'Bible Study' | 'Gospel Music';
   isLive: boolean;
+  isShort?: boolean;
   viewersCount?: number;
   viewsText?: string;
   duration?: string;
@@ -565,6 +566,152 @@ class DjangoApiClient {
       category?: string;
       kind?: 'video' | 'audio' | 'article';
       is_published?: boolean;
+      scheduled_for?: string;
+      tags?: string[];
+      scripture_reference?: string;
+      key_takeaways?: string[];
+      visibility?: 'public' | 'unlisted' | 'private';
+      audience?: 'all_ages' | 'made_for_kids';
+      media_file: File;
+      thumbnail_url?: string;
+    },
+    onProgress?: (percent: number, uploadedBytes: number, totalBytes: number) => void,
+  ): Promise<Record<string, unknown>> {
+    if (!onProgress) {
+      return await this.createSermonMultipartLegacy(payload);
+    }
+
+    const { media_file: file, ...metadata } = payload;
+    const metadataKey = JSON.stringify({
+      file_name: file.name,
+      file_size: file.size,
+      file_last_modified: file.lastModified,
+      metadata,
+    });
+    const metadataHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(metadataKey));
+    const storageKey = `gospread_sermon_upload_${Array.from(
+      new Uint8Array(metadataHash),
+      byte => byte.toString(16).padStart(2, '0'),
+    ).join('')}`;
+    const storedUploadId = sessionStorage.getItem(storageKey);
+    let uploadId = storedUploadId || crypto.randomUUID();
+    sessionStorage.setItem(storageKey, uploadId);
+
+    const startSession = (id: string) => this.request<{
+      offset: number;
+      file_size: number;
+      chunk_size: number;
+      complete: boolean;
+    }>('/sermons/uploads/', {
+      method: 'POST',
+      body: JSON.stringify({
+        upload_id: id,
+        file_name: file.name,
+        file_size: file.size,
+        metadata,
+      }),
+    });
+    let session: Awaited<ReturnType<typeof startSession>>;
+    try {
+      session = await startSession(uploadId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (!storedUploadId || !/not found|already associated with different file details/i.test(message)) {
+        throw error;
+      }
+      uploadId = crypto.randomUUID();
+      sessionStorage.setItem(storageKey, uploadId);
+      session = await startSession(uploadId);
+    }
+
+    if (session.complete) {
+      const sermon = await this.request<Record<string, unknown>>(
+        `/sermons/uploads/${uploadId}/complete/`,
+        { method: 'POST', body: '{}' },
+      );
+      sessionStorage.removeItem(storageKey);
+      return sermon;
+    }
+    if (session.file_size !== file.size || session.offset > file.size) {
+      throw new Error('The saved upload session does not match this file. Restart the upload.');
+    }
+
+    const sendChunk = (chunk: Blob, offset: number, token: string): Promise<void> =>
+      new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', `${this.baseUrl}/sermons/uploads/${uploadId}/chunks/`);
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+        xhr.setRequestHeader('Upload-Offset', String(offset));
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.upload.addEventListener('progress', event => {
+          if (event.lengthComputable) {
+            const loaded = offset + event.loaded;
+            onProgress?.(Math.round((loaded / file.size) * 100), loaded, file.size);
+          }
+        });
+        xhr.addEventListener('load', async () => {
+          if (xhr.status === 401) {
+            try {
+              const refreshedToken = await this.refreshAccessToken();
+              if (refreshedToken) {
+                sendChunk(chunk, offset, refreshedToken).then(resolve, reject);
+                return;
+              }
+              this.clearTokens();
+              localStorage.removeItem('gospread_user_session');
+              reject(new Error('Your session has expired. Please sign in again and retry the upload.'));
+            } catch (error) {
+              reject(error);
+            }
+            return;
+          }
+          if (xhr.status < 200 || xhr.status >= 300) {
+            let message = `Upload chunk failed (HTTP ${xhr.status}).`;
+            try {
+              const body = JSON.parse(xhr.responseText);
+              message = body.detail || Object.values(body)[0] || message;
+              if (typeof message !== 'string') message = JSON.stringify(message);
+            } catch {
+              // Preserve the status-based error if the backend response is not JSON.
+            }
+            reject(new Error(message));
+            return;
+          }
+          resolve();
+        });
+        xhr.addEventListener('error', () => reject(new Error('Network error — upload could not be completed.')));
+        xhr.addEventListener('abort', () => reject(new Error('Upload was cancelled.')));
+        xhr.send(chunk);
+      });
+
+    let offset = session.offset;
+    while (offset < file.size) {
+      const end = Math.min(offset + session.chunk_size, file.size);
+      const token = this.getAccessToken();
+      if (!token) throw new Error('You must be signed in to upload media.');
+      await sendChunk(file.slice(offset, end), offset, token);
+      offset = end;
+      onProgress?.(Math.round((offset / file.size) * 100), offset, file.size);
+    }
+
+    const sermon = await this.request<Record<string, unknown>>(
+      `/sermons/uploads/${uploadId}/complete/`,
+      { method: 'POST', body: '{}' },
+    );
+    sessionStorage.removeItem(storageKey);
+    onProgress?.(100, file.size, file.size);
+    return sermon;
+  }
+
+  private async createSermonMultipartLegacy(
+    payload: {
+      title: string;
+      speaker: string;
+      description?: string;
+      category?: string;
+      kind?: 'video' | 'audio' | 'article';
+      is_published?: boolean;
       media_file: File;
       thumbnail_url?: string;
     },
@@ -671,6 +818,45 @@ class DjangoApiClient {
     }
 
     return await this.request('/sermons/', { method: 'POST', body: formData });
+  }
+
+  public mapSermonToVideoStream(
+    sermon: Record<string, unknown>,
+    extras?: {
+      bibleVerse?: string;
+      channelAvatar?: string;
+      category?: VideoStream['category'];
+      titlePrefix?: string;
+      viewsText?: string;
+      dateLabel?: string;
+    },
+  ): VideoStream {
+    const durationSec = Number(sermon.duration_seconds) || 0;
+    const titleBase = String(sermon.title || 'Untitled');
+    const title = extras?.titlePrefix ? `${extras.titlePrefix}${titleBase}` : titleBase;
+    const category = extras?.category || (String(sermon.category || 'Sermon') as VideoStream['category']);
+
+    return {
+      id: String(sermon.id),
+      title,
+      speakerOrArtist: String(sermon.speaker || 'Pastor'),
+      churchOrMinistry: String(sermon.church_name || 'Grace Ministry'),
+      channelAvatar: extras?.channelAvatar || String(sermon.thumbnail_url || ''),
+      subscribersCount: 'Verified',
+      likesCount: String(sermon.view_count ?? 0),
+      category,
+      isLive: false,
+      viewersCount: Number(sermon.view_count) || 0,
+      viewsText: extras?.viewsText ?? `${sermon.view_count ?? 0} views`,
+      duration: durationSec
+        ? `${Math.floor(durationSec / 60)}:${String(durationSec % 60).padStart(2, '0')}`
+        : undefined,
+      thumbnail: String(sermon.thumbnail_url || ''),
+      description: String(sermon.description || ''),
+      bibleVerse: extras?.bibleVerse,
+      date: extras?.dateLabel || (sermon.published_at ? new Date(String(sermon.published_at)).toLocaleDateString() : 'Recent'),
+      videoUrl: sermon.media_url ? String(sermon.media_url) : undefined,
+    };
   }
 
   public async logout(): Promise<void> {

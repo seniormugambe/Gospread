@@ -91,19 +91,14 @@ import LiveControlRoom from './LiveControlRoom';
 import LiveRecordingVODModal, { RecordedStreamData } from './LiveRecordingVODModal';
 import KingdomStudioSections from './KingdomStudioSections';
 import AudioSpaceStudio, { ActiveAudioSpace } from './AudioSpaceStudio';
+import { extractVideoFrames, type VideoExtractedFrame } from '../utils/extractVideoFrames';
+import { renderGospelThumbnailDataUrl } from '../utils/gospelThumbnailCanvas';
 
 export type CreatorCategory = 'Church' | 'Artiste' | 'Creator' | 'Radio';
 export type StudioAction = 'choose' | 'upload' | 'live' | 'audio_space' | 'schedule' | 'live_control_room' | 'dashboard' | 'content' | 'analytics' | 'community' | 'giving' | 'settings';
-export type UploadStep = 'select' | 'uploading' | 'processing' | 'details' | 'thumbnail' | 'visibility' | 'publish';
+export type UploadStep = 'select' | 'uploading' | 'details' | 'thumbnail' | 'visibility' | 'publish';
 export type UploadMode = 'device' | 'url' | 'youtube';
 export type LiveBroadcastType = 'Sunday Service' | 'Bible Study' | 'Prayer' | 'Worship' | 'Conference' | 'Other';
-
-export interface VideoExtractedFrame {
-  id: string;
-  time: string;
-  label: string;
-  url: string;
-}
 
 export interface AiThumbnailPreset {
   id: string;
@@ -115,32 +110,56 @@ export interface AiThumbnailPreset {
   badgeBg: string;
 }
 
-export const VIDEO_EXTRACTED_FRAMES: VideoExtractedFrame[] = [
-  {
-    id: 'frame-1',
-    time: '00:04:12',
-    label: 'Pastor at the Pulpit',
-    url: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    id: 'frame-2',
-    time: '00:15:30',
-    label: 'Worship Hands Raised',
-    url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    id: 'frame-3',
-    time: '00:28:45',
-    label: 'Open Bible & Altar Light',
-    url: 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    id: 'frame-4',
-    time: '00:41:10',
-    label: 'Congregation in Prayer',
-    url: 'https://images.unsplash.com/photo-1519834785169-98be25ec3f84?auto=format&fit=crop&w=1200&q=80'
+const AI_PRESET_ACCENT_RGB: Record<string, string> = {
+  cathedral_gold: '251, 191, 36',
+  prophetic_fire: '248, 113, 113',
+  peaceful_sunrise: '125, 211, 252',
+  modern_bold: '110, 231, 183',
+};
+
+function formatUploadSpeed(bytesPerSecond: number): string {
+  if (!Number.isFinite(bytesPerSecond) || bytesPerSecond <= 0) return '';
+  if (bytesPerSecond >= 1024 * 1024) {
+    return `${(bytesPerSecond / (1024 * 1024)).toFixed(1)} MB/s`;
   }
-];
+  return `${(bytesPerSecond / 1024).toFixed(0)} KB/s`;
+}
+
+function scheduledDateToIso(date: string, time: string, timezoneLabel: string): string {
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute] = time.split(':').map(Number);
+  const timeZone = timezoneLabel.split(' ')[0];
+  const target = Date.UTC(year, month - 1, day, hour, minute);
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
+  let candidate = target;
+
+  for (let i = 0; i < 3; i++) {
+    const parts = Object.fromEntries(
+      formatter.formatToParts(new Date(candidate)).map(part => [part.type, Number(part.value)]),
+    );
+    const represented = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute);
+    candidate += target - represented;
+  }
+
+  const finalParts = Object.fromEntries(
+    formatter.formatToParts(new Date(candidate)).map(part => [part.type, Number(part.value)]),
+  );
+  if (
+    finalParts.year !== year || finalParts.month !== month || finalParts.day !== day
+    || finalParts.hour !== hour || finalParts.minute !== minute
+  ) {
+    throw new Error('The selected local time does not exist in this timezone. Choose another time.');
+  }
+  return new Date(candidate).toISOString();
+}
 
 export const AI_THUMBNAIL_PRESETS: AiThumbnailPreset[] = [
   {
@@ -343,7 +362,6 @@ export default function CreatePage({
   // External Import fields
   const [youtubeImportUrl, setYoutubeImportUrl] = useState('');
   const [videoDirectUrl, setVideoDirectUrl] = useState('');
-  const [isImportingExternal, setIsImportingExternal] = useState(false);
   const [externalImportError, setExternalImportError] = useState<string | null>(null);
 
   // Derive profile directly from currentUser session
@@ -380,22 +398,16 @@ export default function CreatePage({
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Upload progress simulation state (Direct creator upload / Cloudflare Stream resumable session)
+  // Upload progress reported by server-acknowledged upload chunks.
   const [uploadProgressPercent, setUploadProgressPercent] = useState(0);
   const [uploadedBytes, setUploadedBytes] = useState(0);
-  const [totalBytes, setTotalBytes] = useState(1.8 * 1024 * 1024 * 1024); // default ~1.8 GB
+  const [totalBytes, setTotalBytes] = useState(0);
   const [uploadSpeed, setUploadSpeed] = useState('');
-  const [isUploadPaused, setIsUploadPaused] = useState(false);
-  // Tracks whether the 'uploading' step is a real XHR upload (true) or the
-  // processing/transcoding animation that follows it (false).
   const [isRealUploadInProgress, setIsRealUploadInProgress] = useState(false);
-  // Holds the resolved sermon object returned from createSermon() so that
-  // handleFinalUploadPublish can build the VideoStream without re-uploading.
-  const uploadedSermonRef = useRef<any>(null);
-
-  // Video processing stages state
-  const [processingPercent, setProcessingPercent] = useState(0);
-  const [processingStepIndex, setProcessingStepIndex] = useState(0);
+  const uploadSpeedSampleRef = useRef({ lastLoaded: 0, lastTime: 0 });
+  const [extractedFrames, setExtractedFrames] = useState<VideoExtractedFrame[]>([]);
+  const [isExtractingFrames, setIsExtractingFrames] = useState(false);
+  const [frameExtractError, setFrameExtractError] = useState<string | null>(null);
 
   // Video Details form state (Step 4)
   const [uploadTitle, setUploadTitle] = useState('');
@@ -538,34 +550,56 @@ export default function CreatePage({
     }
   }, [currentUser]);
 
-  // Handle Direct Video Upload — real XHR upload with progress tracking
+  // Upload runs once after publish — POST /sermons/ with full metadata + media file
   useEffect(() => {
     if (uploadStep !== 'uploading' || isRealUploadInProgress || !selectedMediaFile) return;
 
     let cancelled = false;
     setIsRealUploadInProgress(true);
     setExternalImportError(null);
-    uploadedSermonRef.current = null;
+    uploadSpeedSampleRef.current = { lastLoaded: 0, lastTime: 0 };
+    setUploadSpeed('');
 
     const isScheduled = publishActionOption === 'schedule';
     const isDraft = publishActionOption === 'save_draft';
-    const formattedTakeaways = keyTakeaways.length > 0
-      ? `\n\nKey Takeaways:\n${keyTakeaways.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
-      : '';
+    const formattedScheduleText = `${publishScheduledDate} at ${publishScheduledTime} (${publishScheduledTimezone})`;
+    const scheduledFor = isScheduled
+      ? scheduledDateToIso(publishScheduledDate, publishScheduledTime, publishScheduledTimezone)
+      : undefined;
+
+    const mappedApiCategory =
+      uploadCategory === 'Sermons' ? 'Sermon'
+        : uploadCategory === 'Worship & Praise' ? 'Live Worship'
+          : uploadCategory === 'Gospel Music' ? 'Gospel Music'
+            : uploadCategory === 'Bible Study' ? 'Bible Study'
+              : uploadCategory;
 
     djangoApi.createSermon(
       {
         title: uploadTitle || selectedFile?.name?.replace(/\.[^/.]+$/, '') || 'Untitled Sermon',
         speaker: uploadSpeaker || ownerName,
-        description: `${uploadDescription}${formattedTakeaways}`,
-        category: uploadCategory,
+        description: uploadDescription,
+        category: mappedApiCategory,
         kind: 'video',
         is_published: !isDraft && !isScheduled,
+        scheduled_for: scheduledFor,
+        tags: tagsInput.split(',').map(tag => tag.trim()).filter(Boolean),
+        scripture_reference: uploadScripture.trim(),
+        key_takeaways: keyTakeaways,
+        visibility: videoVisibility,
+        audience: audienceKidsOption,
         media_file: selectedMediaFile,
         thumbnail_url: uploadThumbnail || undefined,
       },
       (percent, loaded, total) => {
         if (cancelled) return;
+        const now = Date.now();
+        const { lastLoaded, lastTime } = uploadSpeedSampleRef.current;
+        if (lastTime > 0 && loaded > lastLoaded) {
+          const bytesPerSec = (loaded - lastLoaded) / ((now - lastTime) / 1000);
+          setUploadSpeed(formatUploadSpeed(bytesPerSec));
+        }
+        uploadSpeedSampleRef.current = { lastLoaded: loaded, lastTime: now };
         setUploadProgressPercent(percent);
         setUploadedBytes(loaded);
         setTotalBytes(total);
@@ -573,13 +607,42 @@ export default function CreatePage({
     )
       .then((sermon) => {
         if (cancelled) return;
-        uploadedSermonRef.current = sermon;
         setUploadProgressPercent(100);
-        setUploadStep('processing');
+
+        const mappedCategory = (uploadCategory === 'Sermons' ? 'Sermon'
+          : uploadCategory === 'Worship & Praise' ? 'Live Worship'
+            : uploadCategory === 'Gospel Music' ? 'Gospel Music'
+              : uploadCategory === 'Bible Study' ? 'Bible Study' : 'Sermon') as VideoStream['category'];
+
+        const visibilityBadgeText = videoVisibility === 'public' ? 'Public' : videoVisibility === 'unlisted' ? 'Unlisted' : 'Private';
+        const newVideo = djangoApi.mapSermonToVideoStream(sermon, {
+          bibleVerse: uploadScripture || undefined,
+          channelAvatar: avatarUrl,
+          category: mappedCategory,
+          viewsText: isScheduled
+            ? `Scheduled for ${formattedScheduleText}`
+            : isDraft
+              ? `Saved draft • ${visibilityBadgeText}`
+              : `Published • ${visibilityBadgeText}`,
+          dateLabel: isScheduled
+            ? formattedScheduleText
+            : isDraft
+              ? 'Saved in Creator Drafts'
+              : 'Published just now',
+        });
+
+        setSelectedMediaFile(null);
+        setSelectedFile(null);
+        setExtractedFrames([]);
+        setUploadProgressPercent(0);
+        setUploadedBytes(0);
+
+        setCreatedStream(newVideo);
+        setIsSubmitted(true);
       })
       .catch((error) => {
         if (cancelled) return;
-        setUploadStep('select');
+        setUploadStep('publish');
         setUploadProgressPercent(0);
         setExternalImportError(
           error instanceof Error ? error.message : 'Upload failed. Please try again.',
@@ -596,30 +659,29 @@ export default function CreatePage({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uploadStep]);
 
-  // Handle Cloud Transcoding & Metadata Processing Simulation
   useEffect(() => {
-    let procTimer: any;
-    if (uploadStep === 'processing') {
-      procTimer = setInterval(() => {
-        setProcessingPercent(prev => {
-          if (prev >= 100) {
-            clearInterval(procTimer);
-            setTimeout(() => {
-              setUploadStep('details');
-            }, 600);
-            return 100;
-          }
-          const next = prev + 5;
-          const capped = Math.min(next, 100);
-          if (capped > 20 && capped <= 45) setProcessingStepIndex(1);
-          else if (capped > 45 && capped <= 75) setProcessingStepIndex(2);
-          else if (capped > 75) setProcessingStepIndex(3);
-          return capped;
-        });
-      }, 200);
-    }
-    return () => clearInterval(procTimer);
-  }, [uploadStep]);
+    if (!selectedMediaFile || studioAction !== 'upload') return;
+    let active = true;
+    setIsExtractingFrames(true);
+    setFrameExtractError(null);
+    extractVideoFrames(selectedMediaFile)
+      .then((frames) => {
+        if (!active) return;
+        setExtractedFrames(frames);
+        if (frames.length > 0 && !uploadThumbnail) {
+          setUploadThumbnail(frames[0].url);
+          setSelectedFrameIndex(0);
+        }
+      })
+      .catch(() => {
+        if (active) setFrameExtractError('Could not extract frames from this video. Upload a custom thumbnail instead.');
+      })
+      .finally(() => {
+        if (active) setIsExtractingFrames(false);
+      });
+    return () => { active = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMediaFile, studioAction]);
 
   const handleCopyServerUrl = () => {
     if (!rtmpServerUrl) return;
@@ -811,6 +873,10 @@ export default function CreatePage({
       setExternalImportError('Please select a video file (MP4, MOV, AVI, etc.).');
       return;
     }
+    if (file.size <= 0) {
+      setExternalImportError('The selected video file is empty.');
+      return;
+    }
     // Validate file size
     if (file.size > MAX_VIDEO_SIZE_BYTES) {
       const sizeGB = (file.size / (1024 * 1024 * 1024)).toFixed(1);
@@ -831,12 +897,12 @@ export default function CreatePage({
       sizeBytes: file.size,
       type: file.type || 'video/mp4'
     });
-    setTotalBytes(file.size || 1.8 * 1024 * 1024 * 1024);
+    setTotalBytes(file.size);
     setUploadedBytes(0);
     setUploadProgressPercent(0);
-    setProcessingPercent(0);
-    setProcessingStepIndex(0);
-    uploadedSermonRef.current = null;
+    setExtractedFrames([]);
+    setUploadThumbnail('');
+    setFrameExtractError(null);
     
     // Suggest Title from file name if generic
     const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
@@ -852,7 +918,7 @@ export default function CreatePage({
       return;
     }
 
-    setUploadStep('uploading');
+    setUploadStep('details');
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -906,88 +972,75 @@ export default function CreatePage({
     }
   };
 
-  // Generate Thumbnail with AI
-  const handleGenerateAiThumbnail = () => {
+  const handleGenerateAiThumbnail = async () => {
     setIsAiGenerating(true);
-    setTimeout(() => {
-      setIsAiGenerating(false);
+    setExternalImportError(null);
+    try {
       const activePreset = AI_THUMBNAIL_PRESETS.find(p => p.id === selectedAiPresetId) || AI_THUMBNAIL_PRESETS[0];
-      setUploadThumbnail(activePreset.bgImage);
+      const background =
+        extractedFrames[selectedFrameIndex]?.url
+        || extractedFrames[0]?.url
+        || activePreset.bgImage;
+      const dataUrl = await renderGospelThumbnailDataUrl({
+        backgroundImageUrl: background,
+        title: aiOverlayTitle || uploadTitle || 'Sunday Worship Service',
+        speaker: aiOverlaySpeaker || uploadSpeaker || ownerName,
+        ministry: aiOverlayMinistry || uploadMinistry || ministryName,
+        scripture: aiOverlayVerse || uploadScripture,
+        accentRgb: AI_PRESET_ACCENT_RGB[activePreset.id],
+      });
+      setUploadThumbnail(dataUrl);
       setAiAppliedSuccess(true);
       setTimeout(() => setAiAppliedSuccess(false), 3000);
-    }, 700);
+    } catch {
+      setExternalImportError('Could not render thumbnail. Try a video frame or custom image.');
+    } finally {
+      setIsAiGenerating(false);
+    }
   };
 
-  // Final Publish Handler for Action 1: Upload Video
-  // The actual file upload happens as soon as the user selects a file (see the
-  // uploading useEffect above). By the time the user reaches this step the
-  // sermon record already exists in the backend (uploadedSermonRef.current).
-  const handleFinalUploadPublish = async (e: FormEvent) => {
+  const handleFinalUploadPublish = (e: FormEvent) => {
     e.preventDefault();
     setExternalImportError(null);
 
-    // Guard: file must have been selected
     if (!selectedMediaFile) {
       setExternalImportError('Choose a video file before publishing.');
       return;
     }
 
-    // Guard: upload must have succeeded
-    if (!uploadedSermonRef.current) {
-      setExternalImportError('Your video is still uploading or the upload failed. Please wait or re-select the file.');
+    if (!uploadTitle.trim()) {
+      setExternalImportError('Add a title before publishing.');
+      setUploadStep('details');
       return;
     }
 
-    const isScheduled = publishActionOption === 'schedule';
-    const isDraft = publishActionOption === 'save_draft';
-    const formattedTakeaways = keyTakeaways.length > 0
-      ? `\n\nKey Takeaways:\n${keyTakeaways.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
-      : '';
+    if (!currentUser?.isLoggedIn) {
+      setExternalImportError('You must be signed in to upload videos.');
+      onRequireAuth?.();
+      return;
+    }
+
+    if (publishActionOption === 'schedule') {
+      try {
+        if (new Date(scheduledDateToIso(
+          publishScheduledDate,
+          publishScheduledTime,
+          publishScheduledTimezone,
+        )).getTime() <= Date.now()) {
+          throw new Error('Choose a future publication time.');
+        }
+      } catch (error) {
+        setExternalImportError(
+          error instanceof Error ? error.message : 'Choose a valid future publication time.',
+        );
+        return;
+      }
+    }
 
     prepareGlobalRegistration();
-
-    // Map Category to VideoStream Category
-    const mappedCategory = (uploadCategory === 'Sermons' ? 'Sermon' :
-      uploadCategory === 'Worship & Praise' ? 'Live Worship' :
-      uploadCategory === 'Gospel Music' ? 'Gospel Music' :
-      uploadCategory === 'Bible Study' ? 'Bible Study' : 'Sermon') as any;
-
-    const formattedScheduleText = `${publishScheduledDate} at ${publishScheduledTime} (${publishScheduledTimezone})`;
-    const visibilityBadgeText = videoVisibility === 'public' ? 'Public' : videoVisibility === 'unlisted' ? 'Unlisted' : 'Private';
-
-    const newVideo: VideoStream = {
-      id: String(uploadedSermonRef.current.id || `vod-${Date.now()}`),
-      title: isScheduled ? `[UPCOMING] ${uploadTitle || 'Sunday Worship Service'}` : isDraft ? `[DRAFT] ${uploadTitle || 'Sunday Worship Service'}` : uploadTitle || 'Sunday Worship Service',
-      speakerOrArtist: uploadSpeaker || ownerName,
-      churchOrMinistry: uploadMinistry || ministryName,
-      channelAvatar: avatarUrl,
-      subscribersCount: '24.8K Members',
-      likesCount: isScheduled ? '840 Reminders Set' : isDraft ? 'Draft Saved' : '2.1K',
-      category: mappedCategory,
-      isLive: false,
-      duration: isScheduled ? `Premiere at ${publishScheduledTime}` : '48:30',
-      viewsText: isScheduled 
-        ? `🔔 Upcoming: Sunday Worship — ${publishScheduledDate} at ${publishScheduledTime}` 
-        : isDraft 
-        ? `Saved Draft • ${visibilityBadgeText}` 
-        : `Direct Creator Upload • HD 1080p • ${visibilityBadgeText}`,
-      thumbnail: uploadThumbnail || 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
-      description: `${uploadDescription}${formattedTakeaways}${isScheduled ? `\n\n📅 Scheduled Premiere: ${formattedScheduleText}` : ''}`,
-      bibleVerse: uploadScripture || 'Isaiah 40:31',
-      date: isScheduled ? formattedScheduleText : isDraft ? 'Saved in Creator Drafts' : 'Uploaded Just Now'
-    };
-
-    // Reset upload state so the flow is clean for the next upload
-    uploadedSermonRef.current = null;
-    setSelectedMediaFile(null);
-    setSelectedFile(null);
     setUploadProgressPercent(0);
     setUploadedBytes(0);
-    setProcessingPercent(0);
-    setProcessingStepIndex(0);
-
-    setCreatedStream(newVideo);
-    setIsSubmitted(true);
+    setUploadStep('uploading');
   };
 
   // Submit Handler for Action 2: Go Live
@@ -1109,7 +1162,13 @@ export default function CreatePage({
 
   const handleFinishAndWatch = () => {
     if (createdStream) {
-      onPublishSuccess(createdStream);
+      if (publishActionOption === 'publish_now' && videoVisibility === 'public') {
+        onPublishSuccess(createdStream);
+      } else {
+        setIsSubmitted(false);
+        setStudioAction('choose');
+        setStudioNavTab('content');
+      }
     }
   };
 
@@ -1600,7 +1659,7 @@ export default function CreatePage({
                   </div>
                   <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>AI sermon summary, scriptures & thumbnail generator</span>
+                    <span>Video metadata and thumbnail design tools</span>
                   </div>
                 </div>
               </div>
@@ -2050,16 +2109,14 @@ export default function CreatePage({
             </button>
 
             {/* Stepper Indicator */}
-            {['select', 'uploading', 'processing'].includes(uploadStep) ? (
+            {uploadStep === 'select' || uploadStep === 'uploading' ? (
               <div className="flex items-center gap-2">
                 <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase flex items-center gap-1.5 ${
                   uploadStep === 'select' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                  uploadStep === 'uploading' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
-                  'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                  'bg-blue-500/20 text-blue-300 border border-blue-500/30'
                 }`}>
                   {uploadStep === 'select' && <span>Step 1: Select Video</span>}
-                  {uploadStep === 'uploading' && <span>Step 2: Uploading Video ({uploadProgressPercent}%)</span>}
-                  {uploadStep === 'processing' && <span>Step 3: Transcoding & Optimizing</span>}
+                  {uploadStep === 'uploading' && <span>Uploading to Gospread ({uploadProgressPercent}%)</span>}
                 </span>
               </div>
             ) : (
@@ -2225,7 +2282,7 @@ export default function CreatePage({
                     {/* Direct Upload Secure Architecture Notice */}
                     <div className="mt-4 px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 text-[10px] text-slate-400 flex items-center gap-1.5">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Resumable Direct Upload — Secure session created via direct storage provider</span>
+                      <span>Resumable upload — data is sent in verified chunks to Gospread</span>
                     </div>
                   </div>
 
@@ -2299,20 +2356,10 @@ export default function CreatePage({
 
                       <button
                         type="submit"
-                        disabled={isImportingExternal}
                         className="px-6 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-amber-500/20 transition cursor-pointer"
                       >
-                        {isImportingExternal ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Fetching Video Stream...</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>Import & Continue</span>
-                            <ArrowRight className="w-4 h-4" />
-                          </>
-                        )}
+                        <span>Validate URL</span>
+                        <ArrowRight className="w-4 h-4" />
                       </button>
                     </div>
                   </form>
@@ -2374,21 +2421,11 @@ export default function CreatePage({
 
                       <button
                         type="submit"
-                        disabled={isImportingExternal}
                         className="px-6 py-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white font-black text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-red-600/20 transition cursor-pointer"
                       >
-                        {isImportingExternal ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Validating...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Youtube className="w-4 h-4" />
-                            <span>Check URL</span>
-                            <ArrowRight className="w-4 h-4" />
-                          </>
-                        )}
+                        <Youtube className="w-4 h-4" />
+                        <span>Check URL</span>
+                        <ArrowRight className="w-4 h-4" />
                       </button>
                     </div>
                   </form>
@@ -2427,8 +2464,8 @@ export default function CreatePage({
                 </div>
 
                 <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold uppercase flex items-center gap-1">
-                  <Wifi className="w-3 h-3 animate-pulse" />
-                  Resumable
+                  <ShieldCheck className="w-3 h-3" />
+                  Encrypted
                 </span>
               </div>
 
@@ -2442,7 +2479,7 @@ export default function CreatePage({
                 </div>
 
                 <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
-                  <span>Uploading securely via direct session...</span>
+                  <span>Uploading video chunks to Gospread…</span>
                   <span className="font-bold text-white">{uploadProgressPercent}%</span>
                 </div>
               </div>
@@ -2451,10 +2488,10 @@ export default function CreatePage({
               <div className="p-4 rounded-2xl bg-slate-900/70 border border-slate-800 text-xs text-slate-300 space-y-2">
                 <div className="flex items-center gap-2 font-bold text-amber-300">
                   <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>Resilient Video Pipeline</span>
+                  <span>Resumable Upload</span>
                 </div>
                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Your video chunks are written directly to high-throughput cloud streaming storage. If your mobile or Wi-Fi network drops, uploading will automatically resume right where it left off without starting over.
+                  Upload progress is saved on the server. If your connection drops, retry with the same file to continue from the last confirmed chunk.
                 </p>
               </div>
 
@@ -2469,9 +2506,9 @@ export default function CreatePage({
                     setUploadProgressPercent(0);
                     setUploadedBytes(0);
                     setExternalImportError(null);
-                    uploadedSermonRef.current = null;
                   }}
                   className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
+                  disabled={isRealUploadInProgress}
                 >
                   Cancel Upload
                 </button>
@@ -2502,10 +2539,7 @@ export default function CreatePage({
                       setUploadProgressPercent(0);
                       setUploadedBytes(0);
                       setIsRealUploadInProgress(false);
-                      uploadedSermonRef.current = null;
-                      // Re-trigger the upload useEffect by briefly resetting to select then back
-                      setUploadStep('select');
-                      // Small delay lets state flush before the user re-picks the file
+                      setUploadStep('publish');
                     }}
                     className="shrink-0 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
                   >
@@ -2518,122 +2552,7 @@ export default function CreatePage({
           )}
 
           {/* ══════════════════════════════════════════════════════════
-              STEP 3: POST-UPLOAD TRANSCODING & METADATA PROCESSING
-             ══════════════════════════════════════════════════════════ */}
-          {uploadStep === 'processing' && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-[#181818] border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                    <CheckCheck className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-black text-white">✓ Upload Complete</h3>
-                    <p className="text-xs text-slate-400">Processing and optimizing video for global playback...</p>
-                  </div>
-                </div>
-                <span className="text-lg font-black font-mono text-purple-400">{processingPercent}%</span>
-              </div>
-
-              {/* Transcoding Checklist */}
-              <div className="bg-[#111111] border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3">
-                
-                {/* Step A */}
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2.5">
-                    {processingPercent >= 25 ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    ) : (
-                      <Loader2 className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
-                    )}
-                    <span className={processingPercent >= 25 ? 'text-slate-200 font-semibold' : 'text-slate-400'}>
-                      Generating high-resolution video thumbnails
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-mono text-slate-500">
-                    {processingPercent >= 25 ? 'Complete' : 'Processing'}
-                  </span>
-                </div>
-
-                {/* Step B */}
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2.5">
-                    {processingPercent >= 50 ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    ) : processingPercent >= 25 ? (
-                      <Loader2 className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
-                    ) : (
-                      <div className="w-4 h-4 rounded-full border border-slate-700 shrink-0" />
-                    )}
-                    <span className={processingPercent >= 50 ? 'text-slate-200 font-semibold' : 'text-slate-400'}>
-                      Encoding video for smooth low-bandwidth mobile streaming
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-mono text-slate-500">
-                    {processingPercent >= 50 ? 'Complete' : processingPercent >= 25 ? 'Encoding' : 'Queued'}
-                  </span>
-                </div>
-
-                {/* Step C */}
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2.5">
-                    {processingPercent >= 80 ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    ) : processingPercent >= 50 ? (
-                      <Loader2 className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
-                    ) : (
-                      <div className="w-4 h-4 rounded-full border border-slate-700 shrink-0" />
-                    )}
-                    <span className={processingPercent >= 80 ? 'text-slate-200 font-semibold' : 'text-slate-400'}>
-                      Preparing adaptive bitrate multi-qualities (1080p, 720p, 480p, 360p, 240p)
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-mono text-slate-500">
-                    {processingPercent >= 80 ? 'Complete' : processingPercent >= 50 ? 'Transcoding' : 'Queued'}
-                  </span>
-                </div>
-
-                {/* Step D */}
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2.5">
-                    {processingPercent >= 100 ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    ) : processingPercent >= 80 ? (
-                      <Loader2 className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
-                    ) : (
-                      <div className="w-4 h-4 rounded-full border border-slate-700 shrink-0" />
-                    )}
-                    <span className={processingPercent >= 100 ? 'text-slate-200 font-semibold' : 'text-slate-400'}>
-                      Generating audio waveform & gospel metadata headers
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-mono text-slate-500">
-                    {processingPercent >= 100 ? 'Ready' : processingPercent >= 80 ? 'Finalizing' : 'Queued'}
-                  </span>
-                </div>
-
-              </div>
-
-              {/* Progress Bar */}
-              <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
-                <motion.div 
-                  className="bg-gradient-to-r from-purple-500 to-amber-400 h-full rounded-full transition-all duration-200"
-                  style={{ width: `${processingPercent}%` }}
-                />
-              </div>
-
-              <p className="text-center text-xs text-slate-400">
-                Transcoding happens automatically in the cloud so your members across Africa and worldwide experience zero buffering.
-              </p>
-            </motion.div>
-          )}
-
-          {/* ══════════════════════════════════════════════════════════
-              STEP 4: VIDEO DETAILS & GOSPEL-SPECIFIC METADATA
+              STEP 2: VIDEO DETAILS & GOSPEL-SPECIFIC METADATA
              ══════════════════════════════════════════════════════════ */}
           {uploadStep === 'details' && (
             <motion.div
@@ -2962,7 +2881,7 @@ export default function CreatePage({
                       }`}
                     >
                       <Wand2 className="w-4 h-4" />
-                      <span>✨ Generate with AI</span>
+                      <span>Design a Thumbnail</span>
                     </button>
 
                     <button
@@ -2992,7 +2911,7 @@ export default function CreatePage({
                     </button>
                   </div>
 
-                  {/* TAB 1: ✨ AI GOSPEL THUMBNAIL GENERATOR */}
+                  {/* TAB 1: THUMBNAIL DESIGN STUDIO */}
                   {thumbnailMode === 'ai' && (
                     <motion.div
                       initial={{ opacity: 0 }}
@@ -3003,7 +2922,7 @@ export default function CreatePage({
                         <div className="flex items-center gap-2">
                           <Sparkles className="w-4 h-4 text-amber-400" />
                           <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                            Gospel AI Graphic Design Engine
+                            Thumbnail Design Studio
                           </h4>
                         </div>
                         <span className="text-[10px] text-amber-300 font-mono">
@@ -3011,7 +2930,7 @@ export default function CreatePage({
                         </span>
                       </div>
 
-                      {/* AI Style Presets */}
+                      {/* Design presets */}
                       <div className="space-y-2">
                         <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                           Choose Sermon Aesthetic Theme
@@ -3107,7 +3026,7 @@ export default function CreatePage({
                           {aiAppliedSuccess ? (
                             <span className="text-emerald-400 font-bold flex items-center gap-1.5">
                               <CheckCircle2 className="w-4 h-4" />
-                              AI Gospel Thumbnail applied to video preview!
+                              Designed thumbnail applied to video preview.
                             </span>
                           ) : (
                             'Custom typographic card rendered with gospel high contrast'
@@ -3128,7 +3047,7 @@ export default function CreatePage({
                           ) : (
                             <>
                               <Wand2 className="w-4 h-4" />
-                              <span>✨ Re-Generate Gospel Thumbnail</span>
+                              <span>Generate Thumbnail Design</span>
                             </>
                           )}
                         </button>
@@ -3155,7 +3074,7 @@ export default function CreatePage({
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {VIDEO_EXTRACTED_FRAMES.map((frame, idx) => {
+                        {extractedFrames.map((frame, idx) => {
                           const isSelected = selectedFrameIndex === idx && uploadThumbnail === frame.url;
                           return (
                             <button
@@ -3579,12 +3498,12 @@ export default function CreatePage({
                         🚀 Publish Now
                       </h4>
                       <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                        Broadcast immediately across Gospread worldwide and notify your congregation.
+                        Make this video available immediately according to its visibility setting.
                       </p>
                     </div>
 
                     <div className="mt-4 pt-2 border-t border-slate-800/80 text-[11px] text-amber-300 font-bold">
-                      Immediate Global Premiere
+                      Publish immediately
                     </div>
                   </button>
 
@@ -3613,12 +3532,12 @@ export default function CreatePage({
                         📅 Schedule
                       </h4>
                       <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                        Pick a date and time to premiere your sermon with automated member reminders.
+                        Gospread checks scheduled videos when the feed is requested and publishes this video once its time has arrived.
                       </p>
                     </div>
 
                     <div className="mt-4 pt-2 border-t border-slate-800/80 text-[11px] text-blue-300 font-bold">
-                      Set Date & Timezone
+                      Publish at scheduled time
                     </div>
                   </button>
 
@@ -3723,7 +3642,7 @@ export default function CreatePage({
                     <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center gap-2.5 text-xs text-blue-200">
                       <Bell className="w-4 h-4 text-blue-400 shrink-0" />
                       <span>
-                        <strong>Upcoming:</strong> Sunday Worship — {publishScheduledDate} at {publishScheduledTime} ({publishScheduledTimezone})
+                        <strong>                        Upcoming:</strong> {uploadTitle || 'Video'} — {publishScheduledDate} at {publishScheduledTime} ({publishScheduledTimezone})
                       </span>
                     </div>
 
@@ -4641,10 +4560,18 @@ export default function CreatePage({
             </div>
             <div>
               <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
-                Broadcast Published Successfully to {ministryName}!
+                {publishActionOption === 'save_draft'
+                  ? 'Draft saved to Creator Studio'
+                  : publishActionOption === 'schedule'
+                    ? `Video scheduled for ${publishScheduledDate} at ${publishScheduledTime}`
+                    : `Video published for ${ministryName}`}
               </h2>
               <p className="text-xs text-slate-300 mt-1">
-                Your video is now live on the global feed with adaptive bitrate streaming, giving payouts, and prayer altar.
+                {publishActionOption === 'save_draft'
+                  ? 'This video is saved as an unpublished draft.'
+                  : publishActionOption === 'schedule'
+                    ? `Gospread will publish it when the feed is requested after its scheduled time. Visibility: ${videoVisibility}.`
+                    : `Publication completed. Visibility: ${videoVisibility}.`}
               </p>
             </div>
           </div>
@@ -4662,9 +4589,11 @@ export default function CreatePage({
                 <h4 className="text-sm font-bold text-white line-clamp-1">{createdStream.title}</h4>
                 <p className="text-xs text-slate-400 mt-0.5">{createdStream.speakerOrArtist} • {createdStream.churchOrMinistry}</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] font-mono text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                    {createdStream.bibleVerse || 'Ephesians 2:8'}
-                  </span>
+                  {createdStream.bibleVerse && (
+                    <span className="text-[10px] font-mono text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                      {createdStream.bibleVerse}
+                    </span>
+                  )}
                   <span className="text-[10px] text-emerald-400 font-bold">
                     {createdStream.viewsText}
                   </span>
@@ -4676,8 +4605,14 @@ export default function CreatePage({
               onClick={handleFinishAndWatch}
               className="px-5 py-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-red-600/20 transition shrink-0 cursor-pointer"
             >
-              <Play className="w-4 h-4 fill-current" />
-              <span>Watch on Feed</span>
+              {publishActionOption === 'publish_now' && videoVisibility === 'public'
+                ? <Play className="w-4 h-4 fill-current" />
+                : <ArrowLeft className="w-4 h-4" />}
+              <span>
+                {publishActionOption === 'publish_now' && videoVisibility === 'public'
+                  ? 'Watch on Feed'
+                  : 'Back to Creator Studio'}
+              </span>
             </button>
           </div>
 

@@ -46,11 +46,14 @@ class ChurchAdmin(admin.ModelAdmin):
 
 @admin.register(Sermon)
 class SermonAdmin(admin.ModelAdmin):
-    list_display = ("title", "church", "speaker", "kind", "is_published", "is_featured", "view_count", "published_at")
-    list_filter = ("kind", "is_published", "is_featured", "category", "published_at")
+    list_display = (
+        "title", "church", "speaker", "kind", "visibility", "is_published",
+        "scheduled_for", "is_featured", "view_count", "published_at",
+    )
+    list_filter = ("kind", "visibility", "is_published", "is_featured", "category", "scheduled_for", "published_at")
     search_fields = ("title", "description", "speaker", "church__name")
     autocomplete_fields = ("church",)
-    date_hierarchy = "published_at"
+    date_hierarchy = "created_at"
 
 
 @admin.register(SermonShort)

@@ -113,7 +113,10 @@ CORS_ALLOW_HEADERS = [
     "user-agent",
     "x-csrftoken",
     "x-requested-with",
+    "upload-offset",
 ]
+CORS_EXPOSE_HEADERS = ["upload-offset"]
+DATA_UPLOAD_MAX_MEMORY_SIZE = 8 * 1024 * 1024 + 1024
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [

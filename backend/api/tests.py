@@ -1,10 +1,13 @@
 from datetime import timedelta
 from io import StringIO
+import tempfile
 from unittest.mock import patch
+from uuid import uuid4
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 from botocore.exceptions import ClientError
@@ -165,6 +168,166 @@ class SermonShortTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(response.data["media_url"].startswith("http"))
         self.assertTrue(Sermon.objects.get(id=response.data["id"]).media_url)
+
+
+class SermonUploadSessionTests(APITestCase):
+    def setUp(self):
+        self.media_dir = tempfile.TemporaryDirectory()
+        media_settings = override_settings(MEDIA_ROOT=self.media_dir.name)
+        media_settings.enable()
+        self.addCleanup(media_settings.disable)
+        self.addCleanup(self.media_dir.cleanup)
+        self.user = User.objects.create_user(
+            username="chunk-upload", email="chunk-upload@example.com", password="StrongPass123!"
+        )
+        self.church = Church.objects.create(name="Chunk Upload Church", slug="chunk-upload-church", owner=self.user)
+        self.client.force_authenticate(user=self.user)
+
+    def start_upload(self, file_bytes=b"video-bytes", metadata=None):
+        upload_id = uuid4()
+        metadata = metadata or {
+            "title": "Sunday service",
+            "speaker": "Pastor Grace",
+            "is_published": True,
+            "tags": ["worship", "sunday"],
+            "scripture_reference": "Psalm 100:1",
+            "key_takeaways": ["Give thanks"],
+            "visibility": "public",
+            "audience": "all_ages",
+        }
+        response = self.client.post("/api/v1/sermons/uploads/", {
+            "upload_id": str(upload_id),
+            "file_name": "service.mp4",
+            "file_size": len(file_bytes),
+            "metadata": metadata,
+        }, format="json")
+        return upload_id, response, file_bytes, metadata
+
+    def put_chunk(self, upload_id, offset, data):
+        return self.client.generic(
+            "PUT",
+            f"/api/v1/sermons/uploads/{upload_id}/chunks/",
+            data=data,
+            content_type="application/octet-stream",
+            HTTP_UPLOAD_OFFSET=str(offset),
+        )
+
+    def test_upload_resumes_at_acknowledged_offset_and_finalizes(self):
+        upload_id, started, file_bytes, metadata = self.start_upload()
+        self.assertEqual(started.status_code, status.HTTP_200_OK)
+        self.assertEqual(started.data["offset"], 0)
+
+        first_chunk = file_bytes[:5]
+        accepted = self.put_chunk(upload_id, 0, first_chunk)
+        self.assertEqual(accepted.status_code, status.HTTP_200_OK)
+        self.assertEqual(accepted.data["offset"], len(first_chunk))
+
+        stale_offset = self.put_chunk(upload_id, 0, b"duplicate")
+        self.assertEqual(stale_offset.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(int(stale_offset.data["offset"]), len(first_chunk))
+
+        resumed = self.client.post("/api/v1/sermons/uploads/", {
+            "upload_id": str(upload_id),
+            "file_name": "service.mp4",
+            "file_size": len(file_bytes),
+            "metadata": metadata,
+        }, format="json")
+        self.assertEqual(resumed.status_code, status.HTTP_200_OK)
+        self.assertEqual(resumed.data["offset"], len(first_chunk))
+
+        remainder = self.put_chunk(upload_id, len(first_chunk), file_bytes[len(first_chunk):])
+        self.assertEqual(remainder.status_code, status.HTTP_200_OK)
+        completed = self.client.post(f"/api/v1/sermons/uploads/{upload_id}/complete/")
+        self.assertEqual(completed.status_code, status.HTTP_201_CREATED, completed.data)
+        self.assertIn("id", completed.data, completed.data)
+        sermon = Sermon.objects.get(id=completed.data["id"])
+        self.assertTrue(sermon.media_url)
+        self.assertEqual(sermon.tags, ["worship", "sunday"])
+        self.assertEqual(sermon.scripture_reference, "Psalm 100:1")
+        self.assertEqual(sermon.key_takeaways, ["Give thanks"])
+        self.assertTrue(sermon.is_published)
+
+        repeated_complete = self.client.post(f"/api/v1/sermons/uploads/{upload_id}/complete/")
+        self.assertEqual(repeated_complete.status_code, status.HTTP_200_OK)
+        self.assertEqual(repeated_complete.data["id"], sermon.id)
+
+    def test_upload_sessions_are_private_to_their_owner(self):
+        upload_id, started, file_bytes, _metadata = self.start_upload()
+        self.assertEqual(started.status_code, status.HTTP_200_OK)
+        other_user = User.objects.create_user(
+            username="other-upload", email="other-upload@example.com", password="StrongPass123!"
+        )
+        self.client.force_authenticate(user=other_user)
+
+        response = self.put_chunk(upload_id, 0, file_bytes)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class SermonSchedulingTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="schedule-creator", email="schedule@example.com", password="StrongPass123!"
+        )
+        self.client.force_authenticate(user=self.user)
+
+        self.church = Church.objects.create(name="Schedule Church", slug="schedule-church", owner=self.user)
+
+    def test_scheduled_sermon_is_published_when_feed_is_loaded_after_due_time(self):
+        scheduled_for = timezone.now() + timedelta(days=1)
+        response = self.client.post("/api/v1/sermons/", {
+            "title": "Scheduled worship",
+            "speaker": "Pastor Grace",
+            "is_published": False,
+            "scheduled_for": scheduled_for.isoformat(),
+        }, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        sermon = Sermon.objects.get(id=response.data["id"])
+        self.assertFalse(sermon.is_published)
+        self.assertEqual(sermon.scheduled_for, scheduled_for)
+
+        Sermon.objects.filter(pk=sermon.pk).update(scheduled_for=timezone.now() - timedelta(minutes=1))
+        self.client.force_authenticate(user=None)
+        feed = self.client.get("/api/v1/sermons/")
+
+        self.assertEqual(feed.status_code, status.HTTP_200_OK)
+        self.assertEqual(feed.data["count"], 1)
+        sermon.refresh_from_db()
+        self.assertTrue(sermon.is_published)
+        self.assertIsNotNone(sermon.published_at)
+
+    def test_partial_update_cannot_publish_a_scheduled_sermon_early(self):
+        response = self.client.post("/api/v1/sermons/", {
+            "title": "Scheduled worship",
+            "speaker": "Pastor Grace",
+            "is_published": False,
+            "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+        }, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        update = self.client.patch(
+            f"/api/v1/sermons/{response.data['id']}/",
+            {"is_published": True},
+            format="json",
+        )
+
+        self.assertEqual(update.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("is_published", update.data)
+        self.assertFalse(Sermon.objects.get(id=response.data["id"]).is_published)
+
+    def test_private_published_sermons_are_not_listed_publicly(self):
+        response = self.client.post("/api/v1/sermons/", {
+            "title": "Private upload",
+            "speaker": "Pastor Grace",
+            "is_published": True,
+            "visibility": "private",
+        }, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        self.client.force_authenticate(user=None)
+        feed = self.client.get("/api/v1/sermons/")
+        detail = self.client.get(f"/api/v1/sermons/{response.data['id']}/")
+        self.assertEqual(feed.data["count"], 0)
+        self.assertEqual(detail.status_code, status.HTTP_404_NOT_FOUND)
 
 
 class LiveStreamTests(APITestCase):

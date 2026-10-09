@@ -4,7 +4,8 @@ from .views import (
     ChangePasswordView, ChurchEventViewSet, ChurchViewSet, CommunityPostViewSet, DonationViewSet, GivingFundViewSet,
     AudioSpaceEndView, AudioSpaceListView, AudioSpaceTokenView, GospreadTokenRefreshView, GospreadTokenView, HealthCheckView, LiveStreamViewSet, LogoutView, MeView,
     PrayerRequestViewSet, RandomScriptureView, SavedSermonViewSet, SermonShortViewSet,
-    SermonViewSet, SignupView, StreakCheckinView, WatchProgressViewSet, WorshipSongViewSet,
+    SermonUploadChunkView, SermonUploadCompleteView, SermonUploadSessionView, SermonViewSet,
+    SignupView, StreakCheckinView, WatchProgressViewSet, WorshipSongViewSet,
 )
 
 router = DefaultRouter()
@@ -41,5 +42,8 @@ urlpatterns = [
     path("auth/register/", SignupView.as_view(), name="register"),
 
     path("scriptures/random/", RandomScriptureView.as_view(), name="random-scripture"),
+    path("sermons/uploads/", SermonUploadSessionView.as_view(), name="sermon-upload-session"),
+    path("sermons/uploads/<uuid:upload_id>/chunks/", SermonUploadChunkView.as_view(), name="sermon-upload-chunk"),
+    path("sermons/uploads/<uuid:upload_id>/complete/", SermonUploadCompleteView.as_view(), name="sermon-upload-complete"),
     path("", include(router.urls)),
 ]

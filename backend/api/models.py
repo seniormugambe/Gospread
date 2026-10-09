@@ -3,6 +3,7 @@ import uuid
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class User(AbstractUser):
@@ -75,10 +76,24 @@ class Sermon(models.Model):
     kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.VIDEO)
     media_url = models.URLField(blank=True)
     thumbnail_url = models.URLField(blank=True)
+    tags = models.JSONField(default=list, blank=True)
+    scripture_reference = models.CharField(max_length=120, blank=True)
+    key_takeaways = models.JSONField(default=list, blank=True)
+    visibility = models.CharField(
+        max_length=10,
+        choices=(("public", "Public"), ("unlisted", "Unlisted"), ("private", "Private")),
+        default="public",
+    )
+    audience = models.CharField(
+        max_length=20,
+        choices=(("all_ages", "All ages"), ("made_for_kids", "Made for kids")),
+        default="all_ages",
+    )
     duration_seconds = models.PositiveIntegerField(default=0)
     view_count = models.PositiveIntegerField(default=0)
     is_featured = models.BooleanField(default=False)
     published_at = models.DateTimeField(null=True, blank=True)
+    scheduled_for = models.DateTimeField(null=True, blank=True, db_index=True)
     is_published = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -87,6 +102,22 @@ class Sermon(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class SermonUploadSession(models.Model):
+    upload_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="sermon_uploads")
+    file_name = models.CharField(max_length=255)
+    file_size = models.PositiveBigIntegerField()
+    received_size = models.PositiveBigIntegerField(default=0)
+    metadata = models.JSONField()
+    sermon = models.OneToOneField(
+        Sermon, on_delete=models.SET_NULL, null=True, blank=True, related_name="upload_session"
+    )
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ("-created_at",)
 
 
 class SermonShort(models.Model):

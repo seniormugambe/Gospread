@@ -1,7 +1,6 @@
 from pathlib import Path
 from uuid import uuid4
 
-from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import transaction
 from django.utils import timezone
@@ -270,8 +269,9 @@ class SermonSerializer(serializers.ModelSerializer):
         model = Sermon
         fields = (
             "id", "church", "church_name", "speaker", "title", "description", "category",
-            "kind", "media_url", "thumbnail_url", "duration_seconds", "view_count",
-            "is_featured", "published_at", "is_published", "created_at", "is_saved",
+            "kind", "media_url", "thumbnail_url", "tags", "scripture_reference", "key_takeaways",
+            "visibility", "audience", "duration_seconds", "view_count",
+            "is_featured", "published_at", "scheduled_for", "is_published", "created_at", "is_saved",
             "media_file", "thumbnail_file",
         )
         extra_kwargs = {
@@ -279,11 +279,22 @@ class SermonSerializer(serializers.ModelSerializer):
         }
         read_only_fields = ("id", "created_at", "church_name", "is_saved", "view_count")
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        scheduled_for = attrs.get("scheduled_for", getattr(self.instance, "scheduled_for", None))
+        is_published = attrs.get("is_published", getattr(self.instance, "is_published", False))
+        if scheduled_for and scheduled_for <= timezone.now():
+            raise serializers.ValidationError({"scheduled_for": "Choose a future publication time."})
+        if scheduled_for and is_published:
+            raise serializers.ValidationError({"is_published": "A scheduled sermon cannot be published yet."})
+        return attrs
+
     def _store_upload(self, uploaded_file, prefix):
         if not uploaded_file:
             return None
         extension = Path(uploaded_file.name).suffix or ""
-        saved_name = default_storage.save(f"uploads/{prefix}/{uuid4().hex}{extension}", ContentFile(uploaded_file.read()))
+        uploaded_file.seek(0)
+        saved_name = default_storage.save(f"uploads/{prefix}/{uuid4().hex}{extension}", uploaded_file)
         url = default_storage.url(saved_name)
         request = self.context.get("request")
         if request is not None:
@@ -311,6 +322,13 @@ class SermonSerializer(serializers.ModelSerializer):
     def get_is_saved(self, obj):
         user = self.context["request"].user
         return user.is_authenticated and obj.saved_by.filter(user=user).exists()
+
+
+class SermonUploadInitSerializer(serializers.Serializer):
+    upload_id = serializers.UUIDField()
+    file_name = serializers.CharField(max_length=255)
+    file_size = serializers.IntegerField(min_value=1, max_value=10 * 1024 * 1024 * 1024)
+    metadata = serializers.DictField()
 
 
 class SermonShortSerializer(serializers.ModelSerializer):

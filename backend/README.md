@@ -35,6 +35,9 @@ Public read endpoints include the health check, random scripture, published mini
 
 - `/api/churches/`
 - `/api/sermons/`
+- `POST /api/sermons/uploads/` — create or resume an authenticated video upload session
+- `PUT /api/sermons/uploads/{upload_id}/chunks/` — append a chunk using the `Upload-Offset` header
+- `POST /api/sermons/uploads/{upload_id}/complete/` — validate and publish/save the uploaded sermon
 - `/api/shorts/` — sermon clips up to three minutes
 - `/api/streams/?status=live`
 - `/api/prayers/`
@@ -44,3 +47,8 @@ Public read endpoints include the health check, random scripture, published mini
 The initial migration includes a small public-domain KJV scripture library. Staff can add, edit, or deactivate scriptures through Django Admin.
 
 Search list endpoints with `?search=faith` and paginate with `?page=2`.
+
+Video upload sessions accept files up to 10 GB in 8 MiB chunks and expire after 24 hours. The Creator Studio stores the session ID in the current browser session so a retry with the same file resumes from the last server-confirmed byte offset. Configure the deployment's request-body limit to allow an 8 MiB chunk.
+Partial chunks are stored under `MEDIA_ROOT/resumable_uploads`; use persistent shared storage before running multiple API instances or expecting in-flight uploads to survive an instance replacement.
+
+Scheduled sermons remain unpublished until their scheduled time. Sermon-feed requests publish overdue entries; deployments that need publication even when no feed is requested should run `python manage.py publish_scheduled_sermons` periodically.

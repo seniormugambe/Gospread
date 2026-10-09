@@ -1,15 +1,23 @@
+import base64
+import binascii
 import logging
+from pathlib import Path
+import re
+from datetime import timedelta
 
 import boto3
 from botocore.exceptions import ClientError
+from django.core.files import File
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
-from django.db.models import Count, DecimalField, Q, Sum, Value
+from django.db.models import Count, DecimalField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.conf import settings
 from django.utils import timezone
 from django.utils.dateformat import format as date_format
-from rest_framework import generics, permissions, status, viewsets
+from rest_framework import generics, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import APIException, NotFound, ValidationError
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -17,7 +25,8 @@ from livekit import api as livekit_api
 from .models import (
     AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund,
     LiveStream, LiveStreamChatMessage, LiveStreamViewer, PaymentGatewayCheckout, PrayerComment,
-    PrayerRequest, Scripture, SavedSermon, Sermon, SermonShort, WatchProgress, WorshipSong,
+    PrayerRequest, Scripture, SavedSermon, Sermon, SermonShort, SermonUploadSession,
+    WatchProgress, WorshipSong,
 )
 from .permissions import IsPastorOwnerOrReadOnly
 from .serializers import (
@@ -25,10 +34,195 @@ from .serializers import (
     GivingFundSerializer, LiveStreamChatMessageSerializer, LiveStreamSerializer, PaymentGatewayCheckoutSerializer,
     PrayerCommentSerializer, PrayerRequestSerializer, SavedSermonSerializer, ChangePasswordSerializer,
     GospreadTokenSerializer, ScriptureSerializer, SermonSerializer, SermonShortSerializer,
+    SermonUploadInitSerializer,
     GospreadTokenRefreshSerializer, SignupSerializer, UserSerializer, WatchProgressSerializer, WorshipSongSerializer,
 )
 
 logger = logging.getLogger(__name__)
+SERMON_UPLOAD_CHUNK_SIZE = 8 * 1024 * 1024
+SERMON_UPLOAD_MAX_AGE = timedelta(hours=24)
+
+
+def _sermon_upload_path(upload_id):
+    return Path(settings.MEDIA_ROOT) / "resumable_uploads" / f"{upload_id}.part"
+
+
+def _save_sermon_for_user(serializer, user):
+    church = serializer.validated_data.get("church")
+    if church is None:
+        church = user.owned_churches.order_by("created_at").first()
+    if church is None:
+        raise ValidationError({"church": "Create a church or channel before uploading a sermon."})
+    if church.owner_id != user.id:
+        from rest_framework.exceptions import PermissionDenied
+        raise PermissionDenied("You can only publish sermons for your own church.")
+
+    if serializer.validated_data.get("is_published", False):
+        return serializer.save(church=church, published_at=timezone.now(), scheduled_for=None)
+    return serializer.save(church=church)
+
+
+class SermonUploadSessionView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = SermonUploadInitSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        metadata = data["metadata"]
+        sermon_metadata = SermonSerializer(data=metadata, context={"request": request})
+        sermon_metadata.is_valid(raise_exception=True)
+        if not metadata.get("title") or not metadata.get("speaker"):
+            raise ValidationError({"metadata": "A title and speaker are required."})
+
+        upload_id = data["upload_id"]
+        file_name = Path(data["file_name"].replace("\\", "/")).name
+        expired_sessions = SermonUploadSession.objects.filter(created_at__lt=timezone.now() - SERMON_UPLOAD_MAX_AGE)
+        for expired_id in expired_sessions.values_list("upload_id", flat=True).iterator():
+            _sermon_upload_path(expired_id).unlink(missing_ok=True)
+        expired_sessions.delete()
+
+        if not SermonUploadSession.objects.filter(upload_id=upload_id).exists() and (
+            SermonUploadSession.objects.filter(owner=request.user, sermon__isnull=True).count() >= 3
+        ):
+            raise ValidationError({"detail": "Finish or retry an existing upload before starting another."})
+
+        session, created = SermonUploadSession.objects.get_or_create(
+            upload_id=upload_id,
+            defaults={
+                "owner": request.user,
+                "file_name": file_name,
+                "file_size": data["file_size"],
+                "metadata": metadata,
+            },
+        )
+        if session.owner_id != request.user.id:
+            raise NotFound()
+        if session.created_at < timezone.now() - SERMON_UPLOAD_MAX_AGE:
+            _sermon_upload_path(upload_id).unlink(missing_ok=True)
+            session.delete()
+            session = SermonUploadSession.objects.create(
+                upload_id=upload_id,
+                owner=request.user,
+                file_name=file_name,
+                file_size=data["file_size"],
+                metadata=metadata,
+            )
+            created = True
+        elif not created and (
+            session.file_size != data["file_size"]
+            or session.file_name != file_name
+            or session.metadata != metadata
+        ):
+            raise ValidationError({"upload_id": "This upload ID is already associated with different file details."})
+
+        if created:
+            path = _sermon_upload_path(upload_id)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.touch()
+        elif session.received_size and not _sermon_upload_path(upload_id).is_file():
+            session.received_size = 0
+            session.save(update_fields=("received_size",))
+            _sermon_upload_path(upload_id).touch()
+        return Response({
+            "upload_id": str(session.upload_id),
+            "offset": session.received_size,
+            "file_size": session.file_size,
+            "chunk_size": SERMON_UPLOAD_CHUNK_SIZE,
+            "complete": bool(session.sermon_id),
+        })
+
+
+class SermonUploadChunkView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def put(self, request, upload_id):
+        try:
+            offset = int(request.headers.get("Upload-Offset", ""))
+        except ValueError as error:
+            raise ValidationError({"Upload-Offset": "Provide a valid byte offset."}) from error
+
+        body = request.body
+        if not body or len(body) > SERMON_UPLOAD_CHUNK_SIZE:
+            raise ValidationError({"detail": f"Each chunk must be between 1 and {SERMON_UPLOAD_CHUNK_SIZE} bytes."})
+
+        with transaction.atomic():
+            session = SermonUploadSession.objects.select_for_update().filter(
+                upload_id=upload_id, owner=request.user
+            ).first()
+            if session is None:
+                raise NotFound()
+            if session.sermon_id:
+                return Response({"offset": session.received_size, "complete": True})
+            if session.created_at < timezone.now() - SERMON_UPLOAD_MAX_AGE:
+                raise ValidationError({"detail": "This upload session has expired. Start the upload again."})
+            if offset != session.received_size:
+                raise ValidationError({"detail": "Upload offset does not match the server.", "offset": session.received_size})
+            if session.received_size + len(body) > session.file_size:
+                raise ValidationError({"detail": "Chunk exceeds the declared file size."})
+
+            path = _sermon_upload_path(upload_id)
+            if not path.exists():
+                if session.received_size:
+                    raise APIException("The partial upload file is missing; start this upload again.")
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.touch()
+            with path.open("ab") as partial_file:
+                partial_file.write(body)
+            session.received_size += len(body)
+            session.save(update_fields=("received_size",))
+        return Response({"offset": session.received_size, "complete": False})
+
+
+class SermonUploadCompleteView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, upload_id):
+        with transaction.atomic():
+            session = SermonUploadSession.objects.select_for_update().filter(
+                upload_id=upload_id, owner=request.user
+            ).first()
+            if session is None:
+                raise NotFound()
+            if session.sermon_id:
+                return Response(SermonSerializer(session.sermon, context={"request": request}).data)
+            if session.created_at < timezone.now() - SERMON_UPLOAD_MAX_AGE:
+                raise ValidationError({"detail": "This upload session has expired. Start the upload again."})
+            if session.received_size != session.file_size:
+                raise ValidationError({"detail": "The upload is incomplete.", "offset": session.received_size})
+
+            path = _sermon_upload_path(upload_id)
+            if not path.is_file() or path.stat().st_size != session.file_size:
+                raise APIException("The uploaded file is missing or incomplete; start the upload again.")
+
+            data = dict(session.metadata)
+            thumbnail_url = data.get("thumbnail_url", "")
+            if isinstance(thumbnail_url, str) and thumbnail_url.startswith("data:"):
+                match = re.fullmatch(r"data:(image/(?:jpeg|png|webp));base64,(.+)", thumbnail_url, re.DOTALL)
+                if not match:
+                    raise ValidationError({"thumbnail_url": "Use a JPEG, PNG, or WebP thumbnail."})
+                try:
+                    thumbnail_bytes = base64.b64decode(match.group(2), validate=True)
+                except (binascii.Error, ValueError) as error:
+                    raise ValidationError({"thumbnail_url": "The thumbnail data is invalid."}) from error
+                if not thumbnail_bytes or len(thumbnail_bytes) > 5 * 1024 * 1024:
+                    raise ValidationError({"thumbnail_url": "Thumbnail must be no larger than 5 MB."})
+                extension = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}[match.group(1)]
+                data["thumbnail_file"] = SimpleUploadedFile(
+                    f"thumbnail.{extension}", thumbnail_bytes, content_type=match.group(1)
+                )
+                data.pop("thumbnail_url", None)
+
+            with path.open("rb") as uploaded_stream:
+                data["media_file"] = File(uploaded_stream, name=session.file_name)
+                sermon_serializer = SermonSerializer(data=data, context={"request": request})
+                sermon_serializer.is_valid(raise_exception=True)
+                sermon = _save_sermon_for_user(sermon_serializer, request.user)
+            session.sermon = sermon
+            session.save(update_fields=("sermon",))
+            path.unlink(missing_ok=True)
+            return Response(SermonSerializer(sermon, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
 
 class SignupView(generics.CreateAPIView):
@@ -280,52 +474,26 @@ class SermonViewSet(viewsets.ModelViewSet):
     ordering_fields = ("published_at", "created_at", "title", "view_count")
 
     def get_queryset(self):
+        Sermon.objects.filter(
+            is_published=False,
+            scheduled_for__isnull=False,
+            scheduled_for__lte=timezone.now(),
+        ).update(is_published=True, published_at=F("scheduled_for"))
         queryset = Sermon.objects.select_related("church").prefetch_related("saved_by")
         category = self.request.query_params.get("category")
         if category and category.lower() != "all":
             queryset = queryset.filter(category__iexact=category)
         if self.request.user.is_authenticated:
-            return queryset.filter(Q(is_published=True) | Q(church__owner=self.request.user)).distinct()
-        return queryset.filter(is_published=True)
+            public_content = Q(is_published=True, visibility="public")
+            unlisted_detail = Q(is_published=True, visibility="unlisted", pk=self.kwargs.get("pk"))
+            return queryset.filter(public_content | unlisted_detail | Q(church__owner=self.request.user)).distinct()
+        public_content = Q(is_published=True, visibility="public")
+        if self.action == "retrieve":
+            public_content |= Q(is_published=True, visibility="unlisted", pk=self.kwargs.get("pk"))
+        return queryset.filter(public_content)
 
     def perform_create(self, serializer):
-        church = serializer.validated_data.get("church")
-
-        if church is None:
-            # Use the uploader's own church if they have one
-            church = self.request.user.owned_churches.order_by("created_at").first()
-
-        if church is None:
-            # Any authenticated user can upload — auto-create a personal channel so
-            # they don't have to set up a church profile first.
-            from django.utils.text import slugify as _slugify
-            name = (
-                self.request.user.get_full_name()
-                or self.request.user.username
-                or self.request.user.email.split("@")[0]
-            ).strip() or "My Channel"
-            base_slug = _slugify(name) or "channel"
-            slug = base_slug
-            suffix = 1
-            while Church.objects.filter(slug=slug).exists():
-                suffix += 1
-                slug = f"{base_slug}-{suffix}"
-            church = Church.objects.create(
-                name=name,
-                slug=slug,
-                owner=self.request.user,
-            )
-
-        if church.owner_id != self.request.user.id:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You can only publish sermons for your own church.")
-
-        # Set published_at when publishing immediately so date-based queries work
-        publish = serializer.validated_data.get("is_published", False)
-        if publish:
-            serializer.save(church=church, published_at=timezone.now())
-        else:
-            serializer.save(church=church)
+        _save_sermon_for_user(serializer, self.request.user)
 
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def save(self, request, pk=None):
