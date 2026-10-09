@@ -251,6 +251,24 @@ class SermonUploadSessionTests(APITestCase):
         self.assertEqual(repeated_complete.status_code, status.HTTP_200_OK)
         self.assertEqual(repeated_complete.data["id"], sermon.id)
 
+    def test_upload_with_generated_thumbnail_data_uri_completes(self):
+        pixel = (
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        )
+        upload_id, started, file_bytes, _metadata = self.start_upload(metadata={
+            "title": "With thumbnail",
+            "speaker": "Pastor Grace",
+            "is_published": True,
+            "thumbnail_url": pixel,
+        })
+        self.assertEqual(started.status_code, status.HTTP_200_OK, started.data)
+        self.assertEqual(self.put_chunk(upload_id, 0, file_bytes).status_code, status.HTTP_200_OK)
+
+        completed = self.client.post(f"/api/v1/sermons/uploads/{upload_id}/complete/")
+
+        self.assertEqual(completed.status_code, status.HTTP_201_CREATED, completed.data)
+        self.assertTrue(Sermon.objects.get(id=completed.data["id"]).thumbnail_url.startswith("http"))
+
     def test_creator_without_church_can_complete_upload(self):
         self.church.delete()
         upload_id, started, file_bytes, _metadata = self.start_upload()

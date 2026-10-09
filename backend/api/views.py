@@ -79,7 +79,17 @@ class SermonUploadSessionView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         metadata = data["metadata"]
-        sermon_metadata = SermonSerializer(data=metadata, context={"request": request})
+        # Data-URI thumbnails are decoded and validated at completion, so exclude them from URL validation.
+        thumbnail_url = metadata.get("thumbnail_url")
+        if isinstance(thumbnail_url, str) and thumbnail_url.startswith("data:"):
+            if not re.match(r"data:image/(?:jpeg|png|webp);base64,", thumbnail_url):
+                raise ValidationError({"thumbnail_url": "Use a JPEG, PNG, or WebP thumbnail."})
+            if len(thumbnail_url) > 7 * 1024 * 1024:
+                raise ValidationError({"thumbnail_url": "Thumbnail must be no larger than 5 MB."})
+            validation_metadata = {key: value for key, value in metadata.items() if key != "thumbnail_url"}
+        else:
+            validation_metadata = metadata
+        sermon_metadata = SermonSerializer(data=validation_metadata, context={"request": request})
         sermon_metadata.is_valid(raise_exception=True)
         if not metadata.get("title") or not metadata.get("speaker"):
             raise ValidationError({"metadata": "A title and speaker are required."})
