@@ -262,6 +262,7 @@ class ChurchSerializer(serializers.ModelSerializer):
 class SermonSerializer(serializers.ModelSerializer):
     church_name = serializers.CharField(source="church.name", read_only=True)
     is_saved = serializers.SerializerMethodField()
+    is_owner = serializers.SerializerMethodField()
     media_file = serializers.FileField(write_only=True, required=False, allow_empty_file=False)
     thumbnail_file = serializers.FileField(write_only=True, required=False, allow_empty_file=False)
 
@@ -271,13 +272,13 @@ class SermonSerializer(serializers.ModelSerializer):
             "id", "church", "church_name", "speaker", "title", "description", "category",
             "kind", "media_url", "thumbnail_url", "tags", "scripture_reference", "key_takeaways",
             "visibility", "audience", "duration_seconds", "view_count",
-            "is_featured", "published_at", "scheduled_for", "is_published", "created_at", "is_saved",
+            "is_featured", "published_at", "scheduled_for", "is_published", "created_at", "is_saved", "is_owner",
             "media_file", "thumbnail_file",
         )
         extra_kwargs = {
             "church": {"required": False},
         }
-        read_only_fields = ("id", "created_at", "church_name", "is_saved", "view_count")
+        read_only_fields = ("id", "created_at", "church_name", "is_saved", "is_owner", "view_count")
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
@@ -323,6 +324,10 @@ class SermonSerializer(serializers.ModelSerializer):
         user = self.context["request"].user
         return user.is_authenticated and obj.saved_by.filter(user=user).exists()
 
+    def get_is_owner(self, obj):
+        request = self.context.get("request")
+        return bool(request and request.user.is_authenticated and obj.church.owner_id == request.user.id)
+
 
 class SermonUploadInitSerializer(serializers.Serializer):
     upload_id = serializers.UUIDField()
@@ -333,17 +338,22 @@ class SermonUploadInitSerializer(serializers.Serializer):
 
 class SermonShortSerializer(serializers.ModelSerializer):
     church_name = serializers.CharField(source="church.name", read_only=True)
+    is_owner = serializers.SerializerMethodField()
     video_file = serializers.FileField(write_only=True, required=False, allow_empty_file=False)
     thumbnail_file = serializers.FileField(write_only=True, required=False, allow_empty_file=False)
+
+    def get_is_owner(self, obj):
+        request = self.context.get("request")
+        return bool(request and request.user.is_authenticated and obj.church.owner_id == request.user.id)
 
     class Meta:
         model = SermonShort
         fields = (
             "id", "church", "church_name", "sermon", "title", "speaker", "caption",
             "video_url", "thumbnail_url", "duration_seconds", "like_count", "comment_count",
-            "view_count", "is_published", "created_at", "video_file", "thumbnail_file",
+            "view_count", "is_published", "created_at", "is_owner", "video_file", "thumbnail_file",
         )
-        read_only_fields = ("id", "created_at", "church_name", "like_count", "comment_count", "view_count")
+        read_only_fields = ("id", "created_at", "church_name", "is_owner", "like_count", "comment_count", "view_count")
 
     def _store_upload(self, uploaded_file, prefix):
         if not uploaded_file:

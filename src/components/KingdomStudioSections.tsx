@@ -44,7 +44,9 @@ import {
   Key,
   ChevronDown,
   CheckCheck,
-  Landmark
+  Landmark,
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { UserSession } from './AuthModal';
@@ -348,6 +350,30 @@ export default function KingdomStudioSections({
   const [newPrayerInput, setNewPrayerInput] = useState('');
   const [isAddingPrayer, setIsAddingPrayer] = useState(false);
 
+  const [pendingDelete, setPendingDelete] = useState<{ kind: 'video' | 'short'; id: string; title: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setIsDeleting(true);
+    setDeleteError('');
+    try {
+      if (pendingDelete.kind === 'video') {
+        await djangoApi.deleteSermon(pendingDelete.id);
+        setSampleVideos(prev => prev.filter(v => v.id !== pendingDelete.id));
+      } else {
+        await djangoApi.deleteShort(pendingDelete.id);
+        setSampleShorts(prev => prev.filter(v => v.id !== pendingDelete.id));
+      }
+      setPendingDelete(null);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Could not delete this item.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Filtered Content
   const filteredVideos = sampleVideos.filter(v => {
     const matchesSearch = !contentSearchQuery || 
@@ -629,6 +655,37 @@ export default function KingdomStudioSections({
             </div>
           </div>
 
+          {pendingDelete && (
+            <div className="fixed inset-0 z-[300] bg-black/70 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+              <div className="w-full max-w-sm rounded-2xl bg-[#161616] border border-slate-700 p-5 space-y-4">
+                <div className="space-y-1.5">
+                  <h4 className="text-sm font-black text-white">Delete this {pendingDelete.kind}?</h4>
+                  <p className="text-xs text-slate-400">
+                    "{pendingDelete.title}" and its uploaded files will be permanently removed, along with viewer watch progress and saves. This cannot be undone.
+                  </p>
+                  {deleteError && <p className="text-xs text-red-400 font-semibold">{deleteError}</p>}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setPendingDelete(null)}
+                    disabled={isDeleting}
+                    className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold cursor-pointer disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmDelete}
+                    disabled={isDeleting}
+                    className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                  >
+                    {isDeleting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    <span>{isDeleting ? 'Deleting…' : 'Delete'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* TAB 2.1: VIDEOS */}
           {contentSubTab === 'videos' && (
             <div className="space-y-3">
@@ -690,6 +747,16 @@ export default function KingdomStudioSections({
                       >
                         <Sliders className="w-4 h-4" />
                       </button>
+                      {vid.isOwner && !vid.isLive && (
+                        <button
+                          onClick={() => { setDeleteError(''); setPendingDelete({ kind: 'video', id: vid.id, title: vid.title }); }}
+                          className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 transition cursor-pointer"
+                          title="Delete video"
+                          aria-label={`Delete ${vid.title}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))
@@ -720,6 +787,15 @@ export default function KingdomStudioSections({
                     <h4 className="text-xs font-bold text-white line-clamp-2">{short.title}</h4>
                     <p className="text-[10px] text-slate-400 mt-1">{short.views} views • {short.likes} likes</p>
                   </div>
+                  {short.isOwner && (
+                    <button
+                      onClick={() => { setDeleteError(''); setPendingDelete({ kind: 'short', id: short.id, title: short.title }); }}
+                      className="w-full px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete</span>
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

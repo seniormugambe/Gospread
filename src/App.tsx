@@ -78,7 +78,7 @@ import AuthPage from './components/AuthPage';
 import { djangoApi } from './services/djangoApi';
 import { youtubeApi } from './services/youtubeApi';
 import VideoDownloadModal from './components/VideoDownloadModal';
-import VideoStreamFrame from './components/VideoStreamFrame';
+import VideoPlayer from './components/VideoPlayer';
 import PictureInPictureWindow from './components/PictureInPictureWindow';
 import LiveViewerTrendSparkline from './components/LiveViewerTrendSparkline';
 import AudioPodcastPlayer from './components/AudioPodcastPlayer';
@@ -1692,7 +1692,7 @@ export default function App() {
               
               {/* Left Main Player */}
               <div className="lg:col-span-2 space-y-3">
-                <VideoStreamFrame
+                <VideoPlayer
                   video={activeVideo}
                   isPlaying={isVideoPlaying}
                   onTogglePlay={() => setIsVideoPlaying(!isVideoPlaying)}
@@ -1700,7 +1700,6 @@ export default function App() {
                   onToggleMute={() => setIsVideoMuted(!isVideoMuted)}
                   onOpenGivingModal={handleOpenGiving}
                   onOpenFullscreen={() => setIsFullscreen(true)}
-                  onOpenChannelProfile={(channel) => setSelectedChannelModal(channel)}
                   onTogglePip={() => setIsPipDocked(!isPipDocked)}
                   onDownloadVideo={handleOpenDownloadModal}
                 />
@@ -2367,7 +2366,7 @@ export default function App() {
               Close
             </button>
             <div className="w-full max-w-6xl">
-              <VideoStreamFrame
+              <VideoPlayer
                 video={activeVideo}
                 isPlaying={isVideoPlaying}
                 onTogglePlay={() => setIsVideoPlaying(!isVideoPlaying)}
@@ -2375,7 +2374,6 @@ export default function App() {
                 onToggleMute={() => setIsVideoMuted(!isVideoMuted)}
                 onOpenGivingModal={handleOpenGiving}
                 onOpenFullscreen={() => setIsFullscreen(false)}
-                onOpenChannelProfile={(channel) => setSelectedChannelModal(channel)}
                 onDownloadVideo={handleOpenDownloadModal}
               />
             </div>

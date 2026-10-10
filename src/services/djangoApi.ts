@@ -77,6 +77,7 @@ export interface VideoStream {
   category: 'Live Worship' | 'Sermon' | 'Choir Special' | 'Bible Study' | 'Gospel Music';
   isLive: boolean;
   isShort?: boolean;
+  isOwner?: boolean;
   viewersCount?: number;
   viewsText?: string;
   duration?: string;
@@ -953,6 +954,7 @@ class DjangoApiClient {
         description: s.description || '',
         date: s.published_at ? new Date(s.published_at).toLocaleDateString() : 'Recent',
         videoUrl: s.media_url,
+        isOwner: Boolean(s.is_owner),
       });
     }
 
@@ -1064,6 +1066,14 @@ class DjangoApiClient {
     });
   }
 
+  public async deleteSermon(id: string): Promise<void> {
+    await this.request(`/sermons/${encodeURIComponent(id)}/`, { method: 'DELETE' });
+  }
+
+  public async deleteShort(id: string): Promise<void> {
+    await this.request(`/shorts/${encodeURIComponent(id.replace(/^short-/, ''))}/`, { method: 'DELETE' });
+  }
+
   public async getShorts(): Promise<VideoStream[]> {
     try {
       const res = await this.request<any[] | { results: any[] }>('/shorts/').catch(() => []);
@@ -1087,6 +1097,7 @@ class DjangoApiClient {
           description: short.caption || '',
           date: short.created_at ? new Date(short.created_at).toLocaleDateString() : 'Today',
           videoUrl: short.video_url,
+          isOwner: Boolean(short.is_owner),
         }));
       }
     } catch {

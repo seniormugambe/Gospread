@@ -485,6 +485,26 @@ class ChurchViewSet(viewsets.ModelViewSet):
         return Response({"following": True})
 
 
+def _delete_uploaded_files(*urls):
+    """Remove files this app stored under uploads/; ignore external URLs."""
+    from urllib.parse import unquote, urlparse
+    from django.core.files.storage import default_storage
+
+    media_path = urlparse(settings.MEDIA_URL or "/media/").path
+    for url in urls:
+        if not url:
+            continue
+        path = unquote(urlparse(url).path)
+        if not path.startswith(media_path):
+            continue
+        name = path[len(media_path):].lstrip("/")
+        if name.startswith("uploads/") and ".." not in name:
+            try:
+                default_storage.delete(name)
+            except Exception:
+                logging.getLogger(__name__).warning("Could not delete stored file %s", name)
+
+
 class SermonViewSet(viewsets.ModelViewSet):
     serializer_class = SermonSerializer
     permission_classes = [IsPastorOwnerOrReadOnly]
@@ -512,6 +532,11 @@ class SermonViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         _save_sermon_for_user(serializer, self.request.user)
+
+    def perform_destroy(self, instance):
+        urls = (instance.media_url, instance.thumbnail_url)
+        instance.delete()
+        transaction.on_commit(lambda: _delete_uploaded_files(*urls))
 
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def save(self, request, pk=None):
@@ -544,6 +569,11 @@ class SermonShortViewSet(viewsets.ModelViewSet):
             from rest_framework.exceptions import ValidationError
             raise ValidationError("The linked sermon must belong to the same church.")
         serializer.save()
+
+    def perform_destroy(self, instance):
+        urls = (instance.video_url, instance.thumbnail_url)
+        instance.delete()
+        transaction.on_commit(lambda: _delete_uploaded_files(*urls))
 
 
 class LiveStreamViewSet(viewsets.ModelViewSet):

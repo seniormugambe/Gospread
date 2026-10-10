@@ -98,6 +98,23 @@ type YouTubePlayer = {
   destroy: () => void;
 };
 
+/** Human-readable explanation for YouTube IFrame Player `onError` codes. */
+export function describeYouTubeError(code: number): string {
+  switch (code) {
+    case 2:
+      return 'This video link is invalid.';
+    case 5:
+      return 'The video could not be played in this browser.';
+    case 100:
+      return 'This video was removed or is private.';
+    case 101:
+    case 150:
+      return 'The owner has disabled playback of this video outside YouTube.';
+    default:
+      return 'This video could not be loaded.';
+  }
+}
+
 declare global {
   interface Window {
     YT?: {
@@ -109,6 +126,7 @@ declare global {
           events?: {
             onReady?: (event: { target: YouTubePlayer }) => void;
             onStateChange?: (event: { data: number }) => void;
+            onError?: (event: { data: number }) => void;
           };
         }
       ) => YouTubePlayer;
