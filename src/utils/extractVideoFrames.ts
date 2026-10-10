@@ -18,24 +18,51 @@ function formatTimestamp(seconds: number): string {
 
 function seekVideo(video: HTMLVideoElement, timeSeconds: number): Promise<void> {
   return new Promise((resolve, reject) => {
-    const onSeeked = () => {
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error('Timed out while seeking in video'));
+    }, 15_000);
+
+    const cleanup = () => {
+      window.clearTimeout(timeout);
       video.removeEventListener('seeked', onSeeked);
       video.removeEventListener('error', onError);
+      video.removeEventListener('stalled', onStalled);
+    };
+
+    const onSeeked = () => {
+      cleanup();
       resolve();
     };
     const onError = () => {
-      video.removeEventListener('seeked', onSeeked);
-      video.removeEventListener('error', onError);
+      cleanup();
       reject(new Error('Could not seek in video'));
     };
+    const onStalled = () => {
+      cleanup();
+      reject(new Error('Video stopped loading while seeking'));
+    };
+
     video.addEventListener('seeked', onSeeked);
     video.addEventListener('error', onError);
-    video.currentTime = Math.min(Math.max(timeSeconds, 0), Math.max(video.duration - 0.1, 0));
+    video.addEventListener('stalled', onStalled);
+
+    const target = Math.min(Math.max(timeSeconds, 0), Math.max(video.duration - 0.05, 0));
+    if (Math.abs(video.currentTime - target) < 0.01 && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      cleanup();
+      resolve();
+      return;
+    }
+
+    video.currentTime = target;
   });
 }
 
 /** Sample evenly spaced JPEG frames from a local video file for thumbnail pickers. */
 export async function extractVideoFrames(file: File, count = 4): Promise<VideoExtractedFrame[]> {
+  const frameCount = Math.floor(count);
+  if (!Number.isFinite(frameCount) || frameCount <= 0) return [];
+
   const objectUrl = URL.createObjectURL(file);
   const video = document.createElement('video');
   video.preload = 'auto';
@@ -45,8 +72,20 @@ export async function extractVideoFrames(file: File, count = 4): Promise<VideoEx
 
   try {
     await new Promise<void>((resolve, reject) => {
-      video.onloadedmetadata = () => resolve();
-      video.onerror = () => reject(new Error('Could not load video for frame extraction'));
+      const onMetadata = () => {
+        cleanup();
+        resolve();
+      };
+      const onError = () => {
+        cleanup();
+        reject(new Error('Could not load video for frame extraction'));
+      };
+      const cleanup = () => {
+        video.removeEventListener('loadedmetadata', onMetadata);
+        video.removeEventListener('error', onError);
+      };
+      video.addEventListener('loadedmetadata', onMetadata, { once: true });
+      video.addEventListener('error', onError, { once: true });
     });
 
     const duration = video.duration;
@@ -58,12 +97,17 @@ export async function extractVideoFrames(file: File, count = 4): Promise<VideoEx
     const ctx = canvas.getContext('2d');
     if (!ctx) return [];
 
+    // Thumbnails do not need the source video's full resolution. Limiting the
+    // canvas keeps data URLs small enough for the thumbnail picker and upload.
+    const maxWidth = 1280;
+    const scale = Math.min(1, maxWidth / video.videoWidth);
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+
     const frames: VideoExtractedFrame[] = [];
-    for (let i = 0; i < count; i++) {
-      const position = duration * ((i + 1) / (count + 1));
+    for (let i = 0; i < frameCount; i++) {
+      const position = duration * ((i + 1) / (frameCount + 1));
       await seekVideo(video, position);
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const url = canvas.toDataURL('image/jpeg', 0.82);
       const timeLabel = formatTimestamp(position);
