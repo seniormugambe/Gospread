@@ -102,12 +102,26 @@ export default function GraceShortsModal({
         {/* Short Media Background */}
         {currentShort ? (
           <div className="absolute inset-0 z-0">
-            <img
-              src={currentShort.videoUrl}
-              alt={currentShort.title}
-              className="w-full h-full object-cover opacity-80"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-slate-950/60" />
+            {currentShort.videoUrl && currentShort.videoUrl !== currentShort.thumbnail ? (
+              <video
+                key={currentShort.id}
+                src={currentShort.videoUrl}
+                poster={currentShort.thumbnail}
+                className="w-full h-full object-cover"
+                autoPlay
+                loop
+                playsInline
+                muted={isMuted}
+                controls={false}
+                onClick={(e) => {
+                  const el = e.currentTarget;
+                  if (el.paused) void el.play(); else el.pause();
+                }}
+              />
+            ) : (
+              <img src={currentShort.thumbnail} alt={currentShort.title} className="w-full h-full object-cover opacity-80" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-slate-950/50 pointer-events-none" />
           </div>
         ) : (
           <div className="absolute inset-0 z-0 bg-slate-950 flex flex-col items-center justify-center p-6 text-center space-y-3">
@@ -125,7 +139,7 @@ export default function GraceShortsModal({
             </span>
             {hasShorts && (
               <span className="text-xs font-mono text-slate-300">
-                {currentIndex + 1} / {GRACE_SHORTS.length}
+                {currentIndex + 1} / {allShorts.length}
               </span>
             )}
           </div>

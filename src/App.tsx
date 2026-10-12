@@ -2542,6 +2542,7 @@ export default function App() {
           }}
           onOpenGivingModal={handleOpenGiving}
           initialShortId={selectedShortId || undefined}
+          shorts={shorts}
         />
       )}
 
