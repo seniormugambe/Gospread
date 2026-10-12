@@ -153,10 +153,22 @@ export default function LiveChatPanel({
       {/* Messages List Area */}
       <div className="flex-1 p-3 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-slate-800">
         {filteredMessages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-4 text-slate-500 text-xs space-y-1">
-            <MessageSquare className="w-8 h-8 text-slate-600 mb-1" />
-            <p className="font-semibold text-slate-400">No live chat messages yet</p>
-            <p className="text-[11px] text-slate-500">Be the first to share an Amen or prayer request below!</p>
+          <div className="h-full flex flex-col items-center justify-center text-center p-4 text-slate-500 text-xs space-y-2">
+            <span className="text-3xl">🙌</span>
+            <p className="font-bold text-white text-sm">Be the first to say Amen</p>
+            <p className="text-[11px] text-slate-400">Your voice starts the conversation. Tap to join in:</p>
+            <div className="flex flex-wrap justify-center gap-1.5 pt-1">
+              {['Amen! 🙌', 'Praying with you 🙏', 'God is good ❤️'].map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  onClick={() => onSendMessage(q)}
+                  className="rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-[11px] font-bold text-amber-200 transition hover:bg-amber-400/25 active:scale-95"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
           filteredMessages.map((msg) => {

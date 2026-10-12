@@ -92,6 +92,8 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import ChurchLocationsCard from './components/ChurchLocationsCard';
 import SocialMediaLinksBar from './components/SocialMediaLinksBar';
 import LiveChatPanel from './components/LiveChatPanel';
+import UpNextRail from './components/UpNextRail';
+import FloatingReactions from './components/FloatingReactions';
 import ChurchScheduleTimetable from './components/ChurchScheduleTimetable';
 import { 
   CHURCH_SCHEDULES,
@@ -833,7 +835,10 @@ export default function App() {
     );
   };
 
+  const [autoplayTarget, setAutoplayTarget] = useState<VideoStream | null>(null);
+
   const handleSelectVideo = (video: VideoStream) => {
+    setAutoplayTarget(null);
     setActiveVideo(video);
     setIsVideoPlaying(true);
     setIsAudioPlaying(false);
@@ -1698,10 +1703,23 @@ export default function App() {
             </div>
           ) : (activeVideo && !isPipDocked) ? (
             /* Watch Theater Mode */
-            <div className="max-w-7xl w-full mx-auto p-2.5 sm:p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="relative w-full">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-0 h-[520px] opacity-40 blur-3xl"
+              style={{
+                backgroundImage: `url(${activeVideo.thumbnail})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                maskImage: 'linear-gradient(to bottom, black, transparent)',
+                WebkitMaskImage: 'linear-gradient(to bottom, black, transparent)',
+              }}
+            />
+            <div className="relative max-w-[1400px] w-full mx-auto p-2.5 sm:p-4 lg:p-6 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_400px] gap-4 sm:gap-6">
               
               {/* Left Main Player */}
-              <div className="lg:col-span-2 space-y-3">
+              <div className="space-y-4 min-w-0">
+                <div className="rounded-2xl sm:rounded-3xl overflow-hidden ring-1 ring-white/10 shadow-[0_30px_80px_-20px_rgba(245,158,11,0.35)]">
                 <VideoPlayer
                   video={activeVideo}
                   isPlaying={isVideoPlaying}
@@ -1714,35 +1732,56 @@ export default function App() {
                   onDownloadVideo={handleOpenDownloadModal}
                   onPlaybackStarted={handlePlaybackStarted}
                   onPlaybackProgress={handlePlaybackProgress}
+                  onPlaybackEnded={(ended) => {
+                    if (ended.isLive) return;
+                    const next = videoStreams.find((v) => v.id !== ended.id && !v.isLive);
+                    if (next) setAutoplayTarget(next);
+                  }}
                 />
-
-                {/* D3 Real-Time Live Viewer Trend Sparkline */}
-                <LiveViewerTrendSparkline video={activeVideo} isLive={activeVideo.isLive} />
+                </div>
 
                 {/* Video Info */}
-                <h1 className="text-base sm:text-lg font-bold text-white leading-snug">
-                  {activeVideo.title}
-                </h1>
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {activeVideo.isLive && (
+                      <span className="flex items-center gap-1.5 rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-red-600/40">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Live now
+                      </span>
+                    )}
+                    {activeVideo.viewersCount ? (
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold text-amber-300">
+                        {activeVideo.viewersCount} {activeVideo.isLive ? 'watching with you' : 'watched'}
+                      </span>
+                    ) : null}
+                  </div>
+                  <h1 className="text-xl sm:text-3xl font-black text-white leading-tight tracking-tight">
+                    {activeVideo.title}
+                  </h1>
+                </div>
+
+                {activeVideo.isLive && (
+                  <LiveViewerTrendSparkline video={activeVideo} isLive={activeVideo.isLive} />
+                )}
 
                 {/* Channel Actions */}
-                <div className="flex flex-wrap items-center justify-between gap-3 py-2 border-b border-slate-800">
+                <div className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4 rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur">
                   <div className="flex items-center gap-2.5">
                     <img
                       src={activeVideo.channelAvatar}
                       alt={activeVideo.speakerOrArtist}
                       onClick={() => setSelectedChannelModal(activeVideo.churchOrMinistry)}
-                      className="w-9 h-9 rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-amber-400 transition"
+                      className="w-11 h-11 rounded-full object-cover cursor-pointer ring-2 ring-amber-400/70 hover:ring-amber-300 transition"
                       title="View channel profile"
                     />
                     <div>
                       <h3 
                         onClick={() => setSelectedChannelModal(activeVideo.churchOrMinistry)}
-                        className="text-xs font-bold text-white flex items-center gap-1 cursor-pointer hover:text-amber-400 transition"
+                        className="text-sm font-bold text-white flex items-center gap-1 cursor-pointer hover:text-amber-400 transition"
                       >
                         {activeVideo.churchOrMinistry}
                         <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                       </h3>
-                      <p className="text-[10px] text-slate-400">
+                      <p className="text-[11px] text-slate-400">
                         {((followerCounts[activeVideo.churchOrMinistry] || 482000) / 1000).toFixed(1)}K followers
                       </p>
                     </div>
@@ -1751,10 +1790,10 @@ export default function App() {
                     <div className="flex items-center gap-1.5 ml-2">
                       <button
                         onClick={() => toggleSubscribe(activeVideo.churchOrMinistry)}
-                        className={`px-4 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 shadow-md ${
+                        className={`px-5 py-2 rounded-full text-xs font-black transition flex items-center gap-1.5 active:scale-95 ${
                           subscribedChannels.includes(activeVideo.churchOrMinistry)
-                            ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-                            : 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/20'
+                            ? 'bg-white/10 hover:bg-white/15 text-slate-200 border border-white/15'
+                            : 'bg-gradient-to-r from-red-600 to-rose-500 hover:brightness-110 text-white shadow-lg shadow-red-600/40'
                         }`}
                       >
                         {subscribedChannels.includes(activeVideo.churchOrMinistry) ? (
@@ -1822,7 +1861,7 @@ export default function App() {
                         type: 'church',
                         categoryTitle: `Support ${activeVideo.speakerOrArtist}`
                       })}
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/20 transition"
+                      className="flex items-center gap-1.5 px-5 py-2 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 hover:brightness-110 active:scale-95 text-slate-950 text-xs font-black shadow-lg shadow-amber-500/40 transition"
                       title="Sow Seed or Give Tithe to this Ministry"
                     >
                       <DollarSign className="w-3.5 h-3.5" />
@@ -1876,19 +1915,20 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Description Box */}
-                <div className="bg-[#181818] p-3 rounded-xl text-xs text-slate-300 space-y-1.5">
-                  <div className="flex items-center gap-2 font-bold text-white text-[11px]">
+                {/* Reactions + Description */}
+                <FloatingReactions />
+                <div className="bg-white/[0.04] border border-white/10 p-4 rounded-2xl text-xs text-slate-300 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-white text-xs">
                     <span>{activeVideo.viewsText || `${activeVideo.viewersCount} watching`}</span>
                     <span>•</span>
                     <span>{activeVideo.date}</span>
                   </div>
-                  <p className="line-clamp-2 leading-snug">{activeVideo.description}</p>
+                  <p className="line-clamp-3 leading-relaxed text-sm">{activeVideo.description}</p>
                 </div>
               </div>
 
               {/* Right Sidebar: Chat & Up Next */}
-              <div className="space-y-4">
+              <div className="space-y-5 min-w-0">
                 {/* Live Chat */}
                 <LiveChatPanel
                   chatMessages={chatMessages}
@@ -1898,36 +1938,15 @@ export default function App() {
                   activeVideo={activeVideo}
                 />
 
-                {/* Up Next List */}
-                <div className="space-y-2">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Up Next</h3>
-                  <div className="space-y-2">
-                    {videoStreams.filter(v => v.id !== activeVideo.id).map((v) => (
-                      <motion.div
-                        key={v.id}
-                        whileHover={{ scale: 1.02, x: 2 }}
-                        transition={{ type: 'spring', stiffness: 350, damping: 20 }}
-                        onClick={() => handleSelectVideo(v)}
-                        className="flex gap-2.5 cursor-pointer group p-1 rounded-xl transition hover:bg-slate-900/60"
-                      >
-                        <div className="relative w-32 aspect-video rounded-xl overflow-hidden bg-slate-900 shrink-0 shadow-md">
-                          <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
-                          <span className="absolute bottom-1 right-1 px-1 bg-black/80 text-[9px] text-white rounded font-mono">
-                            {v.duration || 'LIVE'}
-                          </span>
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                          <h4 className="text-xs font-bold text-white line-clamp-2 group-hover:text-red-400 transition">
-                            {v.title}
-                          </h4>
-                          <p className="text-[10px] text-slate-400 mt-0.5 truncate">{v.speakerOrArtist}</p>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
+                <UpNextRail
+                  videos={videoStreams.filter(v => v.id !== activeVideo.id)}
+                  onSelect={handleSelectVideo}
+                  autoplayTarget={autoplayTarget}
+                  onCancelAutoplay={() => setAutoplayTarget(null)}
+                />
               </div>
 
+            </div>
             </div>
           ) : (
             /* Media Centric Grid Page */

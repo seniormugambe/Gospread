@@ -40,6 +40,7 @@ interface VideoPlayerProps {
   onDownloadVideo?: (video: VideoStream) => void;
   onPlaybackStarted?: (video: VideoStream) => void;
   onPlaybackProgress?: (video: VideoStream, positionSeconds: number, completed: boolean) => void;
+  onPlaybackEnded?: (video: VideoStream) => void;
 }
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -58,6 +59,7 @@ export default function VideoPlayer({
   onDownloadVideo,
   onPlaybackStarted,
   onPlaybackProgress,
+  onPlaybackEnded,
 }: VideoPlayerProps) {
   const playback = useMemo(
     () => resolvePlaybackSource(video),
@@ -175,8 +177,9 @@ export default function VideoPlayer({
   useEffect(() => {
     if (status === 'ended') {
       reportWatchProgress(true);
+      onPlaybackEnded?.(video);
     }
-  }, [reportWatchProgress, status]);
+  }, [status]);
 
   const handleEngineError = useCallback(
     (message: string) => {
