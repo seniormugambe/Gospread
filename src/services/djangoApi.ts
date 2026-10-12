@@ -1136,8 +1136,10 @@ class DjangoApiClient {
           err.status = xhr.status;
           try {
             const body = JSON.parse(xhr.responseText);
-            const first = Object.values(body)[0];
-            err.message = String(Array.isArray(first) ? first[0] : first || err.message);
+            console.error('Gospel Nugget upload rejected:', body);
+            err.message = Object.entries(body)
+              .map(([field, msg]) => (field === 'detail' || field === 'non_field_errors' ? '' : `${field}: `) + String(Array.isArray(msg) ? msg.join(' ') : msg))
+              .join(' · ') || err.message;
           } catch { /* keep generic message */ }
           reject(err);
         });
