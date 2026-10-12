@@ -1,6 +1,6 @@
 // Production-ready Django REST Framework / Django Ninja API Client Service
 // Connected directly to Django 5.x / DRF endpoints with JWT Authentication (SimpleJWT)
-import { CHURCH_LOCATIONS } from '../data/gospelData';
+import { AUDIO_TRACKS, CHURCH_LOCATIONS, GRACE_SHORTS, LIVE_VIDEO_STREAMS } from '../data/gospelData';
 
 export interface ChurchCampusLocation {
   id?: string;
@@ -990,7 +990,42 @@ class DjangoApiClient {
       );
     }
 
-    return finalVideos;
+    if (finalVideos.length > 0) {
+      return finalVideos;
+    }
+
+    let localVideos = LIVE_VIDEO_STREAMS.slice();
+    if (category && category.toLowerCase() !== 'all') {
+      const cat = category.toLowerCase();
+      if (cat === 'live') {
+        localVideos = localVideos.filter(v => v.isLive);
+      } else if (cat === 'sermons' || cat === 'sermon') {
+        localVideos = localVideos.filter(v => v.category.toLowerCase().includes('sermon'));
+      } else if (cat === 'worship') {
+        localVideos = localVideos.filter(v =>
+          v.category.toLowerCase().includes('worship') ||
+          v.category.toLowerCase().includes('choir') ||
+          v.category.toLowerCase().includes('music')
+        );
+      } else {
+        localVideos = localVideos.filter(v => v.category.toLowerCase().includes(cat));
+      }
+    }
+
+    if (isLive !== undefined) {
+      localVideos = localVideos.filter(v => v.isLive === isLive);
+    }
+
+    if (search?.trim()) {
+      const q = search.toLowerCase().trim();
+      localVideos = localVideos.filter(v =>
+        v.title.toLowerCase().includes(q) ||
+        v.speakerOrArtist.toLowerCase().includes(q) ||
+        v.churchOrMinistry.toLowerCase().includes(q)
+      );
+    }
+
+    return localVideos;
   }
 
   public async getLiveStreams(category?: string): Promise<VideoStream[]> {
@@ -1101,10 +1136,27 @@ class DjangoApiClient {
         }));
       }
     } catch {
-      return [];
+      // Fall through to curated local shorts.
     }
-
-    return [];
+    return GRACE_SHORTS.map((short) => ({
+      id: short.id,
+      title: short.title,
+      speakerOrArtist: short.speaker,
+      churchOrMinistry: short.church,
+      channelAvatar: short.avatar,
+      subscribersCount: 'Verified',
+      likesCount: short.likes,
+      category: 'Sermon' as const,
+      isLive: false,
+      isShort: true,
+      viewersCount: short.amensCount,
+      viewsText: `${short.amensCount} amens`,
+      duration: short.duration,
+      thumbnail: short.thumbnail,
+      description: short.tags.join(' '),
+      date: 'Today',
+      videoUrl: short.videoUrl,
+    }));
   }
 
   // === 4. AUDIO & PODCASTS ===
@@ -1131,7 +1183,11 @@ class DjangoApiClient {
       }));
     }
 
-    return [];
+    const categoryFilter = category?.toLowerCase().trim();
+    return AUDIO_TRACKS.filter((track) => {
+      if (!categoryFilter || categoryFilter === 'all') return true;
+      return track.category.toLowerCase().includes(categoryFilter);
+    });
   }
 
   // === 5. CHURCH DIRECTORY & REGISTRATION ===

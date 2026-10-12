@@ -38,6 +38,8 @@ interface VideoPlayerProps {
   onOpenFullscreen?: () => void;
   onTogglePip?: () => void;
   onDownloadVideo?: (video: VideoStream) => void;
+  onPlaybackStarted?: (video: VideoStream) => void;
+  onPlaybackProgress?: (video: VideoStream, positionSeconds: number, completed: boolean) => void;
 }
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -54,6 +56,8 @@ export default function VideoPlayer({
   onOpenFullscreen,
   onTogglePip,
   onDownloadVideo,
+  onPlaybackStarted,
+  onPlaybackProgress,
 }: VideoPlayerProps) {
   const playback = useMemo(
     () => resolvePlaybackSource(video),
@@ -64,6 +68,10 @@ export default function VideoPlayer({
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<MediaEngineHandle>(null);
   const hideTimerRef = useRef<number>();
+  const currentSecRef = useRef(0);
+  const durationSecRef = useRef(0);
+  const playbackStartedRef = useRef(false);
+  const lastProgressSnapshotRef = useRef<{ position: number; completed: boolean } | null>(null);
 
   const [status, setStatus] = useState<PlayerStatus>('loading');
   const [errorMessage, setErrorMessage] = useState('');
@@ -88,6 +96,10 @@ export default function VideoPlayer({
     setDurationSec(0);
     setAudioOnly(false);
     setSpeedMenuOpen(false);
+    currentSecRef.current = 0;
+    durationSecRef.current = 0;
+    playbackStartedRef.current = false;
+    lastProgressSnapshotRef.current = null;
   }, [video.id, playback.kind, playback.youtubeId, playback.directUrl, retryKey]);
 
   useEffect(() => {
@@ -105,6 +117,8 @@ export default function VideoPlayer({
   }, []);
 
   const handleTimeUpdate = useCallback((current: number, duration: number) => {
+    currentSecRef.current = current;
+    durationSecRef.current = duration;
     setCurrentSec(current);
     setDurationSec(duration);
   }, []);
@@ -116,6 +130,53 @@ export default function VideoPlayer({
     },
     [isPlaying, onTogglePlay]
   );
+
+  useEffect(() => {
+    if (status !== 'playing' || playbackStartedRef.current || !hasSource || hasError) return;
+    playbackStartedRef.current = true;
+    onPlaybackStarted?.(video);
+  }, [hasError, hasSource, onPlaybackStarted, status, video]);
+
+  const reportWatchProgress = useCallback(
+    (forceCompleted = false) => {
+      if (!onPlaybackProgress || !hasSource || hasError) return;
+
+      const position = Math.max(0, Math.floor(currentSecRef.current));
+      const duration = Math.max(0, Math.floor(durationSecRef.current));
+      const completed = forceCompleted || (duration > 0 && position >= Math.max(0, duration - 1));
+
+      if (position <= 0 && !completed) return;
+
+      const snapshot = { position, completed };
+      const lastSnapshot = lastProgressSnapshotRef.current;
+      if (lastSnapshot && lastSnapshot.position === snapshot.position && lastSnapshot.completed === snapshot.completed) {
+        return;
+      }
+
+      lastProgressSnapshotRef.current = snapshot;
+      onPlaybackProgress(video, position, completed);
+    },
+    [hasError, hasSource, onPlaybackProgress, video]
+  );
+
+  useEffect(() => {
+    if (status !== 'playing' || !hasSource || hasError) return;
+
+    const interval = window.setInterval(() => {
+      reportWatchProgress(false);
+    }, 15000);
+
+    return () => {
+      window.clearInterval(interval);
+      reportWatchProgress(false);
+    };
+  }, [hasError, hasSource, reportWatchProgress, status]);
+
+  useEffect(() => {
+    if (status === 'ended') {
+      reportWatchProgress(true);
+    }
+  }, [reportWatchProgress, status]);
 
   const handleEngineError = useCallback(
     (message: string) => {

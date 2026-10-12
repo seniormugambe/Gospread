@@ -422,6 +422,17 @@ export default function App() {
     });
   };
 
+  const handlePlaybackStarted = (video: VideoStream) => {
+    addToWatchHistory(video);
+  };
+
+  const handlePlaybackProgress = (video: VideoStream, positionSeconds: number, completed: boolean) => {
+    if (!video?.id) return;
+    void djangoApi.updateWatchProgress(video.id, Math.max(0, Math.floor(positionSeconds)), completed).catch((error) => {
+      console.warn('Watch progress update notice:', error);
+    });
+  };
+
   const removeFromWatchHistory = (videoId: string) => {
     setWatchHistory(prev => {
       const updated = prev.filter(item => Boolean(item && item.video && item.video.id !== videoId));
@@ -826,7 +837,6 @@ export default function App() {
     setActiveVideo(video);
     setIsVideoPlaying(true);
     setIsAudioPlaying(false);
-    addToWatchHistory(video);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -1702,6 +1712,8 @@ export default function App() {
                   onOpenFullscreen={() => setIsFullscreen(true)}
                   onTogglePip={() => setIsPipDocked(!isPipDocked)}
                   onDownloadVideo={handleOpenDownloadModal}
+                  onPlaybackStarted={handlePlaybackStarted}
+                  onPlaybackProgress={handlePlaybackProgress}
                 />
 
                 {/* D3 Real-Time Live Viewer Trend Sparkline */}
@@ -2375,6 +2387,8 @@ export default function App() {
                 onOpenGivingModal={handleOpenGiving}
                 onOpenFullscreen={() => setIsFullscreen(false)}
                 onDownloadVideo={handleOpenDownloadModal}
+                onPlaybackStarted={handlePlaybackStarted}
+                onPlaybackProgress={handlePlaybackProgress}
               />
             </div>
           </motion.div>
