@@ -84,6 +84,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream, ChurchLocation, SocialLink, registerChurchProfile } from '../data/gospelData';
 import { djangoApi } from '../services/djangoApi';
+import CreateShortPanel from './CreateShortPanel';
 import { IvsBroadcastCredentials } from '../services/ivsBroadcast';
 import { UserSession } from './AuthModal';
 import LiveBroadcastRoom from './LiveBroadcastRoom';
@@ -95,7 +96,7 @@ import { extractVideoFrames, type VideoExtractedFrame } from '../utils/extractVi
 import { renderGospelThumbnailDataUrl } from '../utils/gospelThumbnailCanvas';
 
 export type CreatorCategory = 'Church' | 'Artiste' | 'Creator' | 'Radio';
-export type StudioAction = 'choose' | 'upload' | 'live' | 'audio_space' | 'schedule' | 'live_control_room' | 'dashboard' | 'content' | 'analytics' | 'community' | 'giving' | 'settings';
+export type StudioAction = 'choose' | 'upload' | 'short' | 'live' | 'audio_space' | 'schedule' | 'live_control_room' | 'dashboard' | 'content' | 'analytics' | 'community' | 'giving' | 'settings';
 export type UploadStep = 'select' | 'uploading' | 'details' | 'thumbnail' | 'visibility' | 'publish';
 export type UploadMode = 'device' | 'url' | 'youtube';
 export type LiveBroadcastType = 'Sunday Service' | 'Bible Study' | 'Prayer' | 'Worship' | 'Conference' | 'Other';
@@ -343,6 +344,8 @@ export default function CreatePage({
       } else if (initialAction === 'live' || initialAction === 'live_control_room') {
         setStudioAction(initialAction);
         setStudioNavTab('live_hub');
+      } else if (initialAction === 'short') {
+        setStudioAction('short');
       } else if (initialAction === 'upload') {
         setStudioAction('upload');
       } else {
@@ -1358,6 +1361,14 @@ export default function CreatePage({
             </button>
 
             <button
+              onClick={() => setStudioAction('short')}
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 font-black text-xs flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>Create Short</span>
+            </button>
+
+            <button
               onClick={() => {
                 setStudioAction('upload');
                 setUploadStep('select');
@@ -1471,6 +1482,22 @@ export default function CreatePage({
                     <div>
                       <p className="font-bold">Upload Video</p>
                       <p className="text-[10px] text-slate-400">Prerecorded sermon or podcast</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsCreateMenuOpen(false);
+                      setStudioAction('short');
+                    }}
+                    className="w-full px-3 py-2 rounded-xl hover:bg-slate-800 text-left text-xs font-bold text-slate-200 hover:text-white flex items-center gap-2.5 transition cursor-pointer"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                      <Zap className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="font-bold">Create Short</p>
+                      <p className="text-[10px] text-slate-400">Vertical Gospel Nugget, up to 60s</p>
                     </div>
                   </button>
 
@@ -2086,6 +2113,15 @@ export default function CreatePage({
 
 
         </motion.div>
+      )}
+
+      {!isSubmitted && studioAction === 'short' && (
+        <CreateShortPanel
+          isSignedIn={Boolean(currentUser)}
+          onRequireAuth={onRequireAuth}
+          onBack={() => setStudioAction('choose')}
+          onPublished={onPublishSuccess}
+        />
       )}
 
       {/* 📤 FLOW 1: REFINED UPLOAD VIDEO MULTI-STEP WORKFLOW */}

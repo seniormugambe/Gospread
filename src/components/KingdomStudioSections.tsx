@@ -580,7 +580,7 @@ export default function KingdomStudioSections({
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
               {[
                 { id: 'videos', label: `Videos (${sampleVideos.length})`, icon: Film },
-                { id: 'shorts', label: `Shorts (${sampleShorts.length})`, icon: Video },
+                { id: 'shorts', label: `Gospel Nuggets (${sampleShorts.length})`, icon: Video },
                 { id: 'drafts', label: `Drafts (${sampleDrafts.length})`, icon: Clock },
                 { id: 'scheduled', label: `Scheduled (${sampleScheduled.length})`, icon: Calendar }
               ].map(tab => {
@@ -780,7 +780,7 @@ export default function KingdomStudioSections({
                       {short.duration}
                     </span>
                     <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-red-600 text-white text-[9px] font-black uppercase">
-                      Short
+                      Nugget
                     </span>
                   </div>
                   <div>

@@ -112,8 +112,8 @@ export default function GraceShortsModal({
         ) : (
           <div className="absolute inset-0 z-0 bg-slate-950 flex flex-col items-center justify-center p-6 text-center space-y-3">
             <Sparkles className="w-12 h-12 text-slate-600 animate-pulse" />
-            <h3 className="text-base font-bold text-white">No Grace Shorts Available</h3>
-            <p className="text-xs text-slate-400">Shorts will appear when uploaded or published by ministry channels.</p>
+            <h3 className="text-base font-bold text-white">No Gospel Nuggets Available</h3>
+            <p className="text-xs text-slate-400">Gospel Nuggets will appear when uploaded or published by ministry channels.</p>
           </div>
         )}
 
@@ -121,7 +121,7 @@ export default function GraceShortsModal({
         <div className="relative z-10 p-4 flex items-center justify-between text-white">
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full bg-red-600 text-white font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1">
-              <Sparkles className="w-3 h-3" /> Grace Shorts
+              <Sparkles className="w-3 h-3" /> Gospel Nuggets
             </span>
             {hasShorts && (
               <span className="text-xs font-mono text-slate-300">

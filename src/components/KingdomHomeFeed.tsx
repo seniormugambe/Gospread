@@ -159,7 +159,7 @@ export default function KingdomHomeFeed({
     icon: React.ElementType;
   }> = [
     { id: 'Live', label: 'Live', icon: Radio },
-    { id: 'Shorts', label: 'Shorts', icon: Zap },
+    { id: 'Shorts', label: 'Gospel Nuggets', icon: Zap },
     { id: 'Sermons', label: 'Sermons', icon: BookOpen },
     { id: 'Worship', label: 'Worship', icon: Music },
     { id: 'Podcasts', label: 'Podcasts', icon: Podcast },
@@ -396,14 +396,14 @@ export default function KingdomHomeFeed({
               <Zap className="w-4 h-4 fill-amber-400" />
             </span>
             <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              <span>⚡ GOSPREAD SHORTS</span>
+              <span>⚡ GOSPEL NUGGETS</span>
             </h2>
           </div>
         </div>
         <div className="rounded-2xl bg-slate-900/60 border border-slate-800/80 p-6 text-center space-y-1">
           <Zap className="w-6 h-6 text-amber-400/40 mx-auto" />
-          <p className="text-sm font-bold text-white">No shorts uploaded yet.</p>
-          <p className="text-xs text-slate-400">Short clips from ministries will appear here once uploaded.</p>
+          <p className="text-sm font-bold text-white">No Gospel Nuggets uploaded yet.</p>
+          <p className="text-xs text-slate-400">Gospel Nuggets from ministries will appear here once uploaded.</p>
         </div>
       </section>
     );
@@ -416,7 +416,7 @@ export default function KingdomHomeFeed({
             </span>
             <div>
               <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight flex items-center gap-2">
-                <span>⚡ GOSPREAD SHORTS</span>
+                <span>⚡ GOSPEL NUGGETS</span>
                 <span className="text-[11px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">
                   60s Rhema
                 </span>
@@ -429,7 +429,7 @@ export default function KingdomHomeFeed({
             className="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1.5 transition px-3 py-1.5 rounded-xl bg-amber-400/10 border border-amber-400/20 hover:bg-amber-400/20"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Watch All Shorts</span>
+            <span>Watch All Gospel Nuggets</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -443,7 +443,7 @@ export default function KingdomHomeFeed({
               <img src={short.thumbnail} alt={short.title} referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-black/60" />
               <div className="relative z-10 flex items-center justify-between gap-1">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/90 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow"><Zap className="w-2.5 h-2.5 fill-slate-950" />Short</span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/90 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow"><Zap className="w-2.5 h-2.5 fill-slate-950" />Nugget</span>
                 <span className="px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md border border-white/10 text-[10px] font-mono font-bold text-white">{short.duration}</span>
               </div>
               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">

@@ -47,8 +47,7 @@ def _sermon_upload_path(upload_id):
     return Path(settings.MEDIA_ROOT) / "resumable_uploads" / f"{upload_id}.part"
 
 
-def _save_sermon_for_user(serializer, user):
-    church = serializer.validated_data.get("church")
+def _resolve_church_for_user(user, church=None):
     if church is None:
         church = user.owned_churches.order_by("created_at").first()
     if church is None:
@@ -63,7 +62,12 @@ def _save_sermon_for_user(serializer, user):
         church = Church.objects.create(name=name, slug=slug, owner=user)
     if church.owner_id != user.id:
         from rest_framework.exceptions import PermissionDenied
-        raise PermissionDenied("You can only publish sermons for your own church.")
+        raise PermissionDenied("You can only publish for your own church.")
+    return church
+
+
+def _save_sermon_for_user(serializer, user):
+    church = _resolve_church_for_user(user, serializer.validated_data.get("church"))
 
     if serializer.validated_data.get("is_published", False):
         return serializer.save(church=church, published_at=timezone.now(), scheduled_for=None)
@@ -560,15 +564,14 @@ class SermonShortViewSet(viewsets.ModelViewSet):
         return queryset.filter(is_published=True)
 
     def perform_create(self, serializer):
-        church = serializer.validated_data["church"]
-        if church.owner_id != self.request.user.id:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You can only publish shorts for your own church.")
+        user = self.request.user
+        church = _resolve_church_for_user(user, serializer.validated_data.get("church"))
         sermon = serializer.validated_data.get("sermon")
         if sermon and sermon.church_id != church.id:
             from rest_framework.exceptions import ValidationError
             raise ValidationError("The linked sermon must belong to the same church.")
-        serializer.save()
+        speaker = serializer.validated_data.get("speaker") or user.get_full_name() or user.username
+        serializer.save(church=church, speaker=speaker)
 
     def perform_destroy(self, instance):
         urls = (instance.video_url, instance.thumbnail_url)

@@ -1,6 +1,7 @@
 from pathlib import Path
 from uuid import uuid4
 
+from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import transaction
 from django.utils import timezone
@@ -354,6 +355,16 @@ class SermonShortSerializer(serializers.ModelSerializer):
             "view_count", "is_published", "created_at", "is_owner", "video_file", "thumbnail_file",
         )
         read_only_fields = ("id", "created_at", "church_name", "is_owner", "like_count", "comment_count", "view_count")
+        extra_kwargs = {
+            "church": {"required": False},
+            "speaker": {"required": False},
+            "thumbnail_url": {"required": False},
+        }
+
+    def validate(self, attrs):
+        if self.instance is None and not (attrs.get("video_file") or attrs.get("video_url")):
+            raise serializers.ValidationError({"video_file": "A video file is required."})
+        return attrs
 
     def _store_upload(self, uploaded_file, prefix):
         if not uploaded_file:
@@ -385,8 +396,8 @@ class SermonShortSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
     def validate_duration_seconds(self, value):
-        if value > 180:
-            raise serializers.ValidationError("Sermon shorts must be three minutes or less.")
+        if value > 60:
+            raise serializers.ValidationError("Gospel Nuggets must be 60 seconds or less.")
         return value
 
 

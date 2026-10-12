@@ -170,6 +170,106 @@ class SermonShortTests(APITestCase):
         self.assertTrue(Sermon.objects.get(id=response.data["id"]).media_url)
 
 
+class GospelNuggetCreateTests(APITestCase):
+    def setUp(self):
+        media_dir = tempfile.TemporaryDirectory()
+        media_settings = override_settings(MEDIA_ROOT=media_dir.name)
+        media_settings.enable()
+        self.addCleanup(media_settings.disable)
+        self.addCleanup(media_dir.cleanup)
+        self.user = User.objects.create_user(
+            username="nugget-pastor", email="nugget@example.com", password="StrongPass123!",
+            first_name="Mary", last_name="Kamau",
+        )
+
+    def post_short(self, **overrides):
+        data = {
+            "title": "Grace today",
+            "caption": "Fresh grace.",
+            "duration_seconds": 45,
+            "is_published": True,
+            "video_file": SimpleUploadedFile("nugget.mp4", b"video-bytes", content_type="video/mp4"),
+            "thumbnail_file": SimpleUploadedFile("thumb.jpg", b"img-bytes", content_type="image/jpeg"),
+        }
+        data.update(overrides)
+        data = {key: value for key, value in data.items() if value is not None}
+        return self.client.post("/api/v1/shorts/", data, format="multipart")
+
+    def test_requires_authentication(self):
+        response = self.post_short()
+
+        self.assertIn(response.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+        self.assertEqual(SermonShort.objects.count(), 0)
+
+    def test_creates_short_with_default_church_and_speaker(self):
+        church = Church.objects.create(name="Nugget Church", slug="nugget-church", owner=self.user)
+        self.client.force_authenticate(user=self.user)
+
+        response = self.post_short()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        short = SermonShort.objects.get(id=response.data["id"])
+        self.assertEqual(short.church_id, church.id)
+        self.assertEqual(short.speaker, "Mary Kamau")
+        self.assertEqual(short.caption, "Fresh grace.")
+        self.assertTrue(short.video_url.startswith("http"))
+        self.assertTrue(short.thumbnail_url.startswith("http"))
+        self.assertTrue(short.is_published)
+
+    def test_creates_channel_when_user_owns_no_church(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.post_short()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(Church.objects.filter(owner=self.user).count(), 1)
+
+    def test_accepts_exactly_sixty_seconds(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.post_short(duration_seconds=60)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_rejects_over_sixty_seconds(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.post_short(duration_seconds=61)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("duration_seconds", response.data)
+        self.assertEqual(SermonShort.objects.count(), 0)
+
+    def test_requires_video_file(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.post_short(video_file=None)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("video_file", response.data)
+
+    def test_cannot_post_to_another_users_church(self):
+        other = User.objects.create_user(username="other", email="other@example.com", password="StrongPass123!")
+        church = Church.objects.create(name="Other Church", slug="other-church", owner=other)
+        self.client.force_authenticate(user=self.user)
+
+        response = self.post_short(church=church.id)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(SermonShort.objects.count(), 0)
+
+    def test_rejects_sermon_from_a_different_church(self):
+        Church.objects.create(name="Mine", slug="mine", owner=self.user)
+        other = User.objects.create_user(username="other2", email="other2@example.com", password="StrongPass123!")
+        other_church = Church.objects.create(name="Theirs", slug="theirs", owner=other)
+        sermon = Sermon.objects.create(church=other_church, title="Their sermon", speaker="X")
+        self.client.force_authenticate(user=self.user)
+
+        response = self.post_short(sermon=sermon.id)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
 class SermonUploadSessionTests(APITestCase):
     def setUp(self):
         self.media_dir = tempfile.TemporaryDirectory()
@@ -673,7 +773,7 @@ class ChurchEntryTests(APITestCase):
         self.assertEqual(response.data["schedule"][0]["title"], "Sunday worship")
         self.assertEqual(response.data["schedule"][0]["stream_status"], LiveStream.Status.SCHEDULED)
 
-    def test_media_posts_require_a_church(self):
+    def test_media_posts_create_a_church_and_shorts_require_video(self):
         pastor = User.objects.create_user(
             username="churchless-pastor",
             email="churchless@example.com",
@@ -698,7 +798,7 @@ class ChurchEntryTests(APITestCase):
         self.assertEqual(sermon.status_code, status.HTTP_201_CREATED)
         self.assertTrue(Church.objects.filter(owner=pastor).exists())
         self.assertEqual(short.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("church", short.data)
+        self.assertIn("video_file", short.data)
 
 
 class MinistryFeatureTests(APITestCase):

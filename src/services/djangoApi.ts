@@ -1105,6 +1105,58 @@ class DjangoApiClient {
     await this.request(`/sermons/${encodeURIComponent(id)}/`, { method: 'DELETE' });
   }
 
+  public async createShort(
+    payload: { caption: string; duration_seconds: number; video_file: File; thumbnail_file?: Blob | null },
+    onProgress?: (percent: number) => void,
+  ): Promise<{ id: number }> {
+    const formData = new FormData();
+    const title = payload.caption.trim().slice(0, 140) || payload.video_file.name.replace(/\.[^/.]+$/, '');
+    formData.append('title', title);
+    formData.append('caption', payload.caption.trim().slice(0, 280));
+    formData.append('duration_seconds', String(Math.max(1, Math.ceil(payload.duration_seconds))));
+    formData.append('is_published', 'true');
+    formData.append('video_file', payload.video_file);
+    if (payload.thumbnail_file) formData.append('thumbnail_file', payload.thumbnail_file, 'thumbnail.jpg');
+
+    const send = (authToken: string) =>
+      new Promise<{ id: number }>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${this.baseUrl}/shorts/`);
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
+        });
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try { resolve(JSON.parse(xhr.responseText)); } catch { resolve({ id: 0 }); }
+            return;
+          }
+          const err: any = new Error(`HTTP_${xhr.status}`);
+          err.status = xhr.status;
+          try {
+            const body = JSON.parse(xhr.responseText);
+            const first = Object.values(body)[0];
+            err.message = String(Array.isArray(first) ? first[0] : first || err.message);
+          } catch { /* keep generic message */ }
+          reject(err);
+        });
+        xhr.addEventListener('error', () => reject(new Error('Network error — upload could not be completed.')));
+        xhr.send(formData);
+      });
+
+    const token = this.getAccessToken();
+    if (!token) throw new Error('You must be signed in to post a Gospel Nugget.');
+    try {
+      return await send(token);
+    } catch (err: any) {
+      if (err?.status !== 401) throw err;
+      const retryToken = await this.refreshAccessToken().catch(() => null);
+      if (!retryToken) throw new Error('Your session expired. Please sign in again.');
+      return send(retryToken);
+    }
+  }
+
   public async deleteShort(id: string): Promise<void> {
     await this.request(`/shorts/${encodeURIComponent(id.replace(/^short-/, ''))}/`, { method: 'DELETE' });
   }
