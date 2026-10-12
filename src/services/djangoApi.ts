@@ -383,7 +383,7 @@ class DjangoApiClient {
       headers['Content-Type'] = 'application/json';
     }
 
-    if (token && !isPublicRead && !isPublicAuth) {
+    if (token && !isPublicAuth) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
@@ -420,7 +420,7 @@ class DjangoApiClient {
       // A stale JWT must not block public read endpoints. Retry once without
       // credentials; protected endpoints will still return their 401.
       if (response.status === 401 && ['GET', 'HEAD', 'OPTIONS'].includes(method)) {
-        this.clearTokens();
+        if (!isPublicRead) this.clearTokens();
         const anonymousHeaders = { ...headers };
         delete anonymousHeaders.Authorization;
         response = await fetch(url, {
