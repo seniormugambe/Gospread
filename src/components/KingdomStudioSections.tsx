@@ -364,6 +364,7 @@ export default function KingdomStudioSections({
       if (pendingDelete.kind === 'video') {
         await djangoApi.deleteSermon(pendingDelete.id);
         setSampleVideos(prev => prev.filter(v => v.id !== pendingDelete.id));
+        setSampleScheduled(prev => prev.filter(v => v.id !== pendingDelete.id));
       } else {
         await djangoApi.deleteShort(pendingDelete.id);
         setSampleShorts(prev => prev.filter(v => v.id !== pendingDelete.id));
@@ -867,6 +868,16 @@ export default function KingdomStudioSections({
                   >
                     Edit Premiere
                   </button>
+                  {sch.isOwner && (
+                    <button
+                      onClick={() => { setDeleteError(''); setPendingDelete({ kind: 'video', id: sch.id, title: sch.title }); }}
+                      className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 transition cursor-pointer"
+                      title="Delete"
+                      aria-label={`Delete ${sch.title}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
