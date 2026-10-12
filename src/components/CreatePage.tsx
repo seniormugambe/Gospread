@@ -382,6 +382,7 @@ export default function CreatePage({
   const ministryName = currentUser?.ministryName || currentUser?.churchName || 'Your Ministry';
   const ownerName = currentUser?.fullName || currentUser?.username || 'Account Owner';
   const avatarUrl = currentUser?.avatarUrl || currentUser?.avatar || '';
+  const [avatarFailed, setAvatarFailed] = useState(false);
 
   // Common Fields
   const [contactEmail, setContactEmail] = useState(currentUser?.email || '');
@@ -1279,12 +1280,19 @@ export default function CreatePage({
           {/* Left: Ministry Brand Info */}
           <div className="flex items-center gap-4">
             <div className="relative shrink-0">
-              <img 
-                src={avatarUrl} 
-                alt={ministryName} 
-                referrerPolicy="no-referrer"
-                className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl object-cover ring-2 ring-amber-500/60 shadow-2xl" 
-              />
+              {avatarUrl && !avatarFailed ? (
+                <img 
+                  src={avatarUrl} 
+                  alt={ministryName} 
+                  referrerPolicy="no-referrer"
+                  onError={() => setAvatarFailed(true)}
+                  className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl object-cover ring-2 ring-amber-500/60 shadow-2xl" 
+                />
+              ) : (
+                <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl ring-2 ring-amber-500/60 shadow-2xl bg-slate-800 text-amber-400 flex items-center justify-center text-2xl font-black">
+                  {(ministryName || 'M').charAt(0).toUpperCase()}
+                </div>
+              )}
               <span className="absolute -bottom-1 -right-1 p-1 bg-emerald-500 text-slate-950 rounded-full shadow-lg" title="Verified Kingdom Broadcaster">
                 <CheckCircle2 className="w-4 h-4" />
               </span>
@@ -1298,10 +1306,6 @@ export default function CreatePage({
                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1 border ${currentConfig.badgeColor}`}>
                   <ShieldCheck className="w-3.5 h-3.5" />
                   {currentConfig.badge}
-                </span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  RTMP Ingest: Online 1080p60
                 </span>
               </div>
 
@@ -1865,27 +1869,10 @@ export default function CreatePage({
                 <div>
                   <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
                     <span>RTMP Stream Ingest & Broadcast Monitor</span>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">
-                      READY TO BROADCAST
-                    </span>
                   </h3>
                   <p className="text-xs text-slate-400">
                     Connect OBS Studio, vMix, or ATEM switcher to your private high-throughput cloud ingest.
                   </p>
-                </div>
-              </div>
-
-              {/* Simulated Audio VU Meter & Bitrate Badge */}
-              <div className="flex items-center gap-3 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800 self-start sm:self-auto">
-                <div className="flex items-end gap-0.5 h-4">
-                  <span className="w-1 bg-emerald-500 rounded-sm h-2 animate-pulse" />
-                  <span className="w-1 bg-emerald-500 rounded-sm h-3 animate-pulse" />
-                  <span className="w-1 bg-emerald-400 rounded-sm h-4 animate-pulse" />
-                  <span className="w-1 bg-amber-400 rounded-sm h-2.5 animate-pulse" />
-                  <span className="w-1 bg-emerald-500 rounded-sm h-3.5 animate-pulse" />
-                </div>
-                <div className="text-[11px] font-mono font-bold text-slate-300">
-                  <span>6,180 kbps • 1080p60</span>
                 </div>
               </div>
             </div>

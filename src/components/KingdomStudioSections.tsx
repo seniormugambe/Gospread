@@ -287,12 +287,8 @@ export default function KingdomStudioSections({
           <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/30 border border-amber-500/25 shadow-xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
                 <h3 className="text-base font-black text-white flex items-center gap-2">
                   <span>Cloud Broadcast Transcoder & RTMP Ingest</span>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">
-                    ONLINE 1080p60
-                  </span>
                 </h3>
               </div>
               <p className="text-xs text-slate-400">
