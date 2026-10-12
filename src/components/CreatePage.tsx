@@ -1599,6 +1599,7 @@ export default function CreatePage({
             setStudioAction('upload');
             setUploadStep('select');
           }}
+          onTriggerShort={() => setStudioAction('short')}
           onTriggerGoLive={() => {
             setStudioAction('live');
             setLiveSetupStep('setup');
@@ -1648,7 +1649,7 @@ export default function CreatePage({
           </div>
 
           {/* Three Big Hero Action Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 sm:gap-5">
             
             {/* OPTION 1: 📤 UPLOAD VIDEO */}
             <motion.button
@@ -1693,6 +1694,37 @@ export default function CreatePage({
 
               <div className="mt-6 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs font-bold text-amber-400 group-hover:text-amber-300">
                 <span>Start Video Upload</span>
+                <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+              </div>
+            </motion.button>
+
+            {/* OPTION: ⚡ GOSPEL NUGGET (SHORT) */}
+            <motion.button
+              whileHover={{ scale: 1.015, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setStudioAction('short')}
+              className="p-6 rounded-3xl bg-gradient-to-b from-[#1c1c1c] via-[#161616] to-[#101010] border border-slate-800 hover:border-amber-500/60 transition-all text-left group shadow-xl flex flex-col justify-between h-full relative overflow-hidden cursor-pointer"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-slate-950 transition-colors shadow-lg">
+                    <Zap className="w-6 h-6" />
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold uppercase tracking-wider">
+                    Up to 60s
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className="text-lg font-black text-white group-hover:text-amber-300 transition-colors">
+                    <span>⚡ Create Short</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Post a vertical Gospel Nugget with a caption, a quick word of hope for the feed.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs font-bold text-amber-400 group-hover:text-amber-300">
+                <span>Create Gospel Nugget</span>
                 <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
               </div>
             </motion.button>

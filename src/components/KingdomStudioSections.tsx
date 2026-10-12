@@ -73,6 +73,7 @@ interface KingdomStudioSectionsProps {
   onPrayForRequest: (id: string) => void;
   onAddPrayerRequest: (request: string) => void;
   onTriggerUpload: () => void;
+  onTriggerShort: () => void;
   onTriggerGoLive: () => void;
   onEnterLiveControlRoom: () => void;
   onTriggerSchedule: () => void;
@@ -99,6 +100,7 @@ export default function KingdomStudioSections({
   onPrayForRequest,
   onAddPrayerRequest,
   onTriggerUpload,
+  onTriggerShort,
   onTriggerGoLive,
   onEnterLiveControlRoom,
   onTriggerSchedule,
@@ -461,6 +463,13 @@ export default function KingdomStudioSections({
 
             <div className="flex items-center gap-2.5 flex-wrap">
               <button
+                onClick={onTriggerShort}
+                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 font-black text-xs flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>Create Short</span>
+              </button>
+              <button
                 onClick={onTriggerUpload}
                 className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition cursor-pointer"
               >
@@ -603,13 +612,22 @@ export default function KingdomStudioSections({
               })}
             </div>
 
+            <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+              <button
+                onClick={onTriggerShort}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 font-black text-xs flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>Create Short</span>
+              </button>
             <button
               onClick={onTriggerUpload}
-              className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition self-start sm:self-auto cursor-pointer"
+              className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5 stroke-[3]" />
               <span>Upload Video</span>
             </button>
+            </div>
           </div>
 
           {/* Search & Category Filter Bar */}
