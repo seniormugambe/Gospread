@@ -108,12 +108,6 @@ const LEGACY_PROFILE_PLACEHOLDERS = new Set([
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
 ]);
 
-const mergeVideoStreams = (...groups: VideoStream[][]): VideoStream[] => {
-  const videosById = new Map<string, VideoStream>();
-  groups.flat().forEach(video => videosById.set(video.id, video));
-  return Array.from(videosById.values());
-};
-
 export default function App() {
   // 🌤️ Sky Light Theme State (Defaulting to the requested Heavenly Sky Light Theme)
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -324,14 +318,14 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isYoutubeLoading, setIsYoutubeLoading] = useState(false);
 
-  // Fetch published media from Django (with immediate fallback to offline sanctuary data).
+  // Home content comes only from published backend media.
   useEffect(() => {
     let isMounted = true;
     const loadMedia = async () => {
       setIsYoutubeLoading(false);
 
       try {
-        const backendChurches = await djangoApi.getChurchLocations();
+        const backendChurches = await djangoApi.getChurchLocations(undefined, false);
         if (isMounted) setChurches(backendChurches);
       } catch (e) {
         console.warn('Backend churches notice (home page intentionally empty):', e);
@@ -340,12 +334,12 @@ export default function App() {
       // Fetch videos and shorts in parallel on initial mount
       try {
         const [backendVideos, backendShorts] = await Promise.all([
-          djangoApi.getVideos(),
-          djangoApi.getShorts(),
+          djangoApi.getVideos(undefined, undefined, undefined, false),
+          djangoApi.getShorts(false),
         ]);
         if (isMounted) {
-          if (backendVideos.length > 0) setVideoStreams(backendVideos);
-          if (backendShorts.length > 0) setShorts(backendShorts);
+          setVideoStreams(backendVideos);
+          setShorts(backendShorts);
         }
       } catch (e) {
         console.warn('Backend media notice:', e);
@@ -361,16 +355,12 @@ export default function App() {
     const refreshPlatformVideos = async () => {
       try {
         const [backendVideos, backendShorts] = await Promise.all([
-          djangoApi.getVideos(),
-          djangoApi.getShorts(),
+          djangoApi.getVideos(undefined, undefined, undefined, false),
+          djangoApi.getShorts(false),
         ]);
         if (isMounted) {
-          if (backendVideos.length > 0) {
-            setVideoStreams(previous => mergeVideoStreams(previous, backendVideos));
-          }
-          if (backendShorts.length > 0) {
-            setShorts(previous => mergeVideoStreams(previous, backendShorts));
-          }
+          setVideoStreams(backendVideos);
+          setShorts(backendShorts);
         }
       } catch (error) {
         console.warn('Live broadcast refresh notice:', error);
@@ -462,7 +452,7 @@ export default function App() {
     } catch (e) {
       console.error(e);
     }
-    return ['Grace City Cathedral', 'Elevation Worship'];
+    return [];
   });
   const [followerCounts, setFollowerCounts] = useState<Record<string, number>>({});
   const [bellSettings, setBellSettings] = useState<Record<string, 'all' | 'personalized' | 'none'>>({});
@@ -2078,7 +2068,9 @@ export default function App() {
                                     {ch.name}
                                   </h4>
                                   <p className="text-[11px] sm:text-[10px] text-slate-400 mt-0.5">
-                                    {((followerCounts[ch.name] || 482000) / 1000).toFixed(1)}K followers
+                                    {followerCounts[ch.name] > 0
+                                      ? `${(followerCounts[ch.name] / 1000).toFixed(1)}K followers`
+                                      : 'Followers unavailable'}
                                   </p>
                                 </div>
                               </div>
@@ -2449,10 +2441,10 @@ export default function App() {
         <ChannelProfileModal
           channelName={selectedChannelModal}
           channelAvatar={getChannelAvatar(selectedChannelModal)}
-          followerCount={followerCounts[selectedChannelModal] || 482000}
+          followerCount={followerCounts[selectedChannelModal] || 0}
           isFollowed={subscribedChannels.includes(selectedChannelModal)}
           isJoined={joinedChurches.some(c => c.toLowerCase() === selectedChannelModal.toLowerCase())}
-          memberCount={churchMemberCounts[selectedChannelModal] || 1248}
+          memberCount={churchMemberCounts[selectedChannelModal] || 0}
           onToggleJoinChurch={handleToggleJoinChurch}
           bellSetting={bellSettings[selectedChannelModal] || 'all'}
           onToggleFollow={toggleSubscribe}

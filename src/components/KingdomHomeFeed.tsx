@@ -133,16 +133,9 @@ export default function KingdomHomeFeed({
   const continueWatchingItems =
     watchHistory && watchHistory.length > 0
       ? watchHistory
-          .filter((h) => h && (h.video?.title || (h as any)?.title))
+          .filter((h) => h?.video?.title)
           .slice(0, 4)
-          .map((h, i) => {
-            const vid: VideoStream = h.video || (h as any);
-            return {
-              video: vid,
-              progressPercent: [68, 42, 85, 25][i % 4],
-              remainingText: ['18 min left', '34 min left', '8 min left', '45 min left'][i % 4]
-            };
-          })
+          .map((h) => ({ video: h.video, watchedAt: h.watchedAt }))
       : [];
 
   const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date());
@@ -150,8 +143,7 @@ export default function KingdomHomeFeed({
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
   const liveRadioTrack: AudioTrack | undefined =
-    safeAudio.find((a) => a?.isLiveRadio || a?.category === '24/7 Gospel Radio') ||
-    safeAudio[0];
+    safeAudio.find((a) => a?.isLiveRadio || a?.category === '24/7 Gospel Radio');
 
   const filterTabs: Array<{
     id: 'All' | 'Live' | 'Sermons' | 'Worship' | 'Shorts' | 'Podcasts' | 'Ministries';
@@ -230,7 +222,7 @@ export default function KingdomHomeFeed({
                 </span>
               ) : (
                 <span className="text-xs font-semibold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">
-                  Scheduled hours
+                  No broadcasts on air
                 </span>
               )}
             </h2>
@@ -353,17 +345,11 @@ export default function KingdomHomeFeed({
                 </div>
 
                 {/* Duration Pill */}
-                <div className="absolute bottom-2.5 right-2 px-1.5 py-0.5 rounded bg-black/80 font-mono text-[10px] font-bold text-white">
-                  {item.video.duration || '48:15'}
-                </div>
-
-                {/* Progress Bar */}
-                <div className="absolute bottom-0 inset-x-0 h-1.5 bg-slate-800">
-                  <div
-                    className="h-full bg-gradient-to-r from-amber-500 to-amber-300 rounded-r-full"
-                    style={{ width: `${item.progressPercent}%` }}
-                  />
-                </div>
+                {item.video.duration && (
+                  <div className="absolute bottom-2.5 right-2 px-1.5 py-0.5 rounded bg-black/80 font-mono text-[10px] font-bold text-white">
+                    {item.video.duration}
+                  </div>
+                )}
               </div>
 
               <div className="p-3.5 space-y-1">
@@ -371,7 +357,9 @@ export default function KingdomHomeFeed({
                   <span className="font-bold text-amber-400 truncate max-w-[140px]">
                     {item.video.churchOrMinistry || ''}
                   </span>
-                  <span className="font-semibold text-amber-300/90">{item.remainingText}</span>
+                  <span className="font-semibold text-amber-300/90">
+                    Watched {new Date(item.watchedAt).toLocaleDateString()}
+                  </span>
                 </div>
                 <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-2 group-hover:text-amber-200 transition">
                   {decodeHtml(item.video.title || '')}
@@ -417,9 +405,6 @@ export default function KingdomHomeFeed({
             <div>
               <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight flex items-center gap-2">
                 <span>⚡ GOSPEL NUGGETS</span>
-                <span className="text-[11px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">
-                  60s Rhema
-                </span>
               </h2>
             </div>
           </div>
@@ -548,12 +533,16 @@ export default function KingdomHomeFeed({
                   <span className="px-2 py-0.5 bg-red-600 text-white font-black text-[9px] rounded uppercase">
                     24/7 Live Radio
                   </span>
-                  <span className="text-[10px] text-red-300 font-mono">18,240 Listeners</span>
+                  {liveRadioTrack.listenersCount !== undefined && (
+                    <span className="text-[10px] text-red-300 font-mono">
+                      {liveRadioTrack.listenersCount.toLocaleString()} Listeners
+                    </span>
+                  )}
                 </div>
                 <h4 className="text-xs sm:text-sm font-bold text-white truncate mt-1">
-                  {liveRadioTrack.title || '24/7 Gospel Radio'}
+                  {liveRadioTrack.title}
                 </h4>
-                <p className="text-[11px] text-slate-400 truncate">{liveRadioTrack.artistOrPreacher || 'Grace City Broadcasting Network'}</p>
+                <p className="text-[11px] text-slate-400 truncate">{liveRadioTrack.artistOrPreacher}</p>
               </div>
             </div>
 

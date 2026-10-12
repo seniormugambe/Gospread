@@ -896,7 +896,12 @@ class DjangoApiClient {
   }
 
   // === 3. VIDEO STREAMS & SERMONS ===
-  public async getVideos(category?: string, isLive?: boolean, search?: string): Promise<VideoStream[]> {
+  public async getVideos(
+    category?: string,
+    isLive?: boolean,
+    search?: string,
+    includeLocalFallback = true,
+  ): Promise<VideoStream[]> {
     const params = new URLSearchParams();
     if (category && category !== 'all') params.append('category', category);
     if (search?.trim()) params.append('search', search.trim());
@@ -992,6 +997,10 @@ class DjangoApiClient {
 
     if (finalVideos.length > 0) {
       return finalVideos;
+    }
+
+    if (!includeLocalFallback) {
+      return [];
     }
 
     let localVideos = LIVE_VIDEO_STREAMS.slice();
@@ -1163,7 +1172,7 @@ class DjangoApiClient {
     await this.request(`/shorts/${encodeURIComponent(id.replace(/^short-/, ''))}/`, { method: 'DELETE' });
   }
 
-  public async getShorts(): Promise<VideoStream[]> {
+  public async getShorts(includeLocalFallback = true): Promise<VideoStream[]> {
     try {
       const res = await this.request<any[] | { results: any[] }>('/shorts/').catch(() => []);
       const items = Array.isArray(res) ? res : (res?.results || []);
@@ -1191,6 +1200,9 @@ class DjangoApiClient {
       }
     } catch {
       // Fall through to curated local shorts.
+    }
+    if (!includeLocalFallback) {
+      return [];
     }
     return GRACE_SHORTS.map((short) => ({
       id: short.id,
@@ -1245,7 +1257,7 @@ class DjangoApiClient {
   }
 
   // === 5. CHURCH DIRECTORY & REGISTRATION ===
-  public async getChurchLocations(query?: string): Promise<ChurchLocation[]> {
+  public async getChurchLocations(query?: string, includeLocalFallback = true): Promise<ChurchLocation[]> {
     const params = new URLSearchParams();
     if (query) params.append('search', query);
 
@@ -1273,6 +1285,10 @@ class DjangoApiClient {
         category: c.denomination || c.ministry_focus || 'Sanctuary Worship Center',
         weeklyScheduleCount: c.schedule?.length || 2,
       }));
+    }
+
+    if (!includeLocalFallback) {
+      return [];
     }
 
     const allChurchLocations: ChurchLocation[] = [];
