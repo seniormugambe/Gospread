@@ -124,8 +124,8 @@ export default function LiveControlRoom({
   onBackToStudio
 }: LiveControlRoomProps) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [worshipperCount, setWorshipperCount] = useState(247);
-  const [peakWorshippers, setPeakWorshippers] = useState(289);
+  const [worshipperCount, setWorshipperCount] = useState(0);
+  const [peakWorshippers, setPeakWorshippers] = useState(0);
   const sessionIdRef = useRef<string>(`live-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
   const [isMuted, setIsMuted] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
@@ -212,42 +212,7 @@ export default function LiveControlRoom({
   });
 
   // Interactive Live Chat State
-  const [chatMessages, setChatMessages] = useState<LiveChatEntry[]>([
-    {
-      id: 'c-1',
-      user: 'Grace City Media Team',
-      avatar: currentUser?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-      text: 'Welcome beloved! Type your prayer requests and shout Amen in the chat as we worship today!',
-      time: '10:02 AM',
-      isHost: true,
-      isPinned: true,
-      reactions: { amen: 42, fire: 18, heart: 25 }
-    },
-    {
-      id: 'c-2',
-      user: 'Sister Rachel (London, UK)',
-      avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80',
-      text: 'Hallelujah! Tuning in with the whole family from London. The presence of God is heavy here!',
-      time: '10:14 AM',
-      reactions: { amen: 19, fire: 8, heart: 14 }
-    },
-    {
-      id: 'c-3',
-      user: 'Elder Joseph Mwangi',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
-      text: 'Amen! The prophetic word today on Isaiah 40 is unlocking fresh strength!',
-      time: '10:28 AM',
-      reactions: { amen: 31, fire: 12, heart: 9 }
-    },
-    {
-      id: 'c-4',
-      user: 'Sarah Jenkins (Dallas, TX)',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=120&q=80',
-      text: 'Glory to Jesus! Hands lifted in adoration! 🔥🕊️',
-      time: '10:35 AM',
-      reactions: { amen: 14, fire: 17, heart: 22 }
-    }
-  ]);
+  const [chatMessages, setChatMessages] = useState<LiveChatEntry[]>([]);
 
   useEffect(() => {
     if (!streamId) return;
@@ -298,41 +263,7 @@ export default function LiveControlRoom({
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
   // Prayer Altar State
-  const [prayerRequests, setPrayerRequests] = useState<LivePrayerRequest[]>([
-    {
-      id: 'p-1',
-      name: 'Hannah O\'Connor',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=120&q=80',
-      location: 'Sydney, Australia',
-      request: 'Please pray for my mother hospitalized with severe pneumonia. Believing God for supernatural restoration today!',
-      time: '10:18 AM',
-      amensCount: 68,
-      isPrayedAlong: true,
-      isPushedToScreen: true
-    },
-    {
-      id: 'p-2',
-      name: 'Emmanuel Adebayo',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
-      location: 'Lagos, Nigeria',
-      request: 'Interceding for salvation and deliverance for my younger brother. Lord break every chain!',
-      time: '10:26 AM',
-      amensCount: 45,
-      isPrayedAlong: false,
-      isPushedToScreen: false
-    },
-    {
-      id: 'p-3',
-      name: 'Pastor Thomas & Maria',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=120&q=80',
-      location: 'Toronto, Canada',
-      request: 'Praying for church planting breakthrough and financial favor for our community sanctuary.',
-      time: '10:33 AM',
-      amensCount: 39,
-      isPrayedAlong: false,
-      isPushedToScreen: false
-    }
-  ]);
+  const [prayerRequests, setPrayerRequests] = useState<LivePrayerRequest[]>([]);
 
   // Lower Third Live Banners
   const [lowerThirdBanners, setLowerThirdBanners] = useState<LowerThirdBanner[]>([
@@ -363,8 +294,8 @@ export default function LiveControlRoom({
     {
       id: 'lt-4',
       label: 'Welcome Visitors',
-      headline: 'Welcome to Grace City Cathedral',
-      subtext: 'Worshipping with 247 believers across 32 nations worldwide',
+      headline: `Welcome to ${broadcastTitle || 'our live service'}`,
+      subtext: 'Thank you for worshipping with us',
       type: 'announcement',
       isActive: false
     }
@@ -459,8 +390,7 @@ export default function LiveControlRoom({
         const avg = dataArray.reduce((acc, val) => acc + val, 0) / (dataArray.length || 1);
         setMicAudioLevel(Math.min(100, Math.round((avg / 128) * 100)));
       } else {
-        // Fallback mic bounce animation
-        setMicAudioLevel(35 + Math.floor(Math.random() * 35));
+        setMicAudioLevel(0);
       }
     }, 150);
     return () => clearInterval(audioInterval);
@@ -470,17 +400,6 @@ export default function LiveControlRoom({
   useEffect(() => {
     const timer = setInterval(() => {
       setElapsedSeconds(prev => prev + 1);
-      if (Math.random() > 0.6) {
-        const delta = Math.floor(Math.random() * 5) - 2;
-        setWorshipperCount(c => {
-          const next = Math.max(180, c + delta);
-          setPeakWorshippers(p => Math.max(p, next));
-          return next;
-        });
-      }
-      if (Math.random() > 0.7) {
-        setBitrate(4800 + Math.floor(Math.random() * 120) - 60);
-      }
     }, 1000);
 
     return () => clearInterval(timer);
