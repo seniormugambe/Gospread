@@ -21,6 +21,8 @@ export function extractYouTubeId(input: string): string | null {
       return url.pathname.slice(1).split('/')[0] || null;
     }
 
+    if (!/(^|\.)youtube(-nocookie)?\.com$/i.test(url.hostname)) return null;
+
     const v = url.searchParams.get('v');
     if (v) return v;
 
