@@ -90,7 +90,7 @@ import { SearchEngineOverlay } from './components/SearchEngineOverlay';
 import { WatchHistoryView, WatchHistoryItem } from './components/WatchHistoryView';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import ChurchLocationsCard from './components/ChurchLocationsCard';
-import SocialMediaLinksBar from './components/SocialMediaLinksBar';
+import ChannelAvatar from './components/ChannelAvatar';
 import LiveChatPanel from './components/LiveChatPanel';
 import UpNextRail from './components/UpNextRail';
 import FloatingReactions from './components/FloatingReactions';
@@ -1766,9 +1766,9 @@ export default function App() {
                 {/* Channel Actions */}
                 <div className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4 rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur">
                   <div className="flex items-center gap-2.5">
-                    <img
+                    <ChannelAvatar
                       src={activeVideo.channelAvatar}
-                      alt={activeVideo.speakerOrArtist}
+                      name={activeVideo.speakerOrArtist || activeVideo.churchOrMinistry}
                       onClick={() => setSelectedChannelModal(activeVideo.churchOrMinistry)}
                       className="w-11 h-11 rounded-full object-cover cursor-pointer ring-2 ring-amber-400/70 hover:ring-amber-300 transition"
                       title="View channel profile"
@@ -1778,12 +1778,14 @@ export default function App() {
                         onClick={() => setSelectedChannelModal(activeVideo.churchOrMinistry)}
                         className="text-sm font-bold text-white flex items-center gap-1 cursor-pointer hover:text-amber-400 transition"
                       >
-                        {activeVideo.churchOrMinistry}
+                        {activeVideo.speakerOrArtist || activeVideo.churchOrMinistry}
                         <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                       </h3>
-                      <p className="text-[11px] text-slate-400">
-                        {((followerCounts[activeVideo.churchOrMinistry] || 482000) / 1000).toFixed(1)}K followers
-                      </p>
+                      {followerCounts[activeVideo.churchOrMinistry] > 0 && (
+                        <p className="text-[11px] text-slate-400">
+                          {(followerCounts[activeVideo.churchOrMinistry] / 1000).toFixed(1)}K followers
+                        </p>
+                      )}
                     </div>
 
                     {/* Follow / Following Button */}
@@ -1828,13 +1830,11 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Social Media Links Bar for Active Video Ministry */}
-                  <div className="pt-2">
-                    <SocialMediaLinksBar
-                      churchOrChannelName={activeVideo.churchOrMinistry}
-                      variant="compact"
-                    />
-                  </div>
+                  {activeVideo.description?.trim() && (
+                    <p className="basis-full text-xs text-slate-300 leading-relaxed whitespace-pre-line pt-1">
+                      {activeVideo.description}
+                    </p>
+                  )}
 
                   <div className="flex items-center gap-2">
                     <div className="flex items-center bg-slate-800/80 rounded-full border border-slate-700/50">
