@@ -444,6 +444,21 @@ export default function App() {
   
   // Watch view state & Channel Following state
   const [activeVideo, setActiveVideo] = useState<VideoStream | null>(null);
+  useEffect(() => {
+    if (!activeVideo) return;
+
+    const refreshedVideo = videoStreams.find(
+      (video) => video.id === activeVideo.id && video.title === activeVideo.title
+    );
+    if (
+      refreshedVideo &&
+      (refreshedVideo.videoUrl !== activeVideo.videoUrl ||
+        refreshedVideo.streamUrl !== activeVideo.streamUrl)
+    ) {
+      setActiveVideo(refreshedVideo);
+    }
+  }, [activeVideo, videoStreams]);
+
   const [isPipDocked, setIsPipDocked] = useState(false);
   const [subscribedChannels, setSubscribedChannels] = useState<string[]>(() => {
     try {
