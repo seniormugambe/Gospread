@@ -94,6 +94,7 @@ import KingdomStudioSections from './KingdomStudioSections';
 import AudioSpaceStudio, { ActiveAudioSpace } from './AudioSpaceStudio';
 import { extractVideoFrames, type VideoExtractedFrame } from '../utils/extractVideoFrames';
 import { renderGospelThumbnailDataUrl } from '../utils/gospelThumbnailCanvas';
+import { isVideoFile } from '../utils/mediaFiles';
 
 export type CreatorCategory = 'Church' | 'Artiste' | 'Creator' | 'Radio';
 export type StudioAction = 'choose' | 'upload' | 'short' | 'live' | 'audio_space' | 'schedule' | 'live_control_room' | 'dashboard' | 'content' | 'analytics' | 'community' | 'giving' | 'settings';
@@ -872,8 +873,7 @@ export default function CreatePage({
   // File Selector Handler
   const MAX_VIDEO_SIZE_BYTES = 10 * 1024 * 1024 * 1024; // 10 GB
   const handleFileChosen = (file: File) => {
-    // Validate file type
-    if (!file.type.startsWith('video/')) {
+    if (!isVideoFile(file)) {
       setExternalImportError('Please select a video file (MP4, MOV, AVI, etc.).');
       return;
     }
@@ -926,9 +926,10 @@ export default function CreatePage({
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      handleFileChosen(e.target.files[0]);
-    }
+    const input = e.currentTarget;
+    const file = input.files?.[0];
+    input.value = '';
+    if (file) handleFileChosen(file);
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -2299,7 +2300,7 @@ export default function CreatePage({
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="video/mp4,video/mov,video/quicktime,video/webm,video/mkv,video/avi"
+                      accept="video/*,.3g2,.3gp,.avi,.m4v,.mkv,.mov,.mp4,.mpeg,.mpg,.ogv,.webm"
                       onChange={handleFileInputChange}
                       className="hidden"
                     />

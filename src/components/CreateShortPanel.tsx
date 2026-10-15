@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Loader2, UploadCloud, Zap } from 'lucide-react';
 import { djangoApi } from '../services/djangoApi';
 import { VideoStream } from '../data/gospelData';
+import { isVideoFile } from '../utils/mediaFiles';
 
 export const SHORT_MAX_SECONDS = 60;
 const CAPTION_MAX = 280;
@@ -68,7 +69,7 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
     setError(null);
     reset();
     if (!picked) return;
-    if (!picked.type.startsWith('video/')) return setError('Please choose a video file.');
+    if (!isVideoFile(picked)) return setError('Please choose a video file.');
     if (picked.size > MAX_FILE_BYTES) return setError('Video is too large. The limit is 500 MB.');
 
     const url = URL.createObjectURL(picked);
