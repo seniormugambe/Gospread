@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect, FormEvent } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, FormEvent } from 'react';
 import {
   Play, 
   Pause, 
@@ -378,7 +378,7 @@ export default function App() {
   }, []);
 
   // 🕒 Watch History State & Local Persistence
-  const [watchHistory, setWatchHistory] = useState<WatchHistoryItem[]>(() => {
+  const [storedWatchHistory, setWatchHistory] = useState<WatchHistoryItem[]>(() => {
     try {
       const saved = localStorage.getItem('gospread_watch_history');
       if (saved) {
@@ -399,6 +399,18 @@ export default function App() {
     }
     return [];
   });
+
+  // Saved snapshots can outlive their media (old thumbnails, deleted uploads). Once the
+  // catalog has loaded, show fresh metadata and hide entries the backend no longer serves.
+  const watchHistory = useMemo(() => {
+    const catalog = new Map<string, VideoStream>();
+    [...shorts, ...videoStreams].forEach(v => catalog.set(v.id, v));
+    if (catalog.size === 0) return storedWatchHistory;
+    return storedWatchHistory.flatMap(item => {
+      const fresh = item.video && catalog.get(item.video.id);
+      return fresh ? [{ ...item, video: fresh }] : [];
+    });
+  }, [storedWatchHistory, videoStreams, shorts]);
 
   const addToWatchHistory = (video: VideoStream) => {
     if (!video || !video.id) return;
