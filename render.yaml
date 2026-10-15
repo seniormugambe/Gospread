@@ -1,3 +1,8 @@
+databases:
+  - name: gospread-db
+    region: oregon
+    plan: free
+
 services:
   - type: web
     name: gospread-api
@@ -21,7 +26,9 @@ services:
       - key: DJANGO_DEBUG
         value: "false"
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: gospread-db
+          property: connectionString
       - key: DJANGO_ALLOWED_HOSTS
         value: "gospread-api.onrender.com,localhost,127.0.0.1"
       - key: DJANGO_SUPERUSER_EMAIL
