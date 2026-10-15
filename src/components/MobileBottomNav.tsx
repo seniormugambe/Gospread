@@ -35,7 +35,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   const isProfileActive = activeTab === 'profile' || activeTab === 'auth';
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#090a0d]/95 backdrop-blur-2xl border-t border-slate-800/90 px-2 pt-1.5 pb-[max(env(safe-area-inset-bottom,0px),8px)] flex items-center justify-around shadow-2xl select-none">
+    <nav className="mobile-bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#090a0d]/95 backdrop-blur-2xl border-t border-slate-800/90 px-2 pt-1.5 pb-[max(env(safe-area-inset-bottom,0px),8px)] flex items-center justify-around shadow-2xl select-none">
       
       {/* 1. Home */}
       <motion.button

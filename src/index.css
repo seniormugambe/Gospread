@@ -509,3 +509,23 @@
 .light-theme .creator-studio-portal [class*="divide-slate-800"] > * {
   border-color: #e2e8f0 !important;
 }
+
+/* Mobile bottom nav: light surface with readable icons and labels */
+.light-theme .mobile-bottom-nav {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 -4px 20px -6px rgba(15, 23, 42, 0.12) !important;
+}
+
+.light-theme .mobile-bottom-nav .text-slate-400 {
+  color: #475569 !important;
+  font-weight: 500 !important;
+}
+
+.light-theme .mobile-bottom-nav .text-amber-400 {
+  color: #b45309 !important;
+}
+
+.light-theme .mobile-bottom-nav .text-red-400 {
+  color: #dc2626 !important;
+}

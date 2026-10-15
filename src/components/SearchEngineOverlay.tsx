@@ -317,7 +317,7 @@ export const SearchEngineOverlay: React.FC<SearchEngineOverlayProps> = ({
             }
           }}
           placeholder="Search sermons, ministers, songs, or scriptures..."
-          className="w-full bg-transparent text-xs text-slate-100 placeholder-slate-500 px-2.5 py-1.5 focus:outline-none font-medium"
+          className="w-full min-w-0 bg-transparent text-xs text-slate-100 placeholder-slate-500 px-2.5 py-1.5 focus:outline-none font-medium"
         />
 
         {/* Shortcut Badge (⌘K) when input is empty */}
@@ -384,7 +384,7 @@ export const SearchEngineOverlay: React.FC<SearchEngineOverlayProps> = ({
             initial={{ opacity: 0, y: -10, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
-            className="fixed inset-x-3 top-16 sm:absolute sm:left-0 sm:right-0 sm:top-12 z-50 p-3.5 rounded-2xl bg-[#18181b]/98 backdrop-blur-xl border border-amber-500/40 shadow-2xl space-y-3"
+            className="fixed inset-x-3 top-28 sm:absolute sm:left-0 sm:right-0 sm:top-12 z-50 p-3.5 rounded-2xl bg-[#18181b]/98 backdrop-blur-xl border border-amber-500/40 shadow-2xl space-y-3"
           >
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
@@ -458,7 +458,7 @@ export const SearchEngineOverlay: React.FC<SearchEngineOverlayProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 5 }}
             transition={{ duration: 0.15 }}
-            className="fixed inset-x-3 top-16 sm:absolute sm:left-0 sm:right-0 sm:top-12 z-50 bg-[#121215]/98 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[75vh] sm:max-h-[520px] flex flex-col"
+            className="fixed inset-x-3 top-28 sm:absolute sm:left-0 sm:right-0 sm:top-12 z-50 bg-[#121215]/98 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[75vh] sm:max-h-[520px] flex flex-col"
           >
             {/* Quick Filter Category Pills */}
             <div className="p-2 border-b border-slate-800/80 flex items-center gap-1.5 overflow-x-auto scrollbar-none bg-slate-900/60">

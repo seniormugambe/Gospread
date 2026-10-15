@@ -978,7 +978,7 @@ export default function App() {
       )}
       
       {/* 🔴 CONTENT-FIRST STREAMING HEADER */}
-      <header className="sticky top-0 z-40 min-h-16 sm:min-h-0 bg-[#0f0f0f]/95 backdrop-blur-md border-b border-slate-800/80 px-3 sm:px-5 py-2 sm:py-2.5 flex items-center justify-between gap-3 sm:gap-4">
+      <header className="sticky top-0 z-40 bg-[#0f0f0f]/95 backdrop-blur-md border-b border-slate-800/80 px-3 sm:px-5 py-2 sm:py-2.5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-3 gap-y-2 sm:gap-4">
         
         {/* Left: Brand Logo & Top Navigation Links */}
         <div className="flex items-center space-x-3 sm:space-x-6 shrink-0">
@@ -999,8 +999,8 @@ export default function App() {
 
         </div>
 
-        {/* Center Search Bar */}
-        <div className="flex-1 min-w-0 max-w-md mx-1 sm:mx-4">
+        {/* Search: full-width second row on mobile, centered inline from sm up */}
+        <div className="order-last basis-full w-full sm:order-none sm:basis-auto sm:w-auto flex-1 min-w-0 sm:max-w-md sm:mx-4">
           <SearchEngineOverlay
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
@@ -1016,9 +1016,9 @@ export default function App() {
         </div>
 
         {/* Right Header: Theme Toggle, Sign In / Avatar Menu */}
-        <div className="flex min-w-0 items-center gap-2 sm:gap-2.5 shrink-0">
-          <div className="min-w-0 max-w-[40vw] overflow-x-auto overscroll-x-contain touch-pan-x scrollbar-none sm:max-w-none sm:overflow-visible">
-            <div className="flex w-max shrink-0 items-center gap-2 sm:gap-2.5">
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          <div>
+            <div className="flex items-center gap-2 sm:gap-2.5">
           {/* Theme Toggle Button */}
           <button
             onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
@@ -1035,19 +1035,6 @@ export default function App() {
               <Moon className="w-3.5 h-3.5 text-pink-400" />
             )}
           </button>
-
-          {/* Sign In Button (when not logged in) */}
-          {!userSession.isLoggedIn && (
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => handleOpenAuthPage('signin')}
-              className="px-4 py-1.5 rounded-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-sm transition shrink-0"
-              title="Sign in to your Gospread account"
-            >
-              Sign In
-            </motion.button>
-          )}
             </div>
           </div>
 
