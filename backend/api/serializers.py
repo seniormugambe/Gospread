@@ -370,7 +370,7 @@ class SermonShortSerializer(serializers.ModelSerializer):
         if not uploaded_file:
             return None
         extension = Path(uploaded_file.name).suffix or ""
-        saved_name = default_storage.save(f"uploads/{prefix}/{uuid4().hex}{extension}", ContentFile(uploaded_file.read()))
+        saved_name = default_storage.save(f"uploads/{prefix}/{uuid4().hex}{extension}", uploaded_file)
         url = default_storage.url(saved_name)
         request = self.context.get("request")
         if request is not None:

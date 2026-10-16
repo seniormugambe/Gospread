@@ -15,27 +15,75 @@ interface VideoInfo {
   thumbnail: Blob | null;
 }
 
+// Mobile browsers often never fire `seeked`, so the thumbnail is best-effort and must never block the upload.
 function readVideoInfo(url: string): Promise<VideoInfo> {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
-    video.preload = 'metadata';
+    video.preload = 'auto';
     video.muted = true;
     video.playsInline = true;
-    video.onerror = () => reject(new Error('This video could not be read. Try an MP4 or MOV file.'));
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
+
+    let settled = false;
+    let metadataTimer = 0;
+    let thumbnailTimer = 0;
+    const cleanup = () => {
+      window.clearTimeout(metadataTimer);
+      window.clearTimeout(thumbnailTimer);
+      video.removeAttribute('src');
+      video.load();
+    };
+    const finish = (info: VideoInfo) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(info);
+    };
+    const fail = (message: string) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error(message));
+    };
+
+    metadataTimer = window.setTimeout(
+      () => fail('This video took too long to read. Try an MP4 file, or a shorter clip.'),
+      15000,
+    );
+    video.onerror = () => fail('This video could not be read. Try an MP4 or MOV file.');
     video.onloadedmetadata = () => {
+      window.clearTimeout(metadataTimer);
       const { duration, videoWidth: width, videoHeight: height } = video;
-      video.currentTime = Math.min(0.5, duration / 2);
-      video.onseeked = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.min(width, 720);
-        canvas.height = Math.round((canvas.width / width) * height);
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return resolve({ duration, width, height, thumbnail: null });
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob((blob) => resolve({ duration, width, height, thumbnail: blob }), 'image/jpeg', 0.85);
+      if (!Number.isFinite(duration) || duration <= 0 || !width || !height) {
+        return fail('This video could not be read. Try an MP4 or MOV file.');
+      }
+      const base = { duration, width, height };
+      thumbnailTimer = window.setTimeout(() => finish({ ...base, thumbnail: null }), 4000);
+
+      const capture = () => {
+        if (settled) return;
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.min(width, 720);
+          canvas.height = Math.round((canvas.width / width) * height);
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return finish({ ...base, thumbnail: null });
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob((blob) => finish({ ...base, thumbnail: blob }), 'image/jpeg', 0.85);
+        } catch {
+          finish({ ...base, thumbnail: null });
+        }
       };
+      const seekToFrame = () => {
+        try { video.currentTime = Math.min(0.5, duration / 2); } catch { finish({ ...base, thumbnail: null }); }
+      };
+      video.onseeked = capture;
+      video.onloadeddata = seekToFrame;
+      if (video.readyState >= 2) seekToFrame();
     };
     video.src = url;
+    video.load();
   });
 }
 
