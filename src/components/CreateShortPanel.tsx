@@ -51,6 +51,7 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [info, setInfo] = useState<VideoInfo | null>(null);
+  const [orientationOverride, setOrientationOverride] = useState<{ file: File; info: VideoInfo } | null>(null);
   const [caption, setCaption] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
@@ -61,6 +62,7 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
   const reset = () => {
     setFile(null);
     setInfo(null);
+    setOrientationOverride(null);
     setPreviewUrl(null);
     if (inputRef.current) inputRef.current.value = '';
   };
@@ -81,6 +83,7 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
       }
       if (meta.height <= meta.width) {
         URL.revokeObjectURL(url);
+        setOrientationOverride({ file: picked, info: meta });
         return setError('Gospel Nuggets must be vertical (portrait) video, like 9:16.');
       }
       setFile(picked);
@@ -90,6 +93,20 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
       URL.revokeObjectURL(url);
       setError(err?.message || 'This video could not be read.');
     }
+  };
+
+  const continueWithPortraitVideo = () => {
+    if (!orientationOverride) return;
+    setFile(orientationOverride.file);
+    setInfo({
+      ...orientationOverride.info,
+      width: orientationOverride.info.height,
+      height: orientationOverride.info.width,
+      thumbnail: null,
+    });
+    setPreviewUrl(URL.createObjectURL(orientationOverride.file));
+    setOrientationOverride(null);
+    setError(null);
   };
 
   const handlePost = async () => {
@@ -182,7 +199,25 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
             <span className="block text-right text-[10px] text-slate-500">{caption.length}/{CAPTION_MAX}</span>
           </label>
 
-          {error && <p role="alert" className="text-xs font-bold text-red-400">{error}</p>}
+          {error && (
+            <div role="alert" className="text-xs font-bold text-red-400 space-y-2">
+              <p>{error}</p>
+              {orientationOverride && (
+                <div className="space-y-1.5">
+                  <p className="font-normal text-slate-400">
+                    Some phones report portrait clips as landscape. If this video looks vertical, you can continue.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={continueWithPortraitVideo}
+                    className="font-bold text-amber-400 hover:text-amber-300 cursor-pointer"
+                  >
+                    This video is portrait — continue
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {uploading && (
             <div className="h-2 rounded-full bg-slate-800 overflow-hidden">

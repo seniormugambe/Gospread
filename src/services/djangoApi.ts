@@ -950,8 +950,7 @@ class DjangoApiClient {
         likesCount: `${s.view_count || 0}`,
         category: s.category || 'Sermon',
         isLive: false,
-        // Sermons ≤ 3 min are treated as short-form clips in the home feed
-        isShort: durationSec > 0 && durationSec <= 180,
+        isShort: false,
         viewersCount: s.view_count || 0,
         viewsText: `${s.view_count || 0} views`,
         duration: durationSec ? `${Math.floor(durationSec / 60)}:${String(durationSec % 60).padStart(2, '0')}` : '45:00',

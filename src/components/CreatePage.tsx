@@ -207,6 +207,7 @@ export interface CreatePageProps {
   initialAction?: StudioAction;
   initialUploadSource?: UploadMode;
   onPublishSuccess: (newStream: VideoStream) => void;
+  onMediaDeleted?: (id: string) => void;
   onLiveCreated?: (newStream: VideoStream, replacedId?: string) => void;
   onLiveEnded?: (streamId: string) => void;
   onLivePlaybackUpdated?: (streamId: string, playbackUrl: string) => void;
@@ -312,6 +313,7 @@ export default function CreatePage({
   initialAction = 'choose',
   initialUploadSource = 'device',
   onPublishSuccess, 
+  onMediaDeleted,
   onLiveCreated,
   onLiveEnded,
   onLivePlaybackUpdated,
@@ -1615,6 +1617,7 @@ export default function CreatePage({
           onTriggerSchedule={() => {
             setStudioAction('schedule');
           }}
+          onMediaDeleted={onMediaDeleted}
           onInspectRecordingVOD={(rec) => {
             setActiveVODModalData(rec);
           }}

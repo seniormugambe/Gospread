@@ -78,6 +78,7 @@ interface KingdomStudioSectionsProps {
   onEnterLiveControlRoom: () => void;
   onTriggerSchedule: () => void;
   onInspectRecordingVOD: (recording: RecordedStreamData) => void;
+  onMediaDeleted?: (id: string) => void;
   theme?: 'light' | 'dark';
 }
 
@@ -105,6 +106,7 @@ export default function KingdomStudioSections({
   onEnterLiveControlRoom,
   onTriggerSchedule,
   onInspectRecordingVOD,
+  onMediaDeleted,
   theme = 'dark'
 }: KingdomStudioSectionsProps) {
   const isLight = theme === 'light';
@@ -207,6 +209,7 @@ export default function KingdomStudioSections({
         await djangoApi.deleteShort(pendingDelete.id);
         setSampleShorts(prev => prev.filter(v => v.id !== pendingDelete.id));
       }
+      onMediaDeleted?.(pendingDelete.id);
       setPendingDelete(null);
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'Could not delete this item.');

@@ -902,6 +902,12 @@ export default function App() {
     setActiveTab('platform');
   };
 
+  const handleMediaDeleted = (id: string) => {
+    setVideoStreams(prev => prev.filter(v => v.id !== id));
+    setShorts(prev => prev.filter(s => s.id !== id));
+    setActiveVideo(prev => (prev?.id === id ? null : prev));
+  };
+
   const handleLiveCreated = (newStream: VideoStream, replacedId?: string) => {
     setVideoStreams(prev => [newStream, ...prev.filter(stream =>
       stream.id !== newStream.id && stream.id !== replacedId
@@ -1657,6 +1663,7 @@ export default function App() {
                 initialAction={initialStudioAction}
                 initialUploadSource={initialUploadSource}
                 onPublishSuccess={handlePublishSuccess}
+                onMediaDeleted={handleMediaDeleted}
                 onLiveCreated={handleLiveCreated}
                 onLiveEnded={handleLiveEnded}
                 onLivePlaybackUpdated={handleLivePlaybackUpdated}
