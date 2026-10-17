@@ -2,13 +2,11 @@ import React, { useState, useEffect } from 'react';
 import {
   MessageSquare,
   Sparkles,
-  Heart,
   Flame,
   Share2,
   Bookmark,
   Send,
   Plus,
-  CheckCircle2,
   Church,
   BookOpen,
   Search,
@@ -18,7 +16,6 @@ import {
   Pause,
   Award,
   Globe,
-  Radio,
   Eye,
   X,
   Smile,
@@ -488,146 +485,90 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
         )}
       </AnimatePresence>
 
-      {/* 🌟 1. STORIES & PRAISE CIRCLES SPOTLIGHT CAROUSEL */}
-      <div className="rounded-3xl bg-slate-900/60 p-4 sm:p-5 border border-white/[0.08] backdrop-blur-xl shadow-xl">
-        <div className="flex items-center justify-between mb-3 px-1">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-300">
-              Praise Circles & Daily Faith Spotlight
-            </h3>
+      <div className="flex items-center justify-between gap-3 px-1">
+        <div>
+          <div className="mb-1 flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">Fellowship & voices</span>
           </div>
-          <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
-            Global voices standing in agreement
-          </span>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">Live Praying</h1>
         </div>
+        <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold text-emerald-300">
+          <Globe className="h-3.5 w-3.5" />
+          Global community
+        </span>
+      </div>
 
-        <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-none pt-1">
-          {/* Add story action pill */}
+      <section className="rounded-3xl border border-white/[0.08] bg-slate-900/60 p-4 sm:p-5 shadow-xl backdrop-blur-xl">
+        <div className="mb-4 flex items-center justify-between px-1">
+          <h2 className="text-sm font-bold text-white">Voices</h2>
+          <span className="text-[11px] text-slate-400">Praise, prayer, and encouragement</span>
+        </div>
+        <div className="flex items-start gap-4 overflow-x-auto pb-1 scrollbar-none">
           <button
             onClick={handleOpenCreateModal}
-            className="flex flex-col items-center justify-center gap-1.5 shrink-0 group focus:outline-none"
+            className="group flex w-16 shrink-0 flex-col items-center gap-2"
           >
-            <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-slate-800 border-2 border-dashed border-amber-500/50 group-hover:border-amber-400 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
-              <Plus className="w-6 h-6 text-amber-400 group-hover:rotate-90 transition-transform duration-300" />
-            </div>
-            <span className="text-[11px] font-bold text-amber-300 group-hover:text-amber-200">Share Story</span>
+            <span className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-dashed border-amber-500/60 bg-amber-500/10 text-amber-300 transition group-hover:border-amber-300 group-hover:bg-amber-500/20">
+              <Plus className="h-6 w-6" />
+            </span>
+            <span className="text-center text-[11px] font-semibold text-slate-300">Your voice</span>
           </button>
-
-          {/* Stories List */}
           {faithStories.map(story => (
             <button
               key={story.id}
               onClick={() => {
                 setActiveStorySpotlight(story.id);
-                if (story.type === 'testimony') setActiveCategory('testimony');
-                else if (story.type === 'prayer') setActiveCategory('prayer');
+                setActiveCategory(story.type);
               }}
-              className="flex flex-col items-center gap-1.5 shrink-0 group focus:outline-none"
+              aria-pressed={activeStorySpotlight === story.id}
+              className="group flex w-16 shrink-0 flex-col items-center gap-2"
             >
-              <div className="relative p-0.5 rounded-full bg-gradient-to-tr from-amber-500 via-pink-500 to-amber-300 shadow-md group-hover:scale-105 transition duration-300">
-                <div className="p-0.5 rounded-full bg-[#121316]">
-                  <img
-                    src={story.avatar}
-                    alt={story.name}
-                    className="w-13 h-13 sm:w-15 sm:h-15 rounded-full object-cover"
-                  />
-                </div>
-                {story.type === 'testimony' && (
-                  <span className="absolute -bottom-1 -right-0.5 w-4.5 h-4.5 bg-amber-500 text-slate-950 text-[10px] font-black rounded-full flex items-center justify-center ring-2 ring-slate-900">
-                    🙌
-                  </span>
-                )}
-              </div>
-              <div className="text-center max-w-[72px]">
-                <div className="text-[11px] font-bold text-slate-200 truncate group-hover:text-amber-300 transition">
-                  {story.name}
-                </div>
-                <div className="text-[9px] text-slate-400 truncate">{story.tag}</div>
-              </div>
+              <span className={`rounded-full p-0.5 transition ${activeStorySpotlight === story.id ? 'bg-amber-400' : 'bg-gradient-to-tr from-amber-500 via-orange-400 to-amber-200 group-hover:scale-105'}`}>
+                <img
+                  src={story.avatar}
+                  alt=""
+                  className="h-13 w-13 rounded-full border-2 border-slate-900 object-cover"
+                />
+              </span>
+              <span className="w-full truncate text-center text-[11px] font-semibold text-slate-300">{story.name}</span>
             </button>
           ))}
+          {faithStories.length === 0 && (
+            <p className="self-center py-3 text-xs text-slate-400">Be the first to share a voice with the community.</p>
+          )}
         </div>
-      </div>
+      </section>
 
-      {/* 🌟 2. HERO COMMUNITY HEADER & LIVE METRICS STRIP */}
-      <div className="relative rounded-3xl overflow-hidden border border-white/[0.09] bg-gradient-to-br from-[#14151b] via-[#1a1b24] to-[#121318] p-5 sm:p-7 shadow-2xl">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-10 w-72 h-72 bg-pink-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="space-y-2.5 max-w-2xl">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-3 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[11px] font-black tracking-wider uppercase flex items-center gap-1.5 shadow-sm">
-                <Globe className="w-3.5 h-3.5 text-amber-400" /> Global Fellowship & Altar
-              </span>
-              <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-bold bg-emerald-500/15 px-2.5 py-1 rounded-full border border-emerald-500/30">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> 2,419 Intercessors Online
-              </span>
+      <section className="relative overflow-hidden rounded-3xl border border-amber-400/20 bg-gradient-to-r from-amber-500/15 via-slate-900 to-slate-900 p-4 sm:p-5 shadow-xl">
+        <div className="pointer-events-none absolute -right-8 -top-12 h-40 w-40 rounded-full bg-amber-400/10 blur-3xl" />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-400/15 text-amber-300">
+              <Flame className="h-6 w-6 fill-amber-300" />
+            </span>
+            <div>
+              <div className="mb-1 flex items-center gap-2">
+                <h2 className="text-base font-extrabold text-white">Live Altar</h2>
+                <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-300">24/7</span>
+              </div>
+              <p className="text-xs text-slate-300">Join the community in prayer and stand together in faith.</p>
             </div>
-
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-tight">
-              Testimonies of Grace & Global Voices
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-xl">
-              Proclaim what the Lord has done, post petitions on the 24/7 intercessory prayer wall, and stand in spiritual agreement with believers across 84 nations.
-            </p>
           </div>
-
-          <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
-            <button
-              onClick={handleOpenCreateModal}
-              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xl shadow-amber-500/25 hover:shadow-amber-500/40 transition active:scale-95 duration-200"
-            >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              <span>Share Testimony / Prayer</span>
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              if (onAwardXp) onAwardXp(10, 'Joined 24/7 Silent Agreement Altar');
+              setPrayerNotification('Connected to 24/7 Global Agreement Altar 🙏');
+              setTimeout(() => setPrayerNotification(null), 3000);
+            }}
+            className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-xs font-extrabold text-slate-950 shadow-lg shadow-amber-500/15 transition hover:bg-amber-300 active:scale-95"
+          >
+            <FlameKindling className="h-4 w-4" />
+            Join Room
+            <span className="text-[10px] font-bold opacity-70">+10 XP</span>
+          </button>
         </div>
-
-        {/* Global Altar Real-Time Metrics Strip */}
-        <div className="mt-6 pt-5 border-t border-white/[0.08] grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-          <div className="p-3.5 rounded-2xl bg-slate-900/70 border border-white/[0.06] flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center text-amber-400 shrink-0">
-              <Flame className="w-5 h-5 fill-amber-400" />
-            </div>
-            <div>
-              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Prayers Sown Today</div>
-              <div className="text-base sm:text-lg font-black text-white font-mono">14,820+</div>
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-slate-900/70 border border-white/[0.06] flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-400 shrink-0">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Answered Miracles</div>
-              <div className="text-base sm:text-lg font-black text-white font-mono">3,124</div>
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-slate-900/70 border border-white/[0.06] flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-pink-500/15 flex items-center justify-center text-pink-400 shrink-0">
-              <Heart className="w-5 h-5 fill-pink-400" />
-            </div>
-            <div>
-              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Amens & Praises</div>
-              <div className="text-base sm:text-lg font-black text-white font-mono">89.4k</div>
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-slate-900/70 border border-white/[0.06] flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center text-amber-300 shrink-0">
-              <Church className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Connected Churches</div>
-              <div className="text-base sm:text-lg font-black text-white font-mono">120+ Sanctuaries</div>
-            </div>
-          </div>
-        </div>
-      </div>
+      </section>
 
       {/* 🧭 3. NAVIGATION TABS, SORTING & SEARCH BAR */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-900/70 p-2.5 rounded-2xl border border-white/[0.08] backdrop-blur-md">
@@ -636,8 +577,8 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
           {[
             { id: 'all', label: 'All Voices', icon: Globe },
-            { id: 'testimony', label: '🙌 Testimonies', badge: 'MIRACLES' },
-            { id: 'prayer', label: '🙏 Prayer Wall', badge: 'ALTAR' },
+            { id: 'testimony', label: '🔥 Miracles & Testimonies' },
+            { id: 'prayer', label: '🙏 Prayer Wall' },
             { id: 'reflection', label: '📖 Sermon Word' },
             { id: 'discussion', label: '💬 Discussions' },
           ].map(tab => {
@@ -646,22 +587,18 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveCategory(tab.id as PostCategory)}
+                onClick={() => {
+                  setActiveCategory(tab.id as PostCategory);
+                  setActiveStorySpotlight(null);
+                }}
                 className={`relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                   isActive
-                    ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20 font-black'
+                    ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-500/20 font-black'
                     : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-800'
                 }`}
               >
                 {Icon && <Icon className="w-3.5 h-3.5" />}
                 <span>{tab.label}</span>
-                {tab.badge && (
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-black ${
-                    isActive ? 'bg-slate-950 text-amber-300' : 'bg-amber-500/20 text-amber-400'
-                  }`}>
-                    {tab.badge}
-                  </span>
-                )}
               </button>
             );
           })}
@@ -675,7 +612,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search testimonies, scriptures, #tags..."
+              placeholder="Search the fellowship..."
               className="w-full bg-slate-950/90 border border-slate-700/80 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-400 transition"
             />
             {searchQuery && (
@@ -1183,35 +1120,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
             </button>
           </div>
 
-          {/* 2. 24/7 SILENT PRAYER WATCH ROOM */}
-          <div className="p-5 rounded-3xl bg-gradient-to-br from-slate-900/90 to-blue-950/40 border border-blue-500/20 shadow-xl space-y-3.5 backdrop-blur-xl">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Radio className="w-4 h-4 animate-pulse text-blue-400" /> Live Agreement Altar
-              </span>
-              <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                24/7 STREAM
-              </span>
-            </div>
-
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Join 418 believers currently in silent prayer agreement for global missionaries, family healing, and campus outpourings.
-            </p>
-
-            <button
-              onClick={() => {
-                if (onAwardXp) onAwardXp(10, 'Joined 24/7 Silent Agreement Altar');
-                setPrayerNotification('Connected to 24/7 Global Agreement Altar 🙏');
-                setTimeout(() => setPrayerNotification(null), 3000);
-              }}
-              className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2"
-            >
-              <FlameKindling className="w-4 h-4" />
-              <span>Enter Agreement Room (+10 XP)</span>
-            </button>
-          </div>
-
-          {/* 3. TRENDING ALTAR TOPICS */}
+          {/* 2. TRENDING ALTAR TOPICS */}
           <div className="p-5 rounded-3xl bg-slate-900/70 border border-white/[0.08] shadow-xl space-y-3 backdrop-blur-xl">
             <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-amber-400" /> Trending Altar Focuses
