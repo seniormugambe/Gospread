@@ -351,7 +351,7 @@ class SermonShortSerializer(serializers.ModelSerializer):
         model = SermonShort
         fields = (
             "id", "church", "church_name", "sermon", "title", "speaker", "caption",
-            "video_url", "thumbnail_url", "duration_seconds", "like_count", "comment_count",
+            "video_url", "thumbnail_url", "duration_seconds", "crop_x", "crop_y", "like_count", "comment_count",
             "view_count", "is_published", "created_at", "is_owner", "video_file", "thumbnail_file",
         )
         read_only_fields = ("id", "created_at", "church_name", "is_owner", "like_count", "comment_count", "view_count")

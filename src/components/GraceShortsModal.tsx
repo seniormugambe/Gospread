@@ -39,6 +39,7 @@ function videoStreamToGraceShort(v: VideoStream): GraceShort {
     thumbnail: v.thumbnail,
     duration: v.duration || '0:45',
     tags: [v.category],
+    cropPosition: v.cropPosition,
   };
 }
 
@@ -108,6 +109,7 @@ export default function GraceShortsModal({
                 src={currentShort.videoUrl}
                 poster={currentShort.thumbnail}
                 className="w-full h-full object-cover"
+                style={{ objectPosition: currentShort.cropPosition || '50% 50%' }}
                 autoPlay
                 loop
                 playsInline

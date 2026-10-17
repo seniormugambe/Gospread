@@ -240,6 +240,18 @@ class GospelNuggetCreateTests(APITestCase):
         self.assertIn("duration_seconds", response.data)
         self.assertEqual(SermonShort.objects.count(), 0)
 
+    def test_stores_crop_focal_point_and_rejects_out_of_range(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.post_short(crop_x="0.25", crop_y="0.5")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        short = SermonShort.objects.get(id=response.data["id"])
+        self.assertEqual((short.crop_x, short.crop_y), (0.25, 0.5))
+
+        response = self.post_short(crop_x="1.5")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("crop_x", response.data)
+
     def test_requires_video_file(self):
         self.client.force_authenticate(user=self.user)
 

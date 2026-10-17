@@ -87,6 +87,7 @@ export interface VideoStream {
   date: string;
   videoUrl?: string;
   streamUrl?: string;
+  cropPosition?: string;
 }
 
 export interface AudioChapter {
@@ -1114,7 +1115,7 @@ class DjangoApiClient {
   }
 
   public async createShort(
-    payload: { caption: string; duration_seconds: number; video_file: File; thumbnail_file?: Blob | null },
+    payload: { caption: string; duration_seconds: number; crop_x?: number; crop_y?: number; video_file: File; thumbnail_file?: Blob | null },
     onProgress?: (percent: number) => void,
   ): Promise<{ id: number }> {
     const formData = new FormData();
@@ -1122,6 +1123,8 @@ class DjangoApiClient {
     formData.append('title', title);
     formData.append('caption', payload.caption.trim().slice(0, 280));
     formData.append('duration_seconds', String(Math.max(1, Math.ceil(payload.duration_seconds))));
+    formData.append('crop_x', String(payload.crop_x ?? 0.5));
+    formData.append('crop_y', String(payload.crop_y ?? 0.5));
     formData.append('is_published', 'true');
     formData.append('video_file', payload.video_file);
     if (payload.thumbnail_file) formData.append('thumbnail_file', payload.thumbnail_file, 'thumbnail.jpg');
@@ -1194,6 +1197,7 @@ class DjangoApiClient {
           description: short.caption || '',
           date: short.created_at ? new Date(short.created_at).toLocaleDateString() : 'Today',
           videoUrl: short.video_url,
+          cropPosition: `${Math.round((Number(short.crop_x ?? 0.5)) * 100)}% ${Math.round((Number(short.crop_y ?? 0.5)) * 100)}%`,
           isOwner: Boolean(short.is_owner),
         }));
       }

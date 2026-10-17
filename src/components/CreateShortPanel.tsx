@@ -5,6 +5,7 @@ import { VideoStream } from '../data/gospelData';
 import { isVideoFile } from '../utils/mediaFiles';
 
 export const SHORT_MAX_SECONDS = 60;
+const SHORT_ASPECT = 9 / 16;
 const CAPTION_MAX = 280;
 const MAX_FILE_BYTES = 500 * 1024 * 1024;
 
@@ -12,7 +13,32 @@ interface VideoInfo {
   duration: number;
   width: number;
   height: number;
-  thumbnail: Blob | null;
+  frame: HTMLCanvasElement | null;
+}
+
+// Wider videos are cropped horizontally, taller ones vertically; 9:16 videos need no crop.
+function cropAxis(width: number, height: number): 'x' | 'y' | null {
+  const aspect = width / height;
+  if (Math.abs(aspect - SHORT_ASPECT) < 0.01) return null;
+  return aspect > SHORT_ASPECT ? 'x' : 'y';
+}
+
+function cropFrameToBlob(frame: HTMLCanvasElement, cropX: number, cropY: number): Promise<Blob | null> {
+  const aspect = frame.width / frame.height;
+  let sw = frame.width;
+  let sh = frame.height;
+  if (aspect > SHORT_ASPECT) sw = frame.height * SHORT_ASPECT;
+  else sh = frame.width / SHORT_ASPECT;
+  const sx = (frame.width - sw) * cropX;
+  const sy = (frame.height - sh) * cropY;
+
+  const out = document.createElement('canvas');
+  out.width = Math.min(540, Math.round(sw));
+  out.height = Math.round(out.width / SHORT_ASPECT);
+  const ctx = out.getContext('2d');
+  if (!ctx) return Promise.resolve(null);
+  ctx.drawImage(frame, sx, sy, sw, sh, 0, 0, out.width, out.height);
+  return new Promise((resolve) => out.toBlob(resolve, 'image/jpeg', 0.85));
 }
 
 // Mobile browsers often never fire `seeked`, so the thumbnail is best-effort and must never block the upload.
@@ -59,24 +85,24 @@ function readVideoInfo(url: string): Promise<VideoInfo> {
         return fail('This video could not be read. Try an MP4 or MOV file.');
       }
       const base = { duration, width, height };
-      thumbnailTimer = window.setTimeout(() => finish({ ...base, thumbnail: null }), 4000);
+      thumbnailTimer = window.setTimeout(() => finish({ ...base, frame: null }), 4000);
 
       const capture = () => {
         if (settled) return;
         try {
           const canvas = document.createElement('canvas');
-          canvas.width = Math.min(width, 720);
+          canvas.width = Math.min(width, 1280);
           canvas.height = Math.round((canvas.width / width) * height);
           const ctx = canvas.getContext('2d');
-          if (!ctx) return finish({ ...base, thumbnail: null });
+          if (!ctx) return finish({ ...base, frame: null });
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          canvas.toBlob((blob) => finish({ ...base, thumbnail: blob }), 'image/jpeg', 0.85);
+          finish({ ...base, frame: canvas });
         } catch {
-          finish({ ...base, thumbnail: null });
+          finish({ ...base, frame: null });
         }
       };
       const seekToFrame = () => {
-        try { video.currentTime = Math.min(0.5, duration / 2); } catch { finish({ ...base, thumbnail: null }); }
+        try { video.currentTime = Math.min(0.5, duration / 2); } catch { finish({ ...base, frame: null }); }
       };
       video.onseeked = capture;
       video.onloadeddata = seekToFrame;
@@ -99,7 +125,7 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [info, setInfo] = useState<VideoInfo | null>(null);
-  const [orientationOverride, setOrientationOverride] = useState<{ file: File; info: VideoInfo } | null>(null);
+  const [crop, setCrop] = useState(0.5);
   const [caption, setCaption] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
@@ -107,10 +133,14 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
 
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
 
+  const axis = info ? cropAxis(info.width, info.height) : null;
+  const cropX = axis === 'x' ? crop : 0.5;
+  const cropY = axis === 'y' ? crop : 0.5;
+
   const reset = () => {
     setFile(null);
     setInfo(null);
-    setOrientationOverride(null);
+    setCrop(0.5);
     setPreviewUrl(null);
     if (inputRef.current) inputRef.current.value = '';
   };
@@ -129,11 +159,6 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
         URL.revokeObjectURL(url);
         return setError(`This video is ${Math.ceil(meta.duration)}s long. Gospel Nuggets can be at most ${SHORT_MAX_SECONDS} seconds.`);
       }
-      if (meta.height <= meta.width) {
-        URL.revokeObjectURL(url);
-        setOrientationOverride({ file: picked, info: meta });
-        return setError('Gospel Nuggets must be vertical (portrait) video, like 9:16.');
-      }
       setFile(picked);
       setInfo(meta);
       setPreviewUrl(url);
@@ -143,28 +168,15 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
     }
   };
 
-  const continueWithPortraitVideo = () => {
-    if (!orientationOverride) return;
-    setFile(orientationOverride.file);
-    setInfo({
-      ...orientationOverride.info,
-      width: orientationOverride.info.height,
-      height: orientationOverride.info.width,
-      thumbnail: null,
-    });
-    setPreviewUrl(URL.createObjectURL(orientationOverride.file));
-    setOrientationOverride(null);
-    setError(null);
-  };
-
   const handlePost = async () => {
     if (!file || !info) return;
     if (!isSignedIn) return onRequireAuth?.();
     setError(null);
     setProgress(0);
     try {
+      const thumbnail = info.frame ? await cropFrameToBlob(info.frame, cropX, cropY).catch(() => null) : null;
       const created = await djangoApi.createShort(
-        { caption, duration_seconds: info.duration, video_file: file, thumbnail_file: info.thumbnail },
+        { caption, duration_seconds: info.duration, crop_x: cropX, crop_y: cropY, video_file: file, thumbnail_file: thumbnail },
         setProgress,
       );
       const shorts = await djangoApi.getShorts().catch(() => [] as VideoStream[]);
@@ -207,7 +219,13 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
       <div className="grid sm:grid-cols-[220px_1fr] gap-6">
         <div>
           {previewUrl ? (
-            <video src={previewUrl} controls playsInline className="w-full aspect-[9/16] rounded-2xl bg-black object-cover" />
+            <video
+              src={previewUrl}
+              controls
+              playsInline
+              className="w-full aspect-[9/16] rounded-2xl bg-black object-cover"
+              style={{ objectPosition: `${cropX * 100}% ${cropY * 100}%` }}
+            />
           ) : (
             <button
               type="button"
@@ -215,8 +233,8 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
               className="w-full aspect-[9/16] rounded-2xl border-2 border-dashed border-slate-700 hover:border-amber-500 text-slate-400 hover:text-amber-400 flex flex-col items-center justify-center gap-2 px-4 text-center transition cursor-pointer"
             >
               <UploadCloud className="w-8 h-8" />
-              <span className="text-xs font-bold">Choose a vertical video</span>
-              <span className="text-[10px]">Up to {SHORT_MAX_SECONDS} seconds, 9:16</span>
+              <span className="text-xs font-bold">Choose a video</span>
+              <span className="text-[10px]">Up to {SHORT_MAX_SECONDS} seconds. Not 9:16? We'll help you crop it.</span>
             </button>
           )}
           <input ref={inputRef} type="file" accept="video/*" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
@@ -247,25 +265,28 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
             <span className="block text-right text-[10px] text-slate-500">{caption.length}/{CAPTION_MAX}</span>
           </label>
 
-          {error && (
-            <div role="alert" className="text-xs font-bold text-red-400 space-y-2">
-              <p>{error}</p>
-              {orientationOverride && (
-                <div className="space-y-1.5">
-                  <p className="font-normal text-slate-400">
-                    Some phones report portrait clips as landscape. If this video looks vertical, you can continue.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={continueWithPortraitVideo}
-                    className="font-bold text-amber-400 hover:text-amber-300 cursor-pointer"
-                  >
-                    This video is portrait — continue
-                  </button>
-                </div>
-              )}
-            </div>
+          {axis && !uploading && (
+            <label className="block space-y-1.5 rounded-xl bg-slate-900 border border-slate-800 p-3">
+              <span className="text-xs font-bold text-slate-300">
+                Crop to 9:16 — slide to choose what stays in frame
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(crop * 100)}
+                onChange={(e) => setCrop(Number(e.target.value) / 100)}
+                aria-label={axis === 'x' ? 'Move crop left or right' : 'Move crop up or down'}
+                className="w-full accent-amber-500"
+              />
+              <span className="flex justify-between text-[10px] text-slate-500">
+                <span>{axis === 'x' ? 'Left' : 'Top'}</span>
+                <span>{axis === 'x' ? 'Right' : 'Bottom'}</span>
+              </span>
+            </label>
           )}
+
+          {error && <p role="alert" className="text-xs font-bold text-red-400">{error}</p>}
 
           {uploading && (
             <div className="h-2 rounded-full bg-slate-800 overflow-hidden">

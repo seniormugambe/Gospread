@@ -2,6 +2,7 @@ import uuid
 
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -129,6 +130,9 @@ class SermonShort(models.Model):
     video_url = models.URLField(blank=True)
     thumbnail_url = models.URLField()
     duration_seconds = models.PositiveSmallIntegerField(default=60)
+    # Focal point (0-1) used to crop non-9:16 videos to a 9:16 frame on playback.
+    crop_x = models.FloatField(default=0.5, validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])
+    crop_y = models.FloatField(default=0.5, validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])
     like_count = models.PositiveIntegerField(default=0)
     comment_count = models.PositiveIntegerField(default=0)
     view_count = models.PositiveIntegerField(default=0)

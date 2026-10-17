@@ -19,6 +19,8 @@ export interface VideoStream {
   date: string;
   videoUrl?: string;
   streamUrl?: string;
+  /** CSS object-position used to crop non-9:16 Nuggets, e.g. "35% 50%". */
+  cropPosition?: string;
   seriesName?: string;
 }
 
@@ -396,6 +398,7 @@ export interface GraceShort {
   thumbnail: string;
   duration: string;
   tags: string[];
+  cropPosition?: string;
 }
 
 export const GRACE_SHORTS: GraceShort[] = [
