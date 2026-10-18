@@ -915,9 +915,8 @@ export default function App() {
   };
 
   const handleLiveEnded = (streamId: string) => {
-    setVideoStreams(prev => prev.map(stream =>
-      stream.id === streamId ? { ...stream, isLive: false, viewsText: 'Broadcast ended' } : stream
-    ));
+    setVideoStreams(prev => prev.filter(stream => stream.id !== streamId));
+    setActiveVideo(prev => (prev?.id === streamId ? null : prev));
   };
 
   const handleLivePlaybackUpdated = (streamId: string, playbackUrl: string) => {
