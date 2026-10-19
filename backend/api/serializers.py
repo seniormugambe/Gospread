@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from uuid import uuid4
 
@@ -17,18 +18,50 @@ from .models import (
 )
 
 
+MAX_IMAGE_BYTES = 5 * 1024 * 1024
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+
+
+def store_image_upload(serializer, uploaded_file, prefix):
+    """Save an uploaded image and return its absolute URL."""
+    extension = Path(uploaded_file.name).suffix.lower() or ".jpg"
+    uploaded_file.seek(0)
+    saved_name = default_storage.save(f"uploads/{prefix}/{uuid4().hex}{extension}", uploaded_file)
+    url = default_storage.url(saved_name)
+    request = serializer.context.get("request")
+    return request.build_absolute_uri(url) if request is not None else url
+
+
+def validate_image_upload(value):
+    if Path(value.name).suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS or not (value.content_type or "").startswith("image/"):
+        raise serializers.ValidationError("Upload a JPG, PNG, WebP or GIF image.")
+    if value.size > MAX_IMAGE_BYTES:
+        raise serializers.ValidationError("Images must be 5 MB or smaller.")
+    return value
+
+
 class UserSerializer(serializers.ModelSerializer):
     church_name = serializers.SerializerMethodField()
     creator_type = serializers.SerializerMethodField()
+    avatar = serializers.FileField(write_only=True, required=False, allow_empty_file=False)
 
     class Meta:
         model = User
         fields = (
-            "id", "email", "username", "first_name", "last_name", "avatar_url",
+            "id", "email", "username", "first_name", "last_name", "avatar_url", "avatar",
             "bio", "role", "creator_type", "praise_xp", "streak_days", "last_checkin_date",
             "total_study_minutes", "church_name",
         )
         read_only_fields = ("id", "email", "praise_xp", "streak_days", "last_checkin_date", "total_study_minutes")
+
+    def validate_avatar(self, value):
+        return validate_image_upload(value)
+
+    def update(self, instance, validated_data):
+        avatar = validated_data.pop("avatar", None)
+        if avatar:
+            validated_data["avatar_url"] = store_image_upload(self, avatar, "avatars")
+        return super().update(instance, validated_data)
 
     def get_church_name(self, user):
         church = user.owned_churches.order_by("created_at").first() or user.followed_churches.order_by("name").first()
@@ -519,11 +552,32 @@ class CommunityPostSerializer(serializers.ModelSerializer):
     has_prayed = serializers.SerializerMethodField()
     has_glory = serializers.SerializerMethodField()
     has_bookmarked = serializers.SerializerMethodField()
+    image = serializers.FileField(write_only=True, required=False, allow_empty_file=False)
 
     class Meta:
         model = CommunityPost
-        fields = ("id", "author_name", "author_handle", "author_avatar", "author_role", "author_church", "category", "title", "content", "scripture_reference", "scripture_text", "image_url", "audio_url", "audio_snippet_title", "audio_snippet_duration", "created_at", "amens_count", "prayers_count", "glory_count", "shares_count", "comments", "is_anonymous", "has_amened", "has_prayed", "has_glory", "has_bookmarked", "tags")
+        fields = ("id", "author_name", "author_handle", "author_avatar", "author_role", "author_church", "category", "title", "content", "scripture_reference", "scripture_text", "image_url", "image", "audio_url", "audio_snippet_title", "audio_snippet_duration", "created_at", "amens_count", "prayers_count", "glory_count", "shares_count", "comments", "is_anonymous", "has_amened", "has_prayed", "has_glory", "has_bookmarked", "tags")
         read_only_fields = ("id", "author_name", "author_handle", "author_avatar", "author_role", "author_church", "created_at", "amens_count", "prayers_count", "glory_count", "shares_count", "comments", "has_amened", "has_prayed", "has_glory", "has_bookmarked")
+
+    def validate_image(self, value):
+        return validate_image_upload(value)
+
+    def validate_tags(self, value):
+        # Multipart submissions deliver the JSON list as a string.
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except ValueError:
+                raise serializers.ValidationError("Tags must be a JSON list.")
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Tags must be a list.")
+        return [str(tag)[:50] for tag in value][:20]
+
+    def create(self, validated_data):
+        image = validated_data.pop("image", None)
+        if image:
+            validated_data["image_url"] = store_image_upload(self, image, "community")
+        return super().create(validated_data)
 
     def get_author_name(self, obj):
         return "Kingdom Intercessor" if obj.is_anonymous else (obj.author.get_full_name() or obj.author.username)

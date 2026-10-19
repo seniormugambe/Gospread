@@ -393,7 +393,8 @@ class DjangoApiClient {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    // Image uploads and cold-starting hosts need more than 10s.
+    const timeoutId = setTimeout(() => controller.abort(), options.body instanceof FormData ? 90000 : 30000);
 
     try {
       let response = await fetch(url, {
@@ -558,6 +559,15 @@ class DjangoApiClient {
 
   public async getMe(): Promise<UserProfileData> {
     return await this.request<UserProfileData>('/auth/me/');
+  }
+
+  public async updateMe(payload: { avatar?: File | null; first_name?: string; last_name?: string; bio?: string }): Promise<UserProfileData> {
+    const form = new FormData();
+    Object.entries(payload).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      form.append(key, value as string | Blob);
+    });
+    return await this.request<UserProfileData>('/auth/me/', { method: 'PATCH', body: form });
   }
 
   public async createSermon(
@@ -1441,10 +1451,21 @@ class DjangoApiClient {
     audio_snippet_duration?: string;
     tags?: string[];
     is_anonymous?: boolean;
+    image?: File | null;
   }): Promise<CommunityPostApi> {
+    const { image, ...fields } = payload;
+    if (image) {
+      const form = new FormData();
+      Object.entries(fields).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === '') return;
+        form.append(key, key === 'tags' ? JSON.stringify(value) : String(value));
+      });
+      form.append('image', image);
+      return await this.request<CommunityPostApi>('/community/posts/', { method: 'POST', body: form });
+    }
     return await this.request<CommunityPostApi>('/community/posts/', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(fields),
     });
   }
 

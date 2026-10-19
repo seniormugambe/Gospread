@@ -227,6 +227,8 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
   const [postScripture, setPostScripture] = useState('');
   const [postScriptureText, setPostScriptureText] = useState('');
   const [postImageUrl, setPostImageUrl] = useState('');
+  const [postImageFile, setPostImageFile] = useState<File | null>(null);
+  const [postImagePreview, setPostImagePreview] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [postTags, setPostTags] = useState('');
   const [activeComposerTab, setActiveComposerTab] = useState<'write' | 'preview'>('write');
@@ -371,6 +373,26 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
     }).catch(error => console.warn('[Community] Comment was not saved:', error));
   };
 
+  const handlePostImageSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
+      setPrayerNotification('Choose an image file under 5 MB.');
+      setTimeout(() => setPrayerNotification(null), 3500);
+      return;
+    }
+    setPostImageFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setPostImagePreview(String(reader.result));
+    reader.readAsDataURL(file);
+  };
+
+  const clearPostImage = () => {
+    setPostImageFile(null);
+    setPostImagePreview('');
+  };
+
   // Create Post Submit
   const handleCreatePostSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -394,7 +416,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
       content: postContent.trim(),
       scriptureReference: postScripture.trim() || undefined,
       scriptureText: postScriptureText.trim() || undefined,
-      imageUrl: postImageUrl.trim() || undefined,
+      imageUrl: postImagePreview || postImageUrl.trim() || undefined,
       createdAt: 'Just now',
       amensCount: 1,
       prayersCount: postCategory === 'prayer' ? 1 : 0,
@@ -414,7 +436,8 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
       content: postContent.trim(),
       scripture_reference: postScripture.trim() || undefined,
       scripture_text: postScriptureText.trim() || undefined,
-      image_url: postImageUrl.trim() || undefined,
+      image_url: postImageFile ? undefined : postImageUrl.trim() || undefined,
+      image: postImageFile,
       tags: newPost.tags,
       is_anonymous: isAnonymous,
     }).then(savedPost => {
@@ -432,6 +455,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
     setPostScripture('');
     setPostScriptureText('');
     setPostImageUrl('');
+    clearPostImage();
     setIsAnonymous(false);
     setPostTags('');
     setActiveComposerTab('write');
@@ -1351,6 +1375,30 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
                           </button>
                         ))}
                       </div>
+                    </div>
+
+                    {/* Photo */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                        Photo (Optional)
+                      </label>
+                      {postImagePreview ? (
+                        <div className="relative">
+                          <img src={postImagePreview} alt="Post attachment preview" className="w-full max-h-56 object-cover rounded-xl border border-slate-700/80" />
+                          <button
+                            type="button"
+                            onClick={clearPostImage}
+                            className="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-black/70 text-[11px] font-bold text-white hover:bg-black"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="flex items-center justify-center w-full px-3 py-4 rounded-xl border border-dashed border-slate-700 text-xs text-slate-400 hover:border-amber-400 hover:text-amber-300 cursor-pointer transition">
+                          Add a photo (JPG, PNG, WebP or GIF, up to 5 MB)
+                          <input type="file" accept="image/*" className="hidden" onChange={handlePostImageSelected} />
+                        </label>
+                      )}
                     </div>
 
                     {/* Scripture Reference and Tags */}

@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserSession } from './AuthModal';
+import { djangoApi } from '../services/djangoApi';
 
 export interface UserAccountSettings {
   // Profile
@@ -173,6 +174,24 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [passwordToast, setPasswordToast] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleAvatarSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
+      setSaveError('Choose an image file under 5 MB.');
+      return;
+    }
+    setSaveError(null);
+    setAvatarFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setSettings(prev => ({ ...prev, avatarUrl: String(reader.result) }));
+    reader.readAsDataURL(file);
+  };
 
   // Sync when userSession changes
   useEffect(() => {
@@ -190,21 +209,35 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSaveSettings = (e?: React.FormEvent) => {
+  const handleSaveSettings = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (isSaving) return;
+    setIsSaving(true);
+    setSaveError(null);
+    let avatarUrl = settings.avatarUrl;
     try {
-      localStorage.setItem('gospread_user_settings', JSON.stringify(settings));
+      if (avatarFile && djangoApi.getAccessToken()) {
+        const profile = await djangoApi.updateMe({ avatar: avatarFile });
+        if (profile.avatar_url) avatarUrl = profile.avatar_url;
+        setAvatarFile(null);
+      }
+      const nextSettings = { ...settings, avatarUrl };
+      setSettings(nextSettings);
+      localStorage.setItem('gospread_user_settings', JSON.stringify(nextSettings));
       onUpdateUserSession({
-        fullName: settings.fullName,
-        username: settings.username,
-        email: settings.email,
-        churchName: settings.homeChurch,
-        avatarUrl: settings.avatarUrl,
+        fullName: nextSettings.fullName,
+        username: nextSettings.username,
+        email: nextSettings.email,
+        churchName: nextSettings.homeChurch,
+        avatarUrl,
       });
       setSavedSuccessToast(true);
       setTimeout(() => setSavedSuccessToast(false), 3000);
     } catch (err) {
       console.error('Failed saving user settings', err);
+      setSaveError(err instanceof Error ? err.message : 'Unable to save your profile photo.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -347,7 +380,14 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                   </div>
                 </div>
 
-                <p className="text-[11px] text-slate-400 sm:text-right">Choose a photo or icon from your profile editor.</p>
+                <div className="sm:text-right space-y-1">
+                  <label className="inline-block px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold cursor-pointer hover:bg-amber-500/25 transition">
+                    Upload photo
+                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarSelected} />
+                  </label>
+                  <p className="text-[11px] text-slate-400">JPG, PNG, WebP or GIF up to 5 MB. Click Save to apply.</p>
+                  {saveError && <p className="text-[11px] text-red-400">{saveError}</p>}
+                </div>
               </div>
 
               {/* Form Details */}
