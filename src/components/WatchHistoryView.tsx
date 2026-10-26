@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream } from '../data/gospelData';
+import { videoPath } from '../lib/routes';
 
 export interface WatchHistoryItem {
   video: VideoStream;
@@ -47,6 +48,7 @@ export const WatchHistoryView: React.FC<WatchHistoryViewProps> = ({
   const [searchFilter, setSearchFilter] = useState('');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copyErrorId, setCopyErrorId] = useState<string | null>(null);
 
   // Filter history by search term
   const filteredHistory = watchHistory.filter((item) => {
@@ -113,7 +115,7 @@ export const WatchHistoryView: React.FC<WatchHistoryViewProps> = ({
     const shareData = {
       title: video.title,
       text: `Watch "${video.title}" by ${video.speakerOrArtist} on Gospread!`,
-      url: window.location.href,
+      url: `${window.location.origin}${videoPath(video.id)}`,
     };
 
     if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
@@ -130,9 +132,15 @@ export const WatchHistoryView: React.FC<WatchHistoryViewProps> = ({
   };
 
   const copyLink = (videoId: string) => {
-    navigator.clipboard.writeText(window.location.href);
-    setCopiedId(videoId);
-    setTimeout(() => setCopiedId(null), 2500);
+    navigator.clipboard.writeText(`${window.location.origin}${videoPath(videoId)}`)
+      .then(() => {
+        setCopiedId(videoId);
+        setTimeout(() => setCopiedId(null), 2500);
+      })
+      .catch(() => {
+        setCopyErrorId(videoId);
+        setTimeout(() => setCopyErrorId(null), 3500);
+      });
   };
 
   return (
@@ -375,10 +383,12 @@ export const WatchHistoryView: React.FC<WatchHistoryViewProps> = ({
                           <button
                             onClick={() => handleShare(video)}
                             className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
-                            title="Share Video"
+                            title={copyErrorId === video.id ? 'Could not copy video link' : 'Share Video'}
                           >
                             {copiedId === video.id ? (
                               <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            ) : copyErrorId === video.id ? (
+                              <X className="w-3.5 h-3.5 text-red-400" />
                             ) : (
                               <Share2 className="w-3.5 h-3.5" />
                             )}

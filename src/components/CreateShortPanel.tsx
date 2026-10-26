@@ -50,6 +50,8 @@ function readVideoInfo(url: string): Promise<VideoInfo> {
     video.playsInline = true;
     video.setAttribute('playsinline', '');
     video.setAttribute('webkit-playsinline', '');
+    video.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none;';
+    document.body.appendChild(video);
 
     let settled = false;
     let metadataTimer = 0;
@@ -59,6 +61,7 @@ function readVideoInfo(url: string): Promise<VideoInfo> {
       window.clearTimeout(thumbnailTimer);
       video.removeAttribute('src');
       video.load();
+      video.remove();
     };
     const finish = (info: VideoInfo) => {
       if (settled) return;
@@ -237,7 +240,7 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
               <span className="text-[10px]">Up to {SHORT_MAX_SECONDS} seconds. Not 9:16? We'll help you crop it.</span>
             </button>
           )}
-          <input ref={inputRef} type="file" accept="video/*" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
+          <input ref={inputRef} type="file" accept="video/*" capture="environment" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
           {file && !uploading && (
             <button onClick={() => inputRef.current?.click()} className="mt-2 text-xs font-bold text-slate-400 hover:text-white cursor-pointer">
               Change video

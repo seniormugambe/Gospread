@@ -62,7 +62,7 @@ import GospreadLogo from './components/GospreadLogo';
 import youtubeGospelImg from './assets/images/youtube_gospel_ui_1785687242032.jpg';
 import CreatePage, { StudioAction } from './components/CreatePage';
 import CreateModalDropdown from './components/CreateModalDropdown';
-import DiscoverMinistriesHub from './components/DiscoverMinistriesHub';
+import DiscoverMinistriesHub, { DISCOVER_MINISTRIES } from './components/DiscoverMinistriesHub';
 import UserProfilePage from './components/UserProfilePage';
 import FellowshipCommunityHub from './components/FellowshipCommunityHub';
 import AccountSettingsModal from './components/AccountSettingsModal';
@@ -102,6 +102,7 @@ import {
   ChatMessage,
   ReactionType,
 } from './data/gospelData';
+import { ministryPath, parseAppRoute, profilePath, updatePageMetadata, videoPath } from './lib/routes';
 
 const LEGACY_PROFILE_PLACEHOLDERS = new Set([
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
@@ -136,6 +137,8 @@ export default function App() {
   }, [theme]);
 
   const [activeTab, setActiveTab] = useState<'platform' | 'generated' | 'create' | 'profile' | 'history' | 'discover' | 'community' | 'auth'>('platform');
+  const [routePath, setRoutePath] = useState(() => window.location.pathname);
+  const [selectedCommunityPostId, setSelectedCommunityPostId] = useState<string | null>(null);
   const [homeNavigationKey, setHomeNavigationKey] = useState(0);
   const mainContentRef = useRef<HTMLElement>(null);
   const scrollToTop = () => {
@@ -485,6 +488,26 @@ export default function App() {
   const [bellSettings, setBellSettings] = useState<Record<string, 'all' | 'personalized' | 'none'>>({});
   const [selectedChannelModal, setSelectedChannelModal] = useState<string | null>(null);
   const [followToast, setFollowToast] = useState<string | null>(null);
+
+  const navigateTo = (path: string, replace = false) => {
+    if (window.location.pathname !== path) {
+      window.history[replace ? 'replaceState' : 'pushState']({}, '', path);
+    }
+    setRoutePath(path);
+  };
+
+  const openChannelProfile = (channelName: string) => {
+    setSelectedChannelModal(channelName);
+    navigateTo(profilePath(channelName));
+  };
+
+  const openMinistry = (ministryId: string) => {
+    const ministry = DISCOVER_MINISTRIES.find(item => item.id === ministryId);
+    if (!ministry) return;
+    setActiveTab('discover');
+    setSelectedChannelModal(ministry.name);
+    navigateTo(ministryPath(ministryId));
+  };
 
   // Church Membership & Member Count State
   const [joinedChurches, setJoinedChurches] = useState<string[]>(() => {
@@ -854,13 +877,90 @@ export default function App() {
 
   const [autoplayTarget, setAutoplayTarget] = useState<VideoStream | null>(null);
 
-  const handleSelectVideo = (video: VideoStream) => {
+  const handleSelectVideo = (video: VideoStream, updateUrl = true) => {
     setAutoplayTarget(null);
     setActiveVideo(video);
     setIsVideoPlaying(true);
     setIsAudioPlaying(false);
+    setActiveTab('platform');
+    setSelectedCommunityPostId(null);
+    if (updateUrl) navigateTo(videoPath(video.id));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  useEffect(() => {
+    const handlePopState = () => setRoutePath(window.location.pathname);
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    const route = parseAppRoute(routePath);
+    if (route.kind === 'home') return;
+
+    if (route.kind === 'video') {
+      const video = [...videoStreams, ...shorts].find(item => item.id === route.id);
+      if (video) {
+        handleSelectVideo(video, false);
+        updatePageMetadata({
+          title: `${video.title} | Gospread`,
+          description: `Watch ${video.title} by ${video.speakerOrArtist} on Gospread.`,
+          path: videoPath(video.id),
+          image: video.thumbnail,
+        });
+      }
+      return;
+    }
+
+    if (route.kind === 'profile') {
+      if (userSession.username && route.name.toLowerCase() === userSession.username.toLowerCase()) {
+        setActiveTab('profile');
+        setSelectedChannelModal(null);
+        setSelectedCommunityPostId(null);
+        updatePageMetadata({
+          title: `${userSession.fullName || userSession.username} | Gospread`,
+          description: `Visit ${userSession.fullName || userSession.username}'s profile on Gospread.`,
+          path: profilePath(userSession.username),
+          image: userSession.avatarUrl || userSession.avatar,
+        });
+        return;
+      }
+      setActiveTab('platform');
+      setSelectedCommunityPostId(null);
+      setSelectedChannelModal(route.name);
+      updatePageMetadata({
+        title: `${route.name} | Gospread`,
+        description: `Explore ${route.name} on Gospread.`,
+        path: profilePath(route.name),
+        image: getChannelAvatar(route.name),
+      });
+      return;
+    }
+
+    if (route.kind === 'ministry') {
+      const ministry = DISCOVER_MINISTRIES.find(item => item.id === route.id);
+      const church = churches.find(item => item.slug === route.id || item.id === route.id);
+      const ministryName = ministry?.name || church?.name;
+      if (ministryName) {
+        setActiveTab('discover');
+        setSelectedCommunityPostId(null);
+        setSelectedChannelModal(ministryName);
+        updatePageMetadata({
+          title: `${ministryName} | Gospread`,
+          description: `Visit the digital home of ${ministryName} on Gospread.`,
+          path: ministryPath(route.id),
+          image: ministry?.bannerImage || church?.coverImage || church?.avatar,
+        });
+      }
+      return;
+    }
+
+    setActiveTab('community');
+    setActiveVideo(null);
+    setIsPipDocked(false);
+    setSelectedChannelModal(null);
+    setSelectedCommunityPostId(route.id);
+  }, [routePath, shorts, videoStreams, churches, userSession]);
 
   const handleCopyPrompt = () => {
     navigator.clipboard.writeText(promptText);
@@ -931,6 +1031,9 @@ export default function App() {
     setSearchQuery('');
     setActiveVideo(null);
     setIsPipDocked(false);
+    setSelectedChannelModal(null);
+    setSelectedCommunityPostId(null);
+    navigateTo('/');
     setHomeNavigationKey(key => key + 1);
   };
 
@@ -1011,7 +1114,7 @@ export default function App() {
             setSearchQuery={setSearchQuery}
             onSelectVideo={handleSelectVideo}
             onSelectAudioTrack={handlePlayAudioTrack}
-            onSelectChannel={(channelName) => setSelectedChannelModal(channelName)}
+            onSelectChannel={openChannelProfile}
             activeVideo={activeVideo}
             selectedCategory={selectedCategory}
             setSelectedCategory={setSelectedCategory}
@@ -1264,7 +1367,7 @@ export default function App() {
                   {subscriptionChannels.map((ch) => (
                     <div
                       key={ch.name}
-                      onClick={() => setSelectedChannelModal(ch.name)}
+                      onClick={() => openChannelProfile(ch.name)}
                       className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/80 cursor-pointer text-xs text-slate-700 dark:text-slate-300 transition"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
@@ -1455,7 +1558,7 @@ export default function App() {
                             key={ch.name}
                             onClick={() => {
                               setIsSidebarOpen(false);
-                              setSelectedChannelModal(ch.name);
+                              openChannelProfile(ch.name);
                             }}
                             className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/80 cursor-pointer text-xs text-slate-700 dark:text-slate-300 transition"
                           >
@@ -1528,7 +1631,7 @@ export default function App() {
                 subscribedChannels={subscribedChannels}
                 joinedChurches={joinedChurches}
                 churchMemberCounts={churchMemberCounts}
-                onSelectChannelModal={(channel) => setSelectedChannelModal(channel)}
+                onSelectChannelModal={openChannelProfile}
                 onToggleJoinChurch={handleToggleJoinChurch}
                 onToggleSubscribe={toggleSubscribe}
                 onOpenGivingModal={handleOpenGiving}
@@ -1570,6 +1673,7 @@ export default function App() {
                 }}
                 onOpenGiving={handleOpenGiving}
                 onRequireAuth={() => handleOpenAuthPage('signin')}
+                selectedPostId={selectedCommunityPostId}
               />
             </div>
           ) : activeTab === 'history' ? (
@@ -1596,7 +1700,8 @@ export default function App() {
               onToggleFollow={toggleSubscribe}
               bellSettings={bellSettings}
               onChangeBellSetting={handleBellChange}
-              onSelectChannelModal={(channel) => setSelectedChannelModal(channel)}
+              onSelectChannelModal={openChannelProfile}
+              onOpenMinistry={openMinistry}
               onOpenGivingModal={handleOpenGiving}
               onSelectVideo={handleSelectVideo}
               onPlayAudioTrack={handlePlayAudioTrack}
@@ -1779,13 +1884,13 @@ export default function App() {
                     <ChannelAvatar
                       src={activeVideo.channelAvatar}
                       name={activeVideo.speakerOrArtist || activeVideo.churchOrMinistry}
-                      onClick={() => setSelectedChannelModal(activeVideo.churchOrMinistry)}
+                      onClick={() => openChannelProfile(activeVideo.churchOrMinistry)}
                       className="w-11 h-11 rounded-full object-cover cursor-pointer ring-2 ring-amber-400/70 hover:ring-amber-300 transition"
                       title="View channel profile"
                     />
                     <div>
                       <h3 
-                        onClick={() => setSelectedChannelModal(activeVideo.churchOrMinistry)}
+                        onClick={() => openChannelProfile(activeVideo.churchOrMinistry)}
                         className="text-sm font-bold text-white flex items-center gap-1 cursor-pointer hover:text-amber-400 transition"
                       >
                         {activeVideo.speakerOrArtist || activeVideo.churchOrMinistry}
@@ -1888,23 +1993,32 @@ export default function App() {
 
                     <button
                       onClick={async () => {
+                        const shareUrl = `${window.location.origin}${videoPath(activeVideo.id)}`;
                         const shareData = {
                           title: activeVideo.title,
                           text: `Watch "${activeVideo.title}" by ${activeVideo.speakerOrArtist} on Gospread!`,
-                          url: window.location.href,
+                          url: shareUrl,
                         };
                         if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
                           try {
                             await navigator.share(shareData);
                           } catch (err) {
                             if ((err as Error).name !== 'AbortError') {
-                              navigator.clipboard.writeText(window.location.href);
-                              alert('Video link copied to clipboard!');
+                              try {
+                                await navigator.clipboard.writeText(shareUrl);
+                                alert('Video link copied to clipboard!');
+                              } catch {
+                                alert('Could not copy the video link. Please allow clipboard access and try again.');
+                              }
                             }
                           }
                         } else {
-                          navigator.clipboard.writeText(window.location.href);
-                          alert('Video link copied to clipboard!');
+                          try {
+                            await navigator.clipboard.writeText(shareUrl);
+                            alert('Video link copied to clipboard!');
+                          } catch {
+                            alert('Could not copy the video link. Please allow clipboard access and try again.');
+                          }
                         }
                       }}
                       className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-800/80 text-xs text-slate-300 font-bold border border-slate-700/50 hover:bg-slate-700 transition"
@@ -2011,7 +2125,7 @@ export default function App() {
                   onAddToQueue={handleAddToAudioQueue}
                   queuedTrackIds={audioQueue.map((t) => t.id)}
                   onOpenGivingModal={handleOpenGiving}
-                  onOpenChannelProfile={(channel) => setSelectedChannelModal(channel)}
+                  onOpenChannelProfile={openChannelProfile}
                   activeAudioSpace={activeAudioSpace}
                   autoJoinAudioSpace={autoJoinAudioSpace}
                   onAutoJoinHandled={() => setAutoJoinAudioSpace(false)}
@@ -2025,7 +2139,7 @@ export default function App() {
               {/* 📅 CHURCH SCHEDULES SPECIAL SECTION (RESPONSIVE TABLE & CARD TIMETABLE) */}
               {selectedCategory === 'Church Schedules' && (
                 <ChurchScheduleTimetable
-                  onSelectChannelModal={(channel) => setSelectedChannelModal(channel)}
+                  onSelectChannelModal={openChannelProfile}
                   onWatchLiveService={(churchName) => {
                     const match = videoStreams.find(v => 
                       v.churchOrMinistry.toLowerCase().includes(churchName.toLowerCase()) || 
@@ -2077,12 +2191,12 @@ export default function App() {
                                   alt={ch.name}
                                   whileHover={{ scale: 1.15 }}
                                   transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-                                  onClick={() => setSelectedChannelModal(ch.name)}
+                                  onClick={() => openChannelProfile(ch.name)}
                                   className="w-13 h-13 sm:w-12 sm:h-12 rounded-full object-cover cursor-pointer ring-2 ring-slate-700 hover:ring-amber-400 transition shrink-0"
                                 />
                                 <div className="overflow-hidden min-w-0">
                                   <h4
-                                    onClick={() => setSelectedChannelModal(ch.name)}
+                                    onClick={() => openChannelProfile(ch.name)}
                                     className="text-xs sm:text-xs font-bold text-white truncate cursor-pointer hover:text-amber-400"
                                   >
                                     {ch.name}
@@ -2126,7 +2240,7 @@ export default function App() {
                   onPlayAudioTrack={handlePlayAudioTrack}
                   subscribedChannels={subscribedChannels}
                   onToggleFollow={toggleSubscribe}
-                  onOpenChannelModal={(ch) => setSelectedChannelModal(ch)}
+                  onOpenChannelModal={openChannelProfile}
                   onOpenDailyPromise={() => setShowPromiseModal(true)}
                   onOpenPrayerModal={() => setPrayerModalOpen(true)}
                   onNavigateTab={(tab) => {
@@ -2322,7 +2436,7 @@ export default function App() {
                             key={video.id}
                             video={video}
                             onSelect={handleSelectVideo}
-                            onOpenChannel={(churchOrMinistry) => setSelectedChannelModal(churchOrMinistry)}
+                            onOpenChannel={openChannelProfile}
                           />
                         ))}
                       </div>
@@ -2470,7 +2584,7 @@ export default function App() {
           onToggleFollow={toggleSubscribe}
           onChangeBellSetting={handleBellChange}
           onOpenGivingModal={handleOpenGiving}
-          onClose={() => setSelectedChannelModal(null)}
+          onClose={handleNavigateHome}
           onSelectVideo={handleSelectVideo}
           onPlayAudioTrack={handlePlayAudioTrack}
           allVideos={videoStreams}

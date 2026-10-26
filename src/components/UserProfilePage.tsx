@@ -38,6 +38,7 @@ import { VideoStream, AudioTrack } from '../services/djangoApi';
 import { djangoApi } from '../services/djangoApi';
 import { GivingTarget } from './GivingModal';
 import { UserSession } from './AuthModal';
+import { profilePath } from '../lib/routes';
 
 interface UserProfilePageProps {
   streakDays: number;
@@ -127,6 +128,8 @@ export default function UserProfilePage({
   const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatarUrl || currentUser?.avatar || '');
   const [profileIcon, setProfileIcon] = useState<UserSession['profileIcon']>(currentUser?.profileIcon || 'user');
   const [showSavedToast, setShowSavedToast] = useState(false);
+  const [profileLinkCopied, setProfileLinkCopied] = useState(false);
+  const [profileLinkError, setProfileLinkError] = useState(false);
 
   // Sync with currentUser changes
   useEffect(() => {
@@ -359,14 +362,26 @@ export default function UserProfilePage({
             </button>
 
             <button
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
-                alert('Profile Card link copied to clipboard!');
+              onClick={async () => {
+                const username = currentUser?.username || userHandle.replace(/^@/, '');
+                if (!username) {
+                  setProfileLinkError(true);
+                  setTimeout(() => setProfileLinkError(false), 3500);
+                  return;
+                }
+                try {
+                  await navigator.clipboard.writeText(`${window.location.origin}${profilePath(username)}`);
+                  setProfileLinkCopied(true);
+                  setTimeout(() => setProfileLinkCopied(false), 2500);
+                } catch {
+                  setProfileLinkError(true);
+                  setTimeout(() => setProfileLinkError(false), 3500);
+                }
               }}
               className="p-2 rounded-full bg-slate-950/80 hover:bg-slate-900 text-slate-300 hover:text-white border border-slate-700/80 backdrop-blur-md transition"
-              title="Share Profile"
+              title={profileLinkCopied ? 'Profile link copied' : profileLinkError ? 'Could not copy profile link' : 'Share Profile'}
             >
-              <Share2 className="w-4 h-4" />
+              {profileLinkCopied ? <Check className="w-4 h-4 text-emerald-400" /> : profileLinkError ? <X className="w-4 h-4 text-red-400" /> : <Share2 className="w-4 h-4" />}
             </button>
           </div>
         </div>

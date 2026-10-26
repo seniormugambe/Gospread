@@ -182,6 +182,7 @@ interface DiscoverMinistriesHubProps {
   bellSettings: Record<string, 'all' | 'personalized' | 'none'>;
   onChangeBellSetting: (channelName: string, setting: 'all' | 'personalized' | 'none') => void;
   onSelectChannelModal: (channelName: string) => void;
+  onOpenMinistry: (ministryId: string) => void;
   onOpenGivingModal: (target: GivingTarget) => void;
   onSelectVideo: (video: VideoStream) => void;
   onPlayAudioTrack: (track: AudioTrack) => void;
@@ -200,6 +201,7 @@ export default function DiscoverMinistriesHub({
   bellSettings,
   onChangeBellSetting,
   onSelectChannelModal,
+  onOpenMinistry,
   onOpenGivingModal,
   onSelectVideo,
   onPlayAudioTrack,
@@ -407,7 +409,7 @@ export default function DiscoverMinistriesHub({
 
                 <div>
                   <h2 
-                    onClick={() => onSelectChannelModal('Grace City Cathedral')}
+                    onClick={() => onOpenMinistry('min-gcc')}
                     className="text-2xl sm:text-3xl font-black text-white font-serif tracking-tight cursor-pointer hover:text-amber-300 transition"
                   >
                     Grace City Cathedral
@@ -423,7 +425,7 @@ export default function DiscoverMinistriesHub({
                     <span className="text-white font-semibold">Sunday Service — 9:00 AM EST (Sanctuary & Global Broadcast)</span>
                   </div>
                   <button
-                    onClick={() => onSelectChannelModal('Grace City Cathedral')}
+                    onClick={() => onOpenMinistry('min-gcc')}
                     className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold border border-slate-700 self-start sm:self-auto transition"
                   >
                     View Schedule
@@ -443,7 +445,7 @@ export default function DiscoverMinistriesHub({
                   </button>
 
                   <button
-                    onClick={() => onSelectChannelModal('Grace City Cathedral')}
+                    onClick={() => onOpenMinistry('min-gcc')}
                     className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 font-black text-xs transition flex items-center gap-2 shadow-xl shadow-amber-500/20"
                   >
                     <Building2 className="w-4 h-4" />
@@ -470,7 +472,7 @@ export default function DiscoverMinistriesHub({
 
               <div className="lg:col-span-4">
                 <div 
-                  onClick={() => onSelectChannelModal('Grace City Cathedral')}
+                  onClick={() => onOpenMinistry('min-gcc')}
                   className="relative aspect-video lg:aspect-square rounded-2xl overflow-hidden bg-slate-900 border-2 border-red-500/40 shadow-2xl cursor-pointer group"
                 >
                   <img 
@@ -705,7 +707,7 @@ export default function DiscoverMinistriesHub({
                       <div className="flex items-end justify-between -mt-10 mb-3 z-10 relative">
                         {/* Avatar */}
                         <div
-                          onClick={() => onSelectChannelModal(ministry.name)}
+                          onClick={() => onOpenMinistry(ministry.id)}
                           className="relative cursor-pointer group/avatar"
                         >
                           <img
@@ -826,7 +828,7 @@ export default function DiscoverMinistriesHub({
                       {/* Title & Leader */}
                       <div>
                         <div
-                          onClick={() => onSelectChannelModal(ministry.name)}
+                          onClick={() => onOpenMinistry(ministry.id)}
                           className="flex items-center gap-1.5 cursor-pointer group/title"
                         >
                           <h3 className="font-bold text-base text-white group-hover/title:text-amber-300 transition font-serif line-clamp-1">
@@ -902,7 +904,7 @@ export default function DiscoverMinistriesHub({
                   {/* Card Footer Actions */}
                   <div className="px-4 py-3 bg-slate-950/60 border-t border-slate-800/80 flex items-center justify-between gap-2 text-xs">
                     <button
-                      onClick={() => onSelectChannelModal(ministry.name)}
+                      onClick={() => onOpenMinistry(ministry.id)}
                       className="text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 group/link"
                     >
                       <span>Explore Channel</span>

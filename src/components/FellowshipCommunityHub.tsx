@@ -39,6 +39,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { UserSession } from './AuthModal';
 import { CommunityCommentApi, CommunityPostApi, djangoApi } from '../services/djangoApi';
+import { communityPostPath, updatePageMetadata } from '../lib/routes';
 
 export type PostCategory = 'all' | 'testimony' | 'prayer' | 'reflection' | 'discussion';
 
@@ -110,6 +111,7 @@ interface FellowshipCommunityHubProps {
   onAwardXp?: (amount: number, reason: string) => void;
   onOpenGiving?: () => void;
   onRequireAuth: () => void;
+  selectedPostId?: string | null;
 }
 
 export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
@@ -119,6 +121,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
   onAwardXp,
   onOpenGiving,
   onRequireAuth,
+  selectedPostId,
 }) => {
   const mapComment = (comment: CommunityCommentApi): CommunityComment => ({
     id: String(comment.id),
@@ -248,6 +251,21 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
       });
     return () => { mounted = false; };
   }, []);
+
+  useEffect(() => {
+    if (!selectedPostId || loadingPosts || !posts.some(post => post.id === selectedPostId)) return;
+    setExpandedComments(previous => ({ ...previous, [selectedPostId]: true }));
+    document.getElementById(`community-post-${selectedPostId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const post = posts.find(item => item.id === selectedPostId);
+    if (post) {
+      updatePageMetadata({
+        title: `${post.title || post.category} | Gospread Community`,
+        description: post.content.slice(0, 160),
+        path: communityPostPath(post.id),
+        image: post.imageUrl || post.authorAvatar,
+      });
+    }
+  }, [loadingPosts, posts, selectedPostId]);
 
   // Handle Amen Reaction
   const handleToggleAmen = (postId: string) => {
@@ -464,13 +482,13 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
   };
 
   // Copy Post Link
-  const handleCopyLink = (postId: string) => {
+  const handleCopyLink = async (postId: string) => {
     try {
-      navigator.clipboard?.writeText?.(window.location.href);
+      await navigator.clipboard.writeText(`${window.location.origin}${communityPostPath(postId)}`);
       setCopiedPostId(postId);
       setTimeout(() => setCopiedPostId(null), 2500);
-    } catch (e) {
-      console.error(e);
+    } catch {
+      setPrayerNotification('Could not copy the post link. Please allow clipboard access and try again.');
     }
   };
 
@@ -714,10 +732,13 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
               return (
                 <motion.div
                   key={post.id}
+                  id={`community-post-${post.id}`}
                   layout
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="rounded-3xl bg-slate-900/70 border border-white/[0.08] hover:border-amber-500/30 transition-all duration-300 shadow-xl overflow-hidden backdrop-blur-xl"
+                  className={`rounded-3xl bg-slate-900/70 border transition-all duration-300 shadow-xl overflow-hidden backdrop-blur-xl ${
+                    selectedPostId === post.id ? 'border-amber-400 ring-2 ring-amber-400/30' : 'border-white/[0.08] hover:border-amber-500/30'
+                  }`}
                 >
                   {/* Post Header */}
                   <div className="p-4 sm:p-5 pb-3 flex items-start justify-between gap-3">
@@ -808,8 +829,9 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
                           </div>
                           <button
                             onClick={() => {
-                              navigator.clipboard?.writeText?.(`${post.scriptureReference}: ${post.scriptureText || ''}`);
-                              setPrayerNotification(`Copied ${post.scriptureReference} to clipboard 📋`);
+                              navigator.clipboard.writeText(`${post.scriptureReference}: ${post.scriptureText || ''}`)
+                                .then(() => setPrayerNotification(`Copied ${post.scriptureReference} to clipboard 📋`))
+                                .catch(() => setPrayerNotification('Could not copy the scripture. Please allow clipboard access and try again.'));
                               setTimeout(() => setPrayerNotification(null), 2500);
                             }}
                             className="text-[10px] text-amber-300/80 hover:text-amber-200 font-bold flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20"
@@ -985,9 +1007,9 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
                       <button
                         onClick={() => handleCopyLink(post.id)}
                         className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition"
-                        title="Share Testimony"
+                        title={copiedPostId === post.id ? 'Post link copied' : prayerNotification?.startsWith('Could not copy') ? 'Could not copy post link' : 'Share Testimony'}
                       >
-                        {copiedPostId === post.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
+                        {copiedPostId === post.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : prayerNotification?.startsWith('Could not copy') ? <X className="w-3.5 h-3.5 text-red-400" /> : <Share2 className="w-3.5 h-3.5" />}
                       </button>
                     </div>
                   </div>

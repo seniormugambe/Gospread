@@ -52,6 +52,7 @@ import {
 import { GivingTarget } from './GivingModal';
 import SocialMediaLinksBar from './SocialMediaLinksBar';
 import ChurchLocationsCard from './ChurchLocationsCard';
+import { profilePath } from '../lib/routes';
 
 interface MinistryDigitalHomeProps {
   ministryName: string;
@@ -95,6 +96,7 @@ export default function MinistryDigitalHome({
   const [activeTab, setActiveTab] = useState<'overview' | 'sermons' | 'worship' | 'schedule' | 'campuses' | 'give' | 'prayer' | 'about' | 'membership'>('overview');
   const [showBellDropdown, setShowBellDropdown] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copyError, setCopyError] = useState(false);
   const [reminderAlertSet, setReminderAlertSet] = useState<string | null>(null);
   const [showMembershipPass, setShowMembershipPass] = useState(false);
 
@@ -190,10 +192,18 @@ export default function MinistryDigitalHome({
     return num.toLocaleString();
   };
 
-  const handleShare = () => {
-    navigator.clipboard.writeText(`https://gospread.tv/@${ministryName.toLowerCase().replace(/\s+/g, '')}`);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2500);
+  const handleShare = async () => {
+    const currentPath = window.location.pathname.startsWith('/ministries/')
+      ? window.location.pathname
+      : profilePath(ministryName);
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}${currentPath}`);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    } catch {
+      setCopyError(true);
+      setTimeout(() => setCopyError(false), 3500);
+    }
   };
 
   const handleDownloadCalendar = () => {
@@ -460,9 +470,9 @@ export default function MinistryDigitalHome({
               <button
                 onClick={handleShare}
                 className="p-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition"
-                title="Share Church Home"
+                title={copyError ? 'Could not copy ministry link' : 'Share Church Home'}
               >
-                {copiedLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
+                {copiedLink ? <Check className="w-4 h-4 text-emerald-400" /> : copyError ? <X className="w-4 h-4 text-red-400" /> : <Share2 className="w-4 h-4" />}
               </button>
             </div>
           </div>

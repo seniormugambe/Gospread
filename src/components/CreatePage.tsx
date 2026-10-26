@@ -2140,7 +2140,7 @@ export default function CreatePage({
 
       {!isSubmitted && studioAction === 'short' && (
         <CreateShortPanel
-          isSignedIn={Boolean(currentUser)}
+          isSignedIn={Boolean(currentUser?.isLoggedIn || djangoApi.getAccessToken())}
           onRequireAuth={onRequireAuth}
           onBack={() => setStudioAction('choose')}
           onPublished={onPublishSuccess}
