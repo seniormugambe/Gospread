@@ -18,6 +18,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream } from '../data/gospelData';
 import { videoPath } from '../lib/routes';
+import { shareWithInvite } from '../lib/invites';
 
 export interface WatchHistoryItem {
   video: VideoStream;
@@ -112,35 +113,18 @@ export const WatchHistoryView: React.FC<WatchHistoryViewProps> = ({
   const groupedHistory = groupItemsByTime(filteredHistory);
 
   const handleShare = async (video: VideoStream) => {
-    const shareData = {
+    const result = await shareWithInvite({
       title: video.title,
       text: `Watch "${video.title}" by ${video.speakerOrArtist} on Gospread!`,
-      url: `${window.location.origin}${videoPath(video.id)}`,
-    };
-
-    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          copyLink(video.id);
-        }
-      }
-    } else {
-      copyLink(video.id);
+      path: videoPath(video.id),
+    });
+    if (result === 'copied') {
+      setCopiedId(video.id);
+      setTimeout(() => setCopiedId(null), 2500);
+    } else if (result === 'failed') {
+      setCopyErrorId(video.id);
+      setTimeout(() => setCopyErrorId(null), 3500);
     }
-  };
-
-  const copyLink = (videoId: string) => {
-    navigator.clipboard.writeText(`${window.location.origin}${videoPath(videoId)}`)
-      .then(() => {
-        setCopiedId(videoId);
-        setTimeout(() => setCopiedId(null), 2500);
-      })
-      .catch(() => {
-        setCopyErrorId(videoId);
-        setTimeout(() => setCopyErrorId(null), 3500);
-      });
   };
 
   return (

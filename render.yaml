@@ -66,6 +66,10 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       - key: VITE_DJANGO_API_URL
         value: "https://gospread-api.onrender.com/api/v1"

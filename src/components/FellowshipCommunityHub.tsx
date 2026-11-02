@@ -40,6 +40,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { UserSession } from './AuthModal';
 import { CommunityCommentApi, CommunityPostApi, djangoApi } from '../services/djangoApi';
 import { communityPostPath, updatePageMetadata } from '../lib/routes';
+import { shareWithInvite } from '../lib/invites';
 
 export type PostCategory = 'all' | 'testimony' | 'prayer' | 'reflection' | 'discussion';
 
@@ -482,12 +483,17 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
   };
 
   // Copy Post Link
-  const handleCopyLink = async (postId: string) => {
-    try {
-      await navigator.clipboard.writeText(`${window.location.origin}${communityPostPath(postId)}`);
-      setCopiedPostId(postId);
+  const handleCopyLink = async (post: CommunityPost) => {
+    const author = post.isAnonymous ? 'a believer' : post.authorName;
+    const result = await shareWithInvite({
+      title: post.title || `Testimony from ${author} on Gospread`,
+      text: `Read ${post.title ? `"${post.title}"` : 'this testimony'} from ${author} and stand in faith together on Gospread.`,
+      path: communityPostPath(post.id),
+    });
+    if (result === 'copied') {
+      setCopiedPostId(post.id);
       setTimeout(() => setCopiedPostId(null), 2500);
-    } catch {
+    } else if (result === 'failed') {
       setPrayerNotification('Could not copy the post link. Please allow clipboard access and try again.');
     }
   };
@@ -1005,7 +1011,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
                       </button>
 
                       <button
-                        onClick={() => handleCopyLink(post.id)}
+                        onClick={() => handleCopyLink(post)}
                         className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition"
                         title={copiedPostId === post.id ? 'Post link copied' : prayerNotification?.startsWith('Could not copy') ? 'Could not copy post link' : 'Share Testimony'}
                       >

@@ -1,6 +1,7 @@
 // Production-ready Django REST Framework / Django Ninja API Client Service
 // Connected directly to Django 5.x / DRF endpoints with JWT Authentication (SimpleJWT)
 import { AUDIO_TRACKS, CHURCH_LOCATIONS, GRACE_SHORTS, LIVE_VIDEO_STREAMS } from '../data/gospelData';
+import { getSavedReferrer } from '../lib/invites';
 
 export interface ChurchCampusLocation {
   id?: string;
@@ -546,10 +547,12 @@ class DjangoApiClient {
     role?: string;
     church_id?: number;
   }): Promise<DjangoAuthResponse> {
+    const referrer = getSavedReferrer();
     const res = await this.request<DjangoAuthResponse>('/auth/signup/', {
       method: 'POST',
       body: JSON.stringify({
         ...payload,
+        ...(referrer ? { referred_by: referrer.id } : {}),
         name: payload.name || `${payload.first_name || ''} ${payload.last_name || ''}`.trim() || payload.email.split('@')[0],
       })
     });
@@ -858,6 +861,8 @@ class DjangoApiClient {
     extras?: {
       bibleVerse?: string;
       channelAvatar?: string;
+      speaker?: string;
+      ministry?: string;
       category?: VideoStream['category'];
       titlePrefix?: string;
       viewsText?: string;
@@ -872,8 +877,8 @@ class DjangoApiClient {
     return {
       id: String(sermon.id),
       title,
-      speakerOrArtist: String(sermon.speaker || 'Pastor'),
-      churchOrMinistry: String(sermon.church_name || 'Grace Ministry'),
+      speakerOrArtist: String(extras?.speaker || sermon.speaker || 'Pastor'),
+      churchOrMinistry: String(extras?.ministry || sermon.church_name || ''),
       channelAvatar: extras?.channelAvatar || String(sermon.thumbnail_url || ''),
       subscribersCount: 'Verified',
       likesCount: String(sermon.view_count ?? 0),

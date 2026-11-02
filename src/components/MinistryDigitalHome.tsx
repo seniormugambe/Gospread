@@ -53,6 +53,7 @@ import { GivingTarget } from './GivingModal';
 import SocialMediaLinksBar from './SocialMediaLinksBar';
 import ChurchLocationsCard from './ChurchLocationsCard';
 import { profilePath } from '../lib/routes';
+import { shareWithInvite } from '../lib/invites';
 
 interface MinistryDigitalHomeProps {
   ministryName: string;
@@ -196,11 +197,15 @@ export default function MinistryDigitalHome({
     const currentPath = window.location.pathname.startsWith('/ministries/')
       ? window.location.pathname
       : profilePath(ministryName);
-    try {
-      await navigator.clipboard.writeText(`${window.location.origin}${currentPath}`);
+    const result = await shareWithInvite({
+      title: `${ministryName} on Gospread`,
+      text: `Visit ${ministryName} on Gospread for live services, sermons and prayer.`,
+      path: currentPath,
+    });
+    if (result === 'copied') {
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2500);
-    } catch {
+    } else if (result === 'failed') {
       setCopyError(true);
       setTimeout(() => setCopyError(false), 3500);
     }

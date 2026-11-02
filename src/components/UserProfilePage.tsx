@@ -31,7 +31,9 @@ import {
   Lock,
   Plus,
   Compass,
-  ImagePlus
+  ImagePlus,
+  UserPlus,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream, AudioTrack } from '../services/djangoApi';
@@ -39,6 +41,7 @@ import { djangoApi } from '../services/djangoApi';
 import { GivingTarget } from './GivingModal';
 import { UserSession } from './AuthModal';
 import { profilePath } from '../lib/routes';
+import { shareWithInvite } from '../lib/invites';
 
 interface UserProfilePageProps {
   streakDays: number;
@@ -130,6 +133,7 @@ export default function UserProfilePage({
   const [showSavedToast, setShowSavedToast] = useState(false);
   const [profileLinkCopied, setProfileLinkCopied] = useState(false);
   const [profileLinkError, setProfileLinkError] = useState(false);
+  const [inviteCopied, setInviteCopied] = useState(false);
 
   // Sync with currentUser changes
   useEffect(() => {
@@ -369,11 +373,15 @@ export default function UserProfilePage({
                   setTimeout(() => setProfileLinkError(false), 3500);
                   return;
                 }
-                try {
-                  await navigator.clipboard.writeText(`${window.location.origin}${profilePath(username)}`);
+                const result = await shareWithInvite({
+                  title: `${currentUser?.fullName || username} on Gospread`,
+                  text: `Connect with ${currentUser?.fullName || `@${username}`} on Gospread.`,
+                  path: profilePath(username),
+                });
+                if (result === 'copied') {
                   setProfileLinkCopied(true);
                   setTimeout(() => setProfileLinkCopied(false), 2500);
-                } catch {
+                } else if (result === 'failed') {
                   setProfileLinkError(true);
                   setTimeout(() => setProfileLinkError(false), 3500);
                 }
@@ -382,6 +390,26 @@ export default function UserProfilePage({
               title={profileLinkCopied ? 'Profile link copied' : profileLinkError ? 'Could not copy profile link' : 'Share Profile'}
             >
               {profileLinkCopied ? <Check className="w-4 h-4 text-emerald-400" /> : profileLinkError ? <X className="w-4 h-4 text-red-400" /> : <Share2 className="w-4 h-4" />}
+            </button>
+
+            <button
+              onClick={async () => {
+                const name = currentUser?.fullName || currentUser?.username || 'a friend';
+                const result = await shareWithInvite({
+                  title: 'Join me on Gospread',
+                  text: `${name} is inviting you to Gospread, the global gospel streaming and fellowship community.`,
+                  path: '/',
+                });
+                if (result === 'copied') {
+                  setInviteCopied(true);
+                  setTimeout(() => setInviteCopied(false), 2500);
+                }
+              }}
+              className="px-3 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold text-xs border border-amber-500/40 backdrop-blur-md flex items-center gap-1.5 transition"
+              title="Invite friends to Gospread"
+            >
+              {inviteCopied ? <Check className="w-3.5 h-3.5" /> : <UserPlus className="w-3.5 h-3.5" />}
+              <span>{inviteCopied ? 'Invite copied' : 'Invite friends'}</span>
             </button>
           </div>
         </div>

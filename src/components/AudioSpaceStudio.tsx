@@ -3,6 +3,7 @@ import { ArrowLeft, Check, Clock, Mic, MicOff, Radio, Share2, Users } from 'luci
 import { UserSession } from './AuthModal';
 import { Room, RoomEvent } from 'livekit-client';
 import { djangoApi } from '../services/djangoApi';
+import { INVITE_CALL_TO_ACTION, buildShareUrl } from '../lib/invites';
 
 export interface ActiveAudioSpace {
   title: string;
@@ -143,9 +144,9 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
   const inviteListeners = async () => {
     const roomName = roomRef.current?.name;
     if (!roomName) return;
-    const inviteUrl = new URL(window.location.href);
+    const inviteUrl = new URL(buildShareUrl(window.location.pathname));
     inviteUrl.searchParams.set('audio_space', roomName);
-    const shareData = { title: title.trim() || 'Live Gospread Audio Space', text: topic.trim() || 'Join this live Audio Space on Gospread', url: inviteUrl.toString() };
+    const shareData = { title: title.trim() || 'Live Gospread Audio Space', text: `${topic.trim() || 'Join this live Audio Space on Gospread'}\n${INVITE_CALL_TO_ACTION}`, url: inviteUrl.toString() };
 
     try {
       if (navigator.share) {

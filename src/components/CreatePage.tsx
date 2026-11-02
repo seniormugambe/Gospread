@@ -547,15 +547,13 @@ export default function CreatePage({
 
   // Keep state synchronized with logged in user session
   useEffect(() => {
-    if (currentUser?.fullName) {
-      setUploadSpeaker(currentUser.fullName);
-      setLiveSpeaker(currentUser.fullName);
-      setScheduleSpeaker(currentUser.fullName);
-    }
-    if (currentUser?.ministryName || currentUser?.churchName) {
-      setUploadMinistry(currentUser.ministryName || currentUser.churchName || 'Your Ministry');
-    }
-  }, [currentUser]);
+    setUploadSpeaker(ownerName);
+    setLiveSpeaker(ownerName);
+    setScheduleSpeaker(ownerName);
+    setUploadMinistry(ministryName);
+    setAiOverlaySpeaker(ownerName);
+    setAiOverlayMinistry(ministryName);
+  }, [ownerName, ministryName]);
 
   // Upload runs once after publish — POST /sermons/ with full metadata + media file
   useEffect(() => {
@@ -584,7 +582,7 @@ export default function CreatePage({
     djangoApi.createSermon(
       {
         title: uploadTitle || selectedFile?.name?.replace(/\.[^/.]+$/, '') || 'Untitled Sermon',
-        speaker: uploadSpeaker || ownerName,
+        speaker: ownerName,
         description: uploadDescription,
         category: mappedApiCategory,
         kind: 'video',
@@ -625,6 +623,8 @@ export default function CreatePage({
         const newVideo = djangoApi.mapSermonToVideoStream(sermon, {
           bibleVerse: uploadScripture || undefined,
           channelAvatar: avatarUrl,
+          speaker: ownerName,
+          ministry: ministryName,
           category: mappedCategory,
           viewsText: isScheduled
             ? `Scheduled for ${formattedScheduleText}`
@@ -2669,17 +2669,14 @@ export default function CreatePage({
                   {/* Speaker & Ministry Grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-1">Speaker / Preacher</label>
+                      <label className="block text-xs font-bold text-slate-300 mb-1">Uploaded by (Account Owner)</label>
                       <input
                         type="text"
                         required
                         value={uploadSpeaker}
-                        onChange={(e) => {
-                          setUploadSpeaker(e.target.value);
-                          setAiOverlaySpeaker(e.target.value);
-                        }}
-                        placeholder="Pastor John"
-                        className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                        readOnly
+                        title="Uploaded as the account owner"
+                        className="w-full cursor-not-allowed opacity-80 bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
                       />
                     </div>
 
@@ -2689,12 +2686,9 @@ export default function CreatePage({
                         type="text"
                         required
                         value={uploadMinistry}
-                        onChange={(e) => {
-                          setUploadMinistry(e.target.value);
-                          setAiOverlayMinistry(e.target.value);
-                        }}
-                        placeholder="Grace City Cathedral"
-                        className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                        readOnly
+                        title="Uploaded as the account owner"
+                        className="w-full cursor-not-allowed opacity-80 bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
                       />
                     </div>
                   </div>

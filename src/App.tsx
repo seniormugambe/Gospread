@@ -103,6 +103,8 @@ import {
   ReactionType,
 } from './data/gospelData';
 import { ministryPath, parseAppRoute, profilePath, updatePageMetadata, videoPath } from './lib/routes';
+import { Referrer, captureReferrerFromLocation, shareWithInvite } from './lib/invites';
+import InviteBanner from './components/InviteBanner';
 
 const LEGACY_PROFILE_PLACEHOLDERS = new Set([
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
@@ -142,6 +144,7 @@ export default function App() {
   });
   const [routePath, setRoutePath] = useState(() => window.location.pathname);
   const [selectedCommunityPostId, setSelectedCommunityPostId] = useState<string | null>(null);
+  const [inviteReferrer, setInviteReferrer] = useState<Referrer | null>(() => captureReferrerFromLocation());
   const [homeNavigationKey, setHomeNavigationKey] = useState(0);
   const mainContentRef = useRef<HTMLElement>(null);
   const scrollToTop = () => {
@@ -1088,6 +1091,14 @@ export default function App() {
         </div>
       )}
       
+      {inviteReferrer && !userSession.isLoggedIn && (
+        <InviteBanner
+          referrer={inviteReferrer}
+          onJoin={() => handleOpenAuthPage('signup')}
+          onDismiss={() => setInviteReferrer(null)}
+        />
+      )}
+
       {/* 🔴 CONTENT-FIRST STREAMING HEADER */}
       <header className="sticky top-0 z-40 bg-[#0f0f0f]/95 backdrop-blur-md border-b border-slate-800/80 px-3 sm:px-5 py-2 sm:py-2.5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-3 gap-y-2 sm:gap-4">
         
@@ -1996,33 +2007,13 @@ export default function App() {
 
                     <button
                       onClick={async () => {
-                        const shareUrl = `${window.location.origin}${videoPath(activeVideo.id)}`;
-                        const shareData = {
+                        const result = await shareWithInvite({
                           title: activeVideo.title,
                           text: `Watch "${activeVideo.title}" by ${activeVideo.speakerOrArtist} on Gospread!`,
-                          url: shareUrl,
-                        };
-                        if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
-                          try {
-                            await navigator.share(shareData);
-                          } catch (err) {
-                            if ((err as Error).name !== 'AbortError') {
-                              try {
-                                await navigator.clipboard.writeText(shareUrl);
-                                alert('Video link copied to clipboard!');
-                              } catch {
-                                alert('Could not copy the video link. Please allow clipboard access and try again.');
-                              }
-                            }
-                          }
-                        } else {
-                          try {
-                            await navigator.clipboard.writeText(shareUrl);
-                            alert('Video link copied to clipboard!');
-                          } catch {
-                            alert('Could not copy the video link. Please allow clipboard access and try again.');
-                          }
-                        }
+                          path: videoPath(activeVideo.id),
+                        });
+                        if (result === 'copied') alert('Video link with your invite copied to clipboard!');
+                        if (result === 'failed') alert('Could not copy the video link. Please allow clipboard access and try again.');
                       }}
                       className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-800/80 text-xs text-slate-300 font-bold border border-slate-700/50 hover:bg-slate-700 transition"
                       title="Share Video"

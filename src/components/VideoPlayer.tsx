@@ -28,6 +28,7 @@ import { GivingTarget } from './GivingModal';
 import MediaEngine, { MediaEngineHandle, PlayerStatus } from './MediaEngine';
 import { formatMediaTime, resolvePlaybackSource } from '../utils/videoPlayback';
 import { videoPath } from '../lib/routes';
+import { shareWithInvite } from '../lib/invites';
 
 interface VideoPlayerProps {
   video: VideoStream;
@@ -211,32 +212,18 @@ export default function VideoPlayer({
     }
   };
 
-  const shareUrl = `${window.location.origin}${videoPath(video.id)}`;
-
   const handleShare = async () => {
-    const data = {
+    const result = await shareWithInvite({
       title: video.title,
       text: `Watch "${video.title}" by ${video.speakerOrArtist} on Gospread`,
-      url: shareUrl,
-    };
-    try {
-      if (navigator.share && navigator.canShare?.(data)) {
-        await navigator.share(data);
-        return;
-      }
-      await navigator.clipboard.writeText(shareUrl);
+      path: videoPath(video.id),
+    });
+    if (result === 'copied') {
       setShareState('copied');
       window.setTimeout(() => setShareState('idle'), 2200);
-    } catch (error) {
-      if ((error as Error).name === 'AbortError') return;
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        setShareState('copied');
-        window.setTimeout(() => setShareState('idle'), 2200);
-      } catch {
-        setShareState('error');
-        window.setTimeout(() => setShareState('idle'), 3500);
-      }
+    } else if (result === 'failed') {
+      setShareState('error');
+      window.setTimeout(() => setShareState('idle'), 3500);
     }
   };
 
