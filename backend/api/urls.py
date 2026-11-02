@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ChangePasswordView, ChurchEventViewSet, ChurchViewSet, CommunityPostViewSet, DonationViewSet, GivingFundViewSet,
     AudioSpaceEndView, AudioSpaceListView, AudioSpaceTokenView, GospreadTokenRefreshView, GospreadTokenView, HealthCheckView, LiveStreamViewSet, LogoutView, MeView,
+    PasswordResetConfirmView, PasswordResetRequestView,
     PrayerRequestViewSet, RandomScriptureView, SavedSermonViewSet, SermonShortViewSet,
     SermonUploadChunkView, SermonUploadCompleteView, SermonUploadSessionView, SermonViewSet,
     SignupView, StreakCheckinView, WatchProgressViewSet, WorshipSongViewSet,
@@ -34,6 +35,8 @@ urlpatterns = [
     path("auth/token/refresh/", GospreadTokenRefreshView.as_view(), name="token-refresh"),
     path("auth/logout/", LogoutView.as_view(), name="logout"),
     path("auth/change-password/", ChangePasswordView.as_view(), name="change-password"),
+    path("auth/password-reset/", PasswordResetRequestView.as_view(), name="password-reset"),
+    path("auth/password-reset/confirm/", PasswordResetConfirmView.as_view(), name="password-reset-confirm"),
     path("auth/me/", MeView.as_view(), name="me"),
     path("auth/streak/checkin/", StreakCheckinView.as_view(), name="streak-checkin"),
 

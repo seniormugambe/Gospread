@@ -142,6 +142,8 @@ const PUBLIC_AUTH_ENDPOINTS = new Set([
   '/auth/login/',
   '/auth/register/',
   '/auth/logout/',
+  '/auth/password-reset/',
+  '/auth/password-reset/confirm/',
 ]);
 
 export interface DjangoApiError {
@@ -435,7 +437,8 @@ class DjangoApiClient {
       // Only clear session on 401 for authenticated non-auth endpoints.
       // Never clear on login/signup endpoints — their 401 means wrong password,
       // not an expired session, and the real error must surface to the user.
-      const isAuthEndpoint = cleanEndpoint.startsWith('/auth/token/')
+      const isAuthEndpoint = isPublicAuth
+        || cleanEndpoint.startsWith('/auth/token/')
         || cleanEndpoint.startsWith('/auth/login/')
         || cleanEndpoint.startsWith('/auth/signup/')
         || cleanEndpoint.startsWith('/auth/register/');
@@ -555,6 +558,24 @@ class DjangoApiClient {
       this.setTokens(res.access, res.refresh);
     }
     return res;
+  }
+
+  public async requestPasswordReset(email: string): Promise<{ detail: string }> {
+    return this.request<{ detail: string }>('/auth/password-reset/', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  public async confirmPasswordReset(payload: {
+    uid: string;
+    token: string;
+    new_password: string;
+  }): Promise<{ detail: string }> {
+    return this.request<{ detail: string }>('/auth/password-reset/confirm/', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
   }
 
   public async getMe(): Promise<UserProfileData> {

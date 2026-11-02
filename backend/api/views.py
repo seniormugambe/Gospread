@@ -4,15 +4,18 @@ import logging
 from pathlib import Path
 import re
 from datetime import timedelta
+from urllib.parse import urlsplit
 
 import boto3
 from botocore.exceptions import ClientError
+from django.contrib.auth.forms import PasswordResetForm
+from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.core.files import File
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
 from django.db.models import Count, DecimalField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
-from django.conf import settings
 from django.utils import timezone
 from django.utils.dateformat import format as date_format
 from rest_framework import generics, permissions, serializers, status, viewsets
@@ -33,7 +36,8 @@ from .serializers import (
     AudioSpaceSerializer, ChurchEventSerializer, ChurchSerializer, CommunityCommentSerializer, CommunityPostSerializer, DonationCheckoutSerializer, DonationSerializer,
     GivingFundSerializer, LiveStreamChatMessageSerializer, LiveStreamSerializer, PaymentGatewayCheckoutSerializer,
     PrayerCommentSerializer, PrayerRequestSerializer, SavedSermonSerializer, ChangePasswordSerializer,
-    GospreadTokenSerializer, ScriptureSerializer, SermonSerializer, SermonShortSerializer,
+    GospreadTokenSerializer, PasswordResetConfirmSerializer, PasswordResetRequestSerializer,
+    ScriptureSerializer, SermonSerializer, SermonShortSerializer,
     SermonUploadInitSerializer,
     GospreadTokenRefreshSerializer, SignupSerializer, UserSerializer, WatchProgressSerializer, WorshipSongSerializer,
 )
@@ -295,6 +299,48 @@ class ChangePasswordView(generics.GenericAPIView):
         request.user.set_password(serializer.validated_data["new_password"])
         request.user.save(update_fields=["password"])
         return Response({"detail": "Password changed successfully."})
+
+
+class PasswordResetRequestView(generics.GenericAPIView):
+    serializer_class = PasswordResetRequestSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        frontend_url = settings.FRONTEND_URL.rstrip("/")
+        frontend = urlsplit(frontend_url)
+        if frontend.scheme not in {"http", "https"} or not frontend.netloc:
+            raise ImproperlyConfigured("FRONTEND_URL must be an absolute HTTP or HTTPS URL.")
+
+        form = PasswordResetForm(data={"email": serializer.validated_data["email"]})
+        if form.is_valid():
+            form.save(
+                request=request,
+                use_https=frontend.scheme == "https",
+                domain_override=frontend.netloc,
+                email_template_name="api/password_reset_email.txt",
+                subject_template_name="api/password_reset_subject.txt",
+                extra_email_context={"frontend_url": frontend_url},
+            )
+
+        return Response({
+            "detail": "If an account exists for this email address, a password reset link has been sent."
+        })
+
+
+class PasswordResetConfirmView(generics.GenericAPIView):
+    serializer_class = PasswordResetConfirmSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data["user"]
+        user.set_password(serializer.validated_data["new_password"])
+        user.save(update_fields=["password"])
+        return Response({"detail": "Password has been reset successfully."})
 
 
 class MeView(generics.RetrieveUpdateAPIView):

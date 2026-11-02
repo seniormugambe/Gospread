@@ -366,3 +366,9 @@ The React frontend (`src/services/djangoApi.ts`) automatically:
 1. Passes JWT `Authorization: Bearer <token>` and `X-CSRFToken` headers.
 2. Formats multi-campus church models and Google Maps URLs.
 3. Automatically falls back to resilient local states if the Django server is offline during development.
+
+## Password reset email
+
+The public `POST /api/v1/auth/password-reset/` endpoint sends a time-limited reset link without revealing whether an email address has an account. `POST /api/v1/auth/password-reset/confirm/` validates the link and changes the password.
+
+Set `FRONTEND_URL` on the Django service to the frontend origin. Configure `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, and `DEFAULT_FROM_EMAIL` with credentials from an SMTP provider before enabling password reset in production. In development, Django prints reset emails to the console by default.

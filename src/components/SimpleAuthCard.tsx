@@ -35,12 +35,16 @@ export default function SimpleAuthCard({
   onNavigateHome,
   isModal = false
 }: SimpleAuthCardProps) {
-  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(initialMode);
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot' | 'reset'>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.has('password_reset_uid') && params.has('password_reset_token') ? 'reset' : initialMode;
+  });
   const [showPassword, setShowPassword] = useState(false);
 
   // Form fields
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [creatorType, setCreatorType] = useState<'church' | 'artiste' | 'creator'>('creator');
   const [churchName, setChurchName] = useState('');
@@ -50,8 +54,12 @@ export default function SimpleAuthCard({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Reset password states
-  const [resetSent, setResetSent] = useState(false);
+  const clearPasswordResetParams = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('password_reset_uid');
+    url.searchParams.delete('password_reset_token');
+    window.history.replaceState({}, '', url);
+  };
 
   // Handle Form Submission (Login or Sign Up)
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,20 +73,34 @@ export default function SimpleAuthCard({
         return;
       }
       setIsLoading(true);
-      setTimeout(() => {
+      try {
+        await djangoApi.requestPasswordReset(email.trim().toLowerCase());
+        setSuccessMessage('If an account exists for this email address, a password reset link has been sent.');
+      } catch (err: unknown) {
+        setErrorMessage(err instanceof Error ? err.message : 'Unable to send a password reset email. Please try again.');
+      } finally {
         setIsLoading(false);
-        setResetSent(true);
-        setSuccessMessage('Password reset link sent to your email.');
-      }, 700);
+      }
       return;
     }
 
-    if (!email.trim()) {
+    if (mode === 'reset') {
+      if (!password) {
+        setErrorMessage('Please enter a new password.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setErrorMessage('The passwords do not match.');
+        return;
+      }
+    }
+
+    if (mode !== 'reset' && !email.trim()) {
       setErrorMessage('Please enter your e-mail address.');
       return;
     }
 
-    if (!password) {
+    if (mode !== 'reset' && !password) {
       setErrorMessage('Please enter your password.');
       return;
     }
@@ -91,7 +113,24 @@ export default function SimpleAuthCard({
     setIsLoading(true);
 
     try {
-      if (mode === 'signin') {
+      if (mode === 'reset') {
+        const params = new URLSearchParams(window.location.search);
+        const uid = params.get('password_reset_uid');
+        const token = params.get('password_reset_token');
+        if (!uid || !token) {
+          throw new Error('This password reset link is invalid or has expired.');
+        }
+        await djangoApi.confirmPasswordReset({
+          uid,
+          token,
+          new_password: password,
+        });
+        clearPasswordResetParams();
+        setPassword('');
+        setConfirmPassword('');
+        setMode('signin');
+        setSuccessMessage('Your password has been updated. You can now sign in.');
+      } else if (mode === 'signin') {
         const res = await djangoApi.login({
           email: email.trim().toLowerCase(),
           password
@@ -206,7 +245,7 @@ export default function SimpleAuthCard({
   };
 
   // If already logged in, show simple user card
-  if (currentUser?.isLoggedIn) {
+  if (currentUser?.isLoggedIn && mode !== 'reset') {
     return (
       <motion.div
         initial={{ scale: 0.95, opacity: 0, y: 10 }}
@@ -302,13 +341,15 @@ export default function SimpleAuthCard({
         <h2 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-white">
           {mode === 'signin' && 'Log in'}
           {mode === 'signup' && 'Sign up'}
-          {mode === 'forgot' && 'Reset'}
+          {mode === 'forgot' && 'Reset password'}
+          {mode === 'reset' && 'Create new password'}
         </h2>
 
-        {mode === 'forgot' ? (
+        {mode === 'forgot' || mode === 'reset' ? (
           <button
             type="button"
             onClick={() => {
+              if (mode === 'reset') clearPasswordResetParams();
               setMode('signin');
               setErrorMessage(null);
               setSuccessMessage(null);
@@ -386,22 +427,24 @@ export default function SimpleAuthCard({
         )}
 
         {/* Email Field with @ symbol */}
-        <div className="relative rounded-full border border-white/70 dark:border-white/20 bg-white/45 dark:bg-white/10 backdrop-blur-md px-5 py-3.5 sm:py-4 flex items-center gap-3.5 focus-within:ring-2 focus-within:ring-sky-400/50 focus-within:border-white transition shadow-sm">
-          <span className="w-5 h-5 rounded-full flex items-center justify-center font-bold text-sky-800 dark:text-sky-300 text-base shrink-0 select-none">
-            @
-          </span>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="e-mail address"
+        {mode !== 'reset' && (
+          <div className="relative rounded-full border border-white/70 dark:border-white/20 bg-white/45 dark:bg-white/10 backdrop-blur-md px-5 py-3.5 sm:py-4 flex items-center gap-3.5 focus-within:ring-2 focus-within:ring-sky-400/50 focus-within:border-white transition shadow-sm">
+            <span className="w-5 h-5 rounded-full flex items-center justify-center font-bold text-sky-800 dark:text-sky-300 text-base shrink-0 select-none">
+              @
+            </span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="e-mail address"
               autoComplete="email"
               required
-            className="w-full bg-transparent outline-none text-slate-800 dark:text-white placeholder:text-sky-900/60 dark:placeholder:text-sky-200/60 text-base font-normal"
-          />
-        </div>
+              className="w-full bg-transparent outline-none text-slate-800 dark:text-white placeholder:text-sky-900/60 dark:placeholder:text-sky-200/60 text-base font-normal"
+            />
+          </div>
+        )}
 
-        {/* Password Field with Key and Eye toggle (hidden in forgot password mode) */}
+        {/* Password field is hidden only while requesting a reset link. */}
         {mode !== 'forgot' && (
           <div>
             <div className="relative rounded-full border border-white/70 dark:border-white/20 bg-white/45 dark:bg-white/10 backdrop-blur-md px-5 py-3.5 sm:py-4 flex items-center gap-3.5 focus-within:ring-2 focus-within:ring-sky-400/50 focus-within:border-white transition shadow-sm">
@@ -410,9 +453,10 @@ export default function SimpleAuthCard({
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="password"
+                placeholder={mode === 'reset' ? 'new password' : 'password'}
                 autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                 required
+                minLength={mode === 'reset' || mode === 'signup' ? 8 : undefined}
                 className="w-full bg-transparent outline-none text-slate-800 dark:text-white placeholder:text-sky-900/60 dark:placeholder:text-sky-200/60 text-base font-normal"
               />
               <button
@@ -424,6 +468,19 @@ export default function SimpleAuthCard({
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
+
+            {mode === 'reset' && (
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="confirm new password"
+                autoComplete="new-password"
+                minLength={8}
+                required
+                className="mt-3 w-full rounded-full border border-white/70 bg-white/45 px-5 py-3.5 text-base text-slate-800 outline-none transition focus:border-white focus:ring-2 focus:ring-sky-400/50 dark:border-white/20 dark:bg-white/10 dark:text-white"
+              />
+            )}
 
             {/* Forgot Password link on right */}
             {mode === 'signin' && (
@@ -456,14 +513,15 @@ export default function SimpleAuthCard({
             <span>
               {mode === 'signin' && 'Log in'}
               {mode === 'signup' && 'Sign up'}
-              {mode === 'forgot' && 'Reset password'}
+              {mode === 'forgot' && 'Send reset link'}
+              {mode === 'reset' && 'Update password'}
             </span>
           )}
         </button>
       </form>
 
       {/* Social options (Google & Apple) */}
-      {mode !== 'forgot' && (
+      {mode !== 'forgot' && mode !== 'reset' && (
         <div className="mt-2">
           {/* Divider */}
           <div className="relative flex items-center justify-center my-6">

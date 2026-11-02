@@ -4,11 +4,15 @@ import tempfile
 from unittest.mock import patch
 from uuid import uuid4
 
+from django.contrib.auth.tokens import default_token_generator
+from django.core import mail
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
 from django.utils import timezone
 from botocore.exceptions import ClientError
 from rest_framework import status
@@ -48,6 +52,78 @@ class AuthenticationTests(APITestCase):
         self.assertIn("access", response.data)
         self.assertIn("refresh", response.data)
         self.assertEqual(response.data["user"]["email"], "new-member@example.com")
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        FRONTEND_URL="https://gospread.example",
+    )
+    def test_password_reset_email_can_set_a_new_password(self):
+        user = User.objects.create_user(
+            username="reset-member",
+            email="reset@example.com",
+            password="StrongPass123!",
+        )
+
+        response = self.client.post(
+            reverse("password-reset"),
+            {"email": user.email},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 1)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        self.assertIn(
+            f"https://gospread.example/?password_reset_uid={uid}&password_reset_token={token}",
+            mail.outbox[0].body,
+        )
+
+        confirmation = self.client.post(
+            reverse("password-reset-confirm"),
+            {
+                "uid": uid,
+                "token": token,
+                "new_password": "NewSecurePass456!",
+            },
+            format="json",
+        )
+
+        user.refresh_from_db()
+        self.assertEqual(confirmation.status_code, status.HTTP_200_OK)
+        self.assertTrue(user.check_password("NewSecurePass456!"))
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_password_reset_response_does_not_reveal_unknown_emails(self):
+        response = self.client.post(
+            reverse("password-reset"),
+            {"email": "not-registered@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("If an account exists", response.data["detail"])
+        self.assertEqual(mail.outbox, [])
+
+    def test_password_reset_rejects_an_invalid_token(self):
+        user = User.objects.create_user(
+            username="reset-invalid",
+            email="reset-invalid@example.com",
+            password="StrongPass123!",
+        )
+        response = self.client.post(
+            reverse("password-reset-confirm"),
+            {
+                "uid": urlsafe_base64_encode(force_bytes(user.pk)),
+                "token": "invalid-token",
+                "new_password": "NewSecurePass456!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("StrongPass123!"))
 
     def test_invalid_login_does_not_authenticate(self):
         User.objects.create_user(username="member", email="member@example.com", password="StrongPass123!")

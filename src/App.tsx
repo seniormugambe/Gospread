@@ -136,7 +136,10 @@ export default function App() {
     }
   }, [theme]);
 
-  const [activeTab, setActiveTab] = useState<'platform' | 'generated' | 'create' | 'profile' | 'history' | 'discover' | 'community' | 'auth'>('platform');
+  const [activeTab, setActiveTab] = useState<'platform' | 'generated' | 'create' | 'profile' | 'history' | 'discover' | 'community' | 'auth'>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.has('password_reset_uid') && params.has('password_reset_token') ? 'auth' : 'platform';
+  });
   const [routePath, setRoutePath] = useState(() => window.location.pathname);
   const [selectedCommunityPostId, setSelectedCommunityPostId] = useState<string | null>(null);
   const [homeNavigationKey, setHomeNavigationKey] = useState(0);

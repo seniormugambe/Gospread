@@ -20,6 +20,20 @@ services:
         generateValue: true
       - key: DJANGO_DEBUG
         value: "false"
+      - key: FRONTEND_URL
+        value: "https://gospread.onrender.com"
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USE_TLS
+        value: "true"
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: DJANGO_ALLOWED_HOSTS
