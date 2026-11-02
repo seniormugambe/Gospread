@@ -125,6 +125,7 @@ interface CreateShortPanelProps {
 
 export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, isSignedIn }: CreateShortPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [info, setInfo] = useState<VideoInfo | null>(null);
@@ -146,6 +147,7 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
     setCrop(0.5);
     setPreviewUrl(null);
     if (inputRef.current) inputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
   };
 
   const handleFile = async (picked: File | undefined) => {
@@ -240,11 +242,18 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
               <span className="text-[10px]">Up to {SHORT_MAX_SECONDS} seconds. Not 9:16? We'll help you crop it.</span>
             </button>
           )}
-          <input ref={inputRef} type="file" accept="video/*" capture="environment" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
-          {file && !uploading && (
-            <button onClick={() => inputRef.current?.click()} className="mt-2 text-xs font-bold text-slate-400 hover:text-white cursor-pointer">
-              Change video
-            </button>
+          {/* No `capture` here: it forces the camera on mobile and hides the gallery. */}
+          <input ref={inputRef} type="file" accept="video/*" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
+          <input ref={cameraInputRef} type="file" accept="video/*" capture="environment" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
+          {!uploading && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+              <button type="button" onClick={() => inputRef.current?.click()} className="text-xs font-bold text-slate-400 hover:text-white cursor-pointer">
+                {file ? 'Change video' : 'Choose from gallery'}
+              </button>
+              <button type="button" onClick={() => cameraInputRef.current?.click()} className="text-xs font-bold text-slate-400 hover:text-amber-400 cursor-pointer">
+                Record with camera
+              </button>
+            </div>
           )}
         </div>
 
