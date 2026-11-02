@@ -2666,31 +2666,17 @@ export default function CreatePage({
                     />
                   </div>
 
-                  {/* Speaker & Ministry Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-1">Uploaded by (Account Owner)</label>
-                      <input
-                        type="text"
-                        required
-                        value={uploadSpeaker}
-                        readOnly
-                        title="Uploaded as the account owner"
-                        className="w-full cursor-not-allowed opacity-80 bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-1">Ministry</label>
-                      <input
-                        type="text"
-                        required
-                        value={uploadMinistry}
-                        readOnly
-                        title="Uploaded as the account owner"
-                        className="w-full cursor-not-allowed opacity-80 bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
-                      />
-                    </div>
+                  {/* Ministry */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">Ministry</label>
+                    <input
+                      type="text"
+                      required
+                      value={uploadMinistry}
+                      readOnly
+                      title="Uploaded as the account owner"
+                      className="w-full cursor-not-allowed opacity-80 bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                    />
                   </div>
 
                   {/* Category & Tags Grid */}
