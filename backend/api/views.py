@@ -26,7 +26,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from livekit import api as livekit_api
 from .models import (
-    AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund,
+    AudioSpace, AudioSpaceParticipant, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund,
     LiveStream, LiveStreamChatMessage, LiveStreamViewer, PaymentGatewayCheckout, PrayerComment,
     PrayerRequest, Scripture, SavedSermon, Sermon, SermonShort, SermonUploadSession,
     WatchProgress, WorshipSong,
@@ -43,6 +43,19 @@ from .serializers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _run_livekit_room_call(method_name, request):
+    import asyncio
+
+    async def call():
+        livekit_url = getattr(settings, "LIVEKIT_URL", "")
+        api_key = getattr(settings, "LIVEKIT_API_KEY", "")
+        api_secret = getattr(settings, "LIVEKIT_API_SECRET", "")
+        async with livekit_api.LiveKitAPI(livekit_url, api_key, api_secret) as lk:
+            return await getattr(lk.room, method_name)(request)
+
+    return asyncio.run(call())
 SERMON_UPLOAD_CHUNK_SIZE = 8 * 1024 * 1024
 SERMON_UPLOAD_MAX_AGE = timedelta(hours=24)
 
@@ -434,16 +447,29 @@ class AudioSpaceTokenView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]  # Hosts need auth (checked below); listeners can join as guest
 
     def post(self, request):
-        import asyncio
-
         room_name = str(request.data.get("room_name", "")).strip()
-        can_publish = bool(request.data.get("can_publish", False))
         if not room_name:
             return Response({"room_name": ["This field is required."]}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Only authenticated users can host (publish)
-        if can_publish and not request.user.is_authenticated:
+        requested_publish = request.data.get("can_publish", False)
+        if not isinstance(requested_publish, bool):
+            return Response({"can_publish": ["Must be a boolean."]}, status=status.HTTP_400_BAD_REQUEST)
+        if requested_publish and not request.user.is_authenticated:
             return Response({"detail": "Sign in to start an Audio Space."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        space = AudioSpace.objects.filter(room_name=room_name, is_live=True).first()
+        if not space and not requested_publish:
+            return Response({"detail": "This Audio Space is no longer live."}, status=status.HTTP_404_NOT_FOUND)
+
+        identity = f"user-{request.user.id}" if request.user.is_authenticated else ""
+        if not identity:
+            import uuid
+            identity = f"guest-{uuid.uuid4().hex[:8]}"
+        role = AudioSpaceParticipant.objects.filter(audio_space=space, identity=identity).values_list("role", flat=True).first() if space else None
+        is_host = not space or (request.user.is_authenticated and space.host_id == request.user.id)
+        can_publish = is_host or role in (AudioSpaceParticipant.Role.SPEAKER, AudioSpaceParticipant.Role.COHOST)
+        if requested_publish and not can_publish:
+            return Response({"detail": "You are not authorized to speak in this Audio Space."}, status=status.HTTP_403_FORBIDDEN)
 
         livekit_url = getattr(settings, "LIVEKIT_URL", "")
         api_key = getattr(settings, "LIVEKIT_API_KEY", "")
@@ -451,48 +477,48 @@ class AudioSpaceTokenView(generics.GenericAPIView):
         if not livekit_url or not api_key or not api_secret:
             return Response({"detail": "LiveKit is not configured on the backend."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
-        if can_publish:
-            AudioSpace.objects.update_or_create(
+        created_space = space is None
+        if created_space:
+            space = AudioSpace.objects.create(
                 room_name=room_name,
-                defaults={
-                    "host": request.user,
-                    "title": str(request.data.get("title", "Live Audio Space")).strip()[:220],
-                    "topic": str(request.data.get("topic", "")).strip()[:280],
-                    "ministry_name": str(request.data.get("ministry_name", "")).strip()[:180],
-                    "ended_at": None,
-                    "is_live": True,
-                },
+                host=request.user,
+                title=str(request.data.get("title", "Live Audio Space")).strip()[:220],
+                topic=str(request.data.get("topic", "")).strip()[:280],
+                ministry_name=str(request.data.get("ministry_name", "")).strip()[:180],
             )
 
-            # Explicitly create the room on the LiveKit server so clients can join.
-            # LiveKit Cloud does not auto-create rooms from client tokens alone.
-            async def _create_room():
-                async with livekit_api.LiveKitAPI(livekit_url, api_key, api_secret) as lk:
-                    await lk.room.create_room(
-                        livekit_api.CreateRoomRequest(name=room_name, empty_timeout=300, max_participants=500)
-                    )
-
+        if created_space:
             try:
-                asyncio.run(_create_room())
-            except Exception as exc:
+                _run_livekit_room_call(
+                    "create_room",
+                    livekit_api.CreateRoomRequest(name=room_name, empty_timeout=43200, max_participants=500),
+                )
+            except Exception:
+                space.delete()
+                logger.exception("Could not create LiveKit room %s", room_name)
                 return Response(
-                    {"detail": f"Could not create LiveKit room: {exc}"},
+                    {"detail": "Could not create the live Audio Space."},
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
 
-        # Use authenticated identity if available, otherwise assign a guest identity
-        if request.user.is_authenticated:
-            identity = f"user-{request.user.id}"
-            display_name = request.user.get_full_name() or request.user.username
-        else:
-            import uuid
-            identity = f"guest-{uuid.uuid4().hex[:8]}"
-            display_name = "Listener"
+        display_name = (request.user.get_full_name() or request.user.username) if request.user.is_authenticated else "Listener"
 
         token = livekit_api.AccessToken(api_key, api_secret).with_identity(identity).with_name(
             display_name
-        ).with_grants(livekit_api.VideoGrants(room_join=True, room=room_name, can_publish=can_publish, can_subscribe=True))
-        return Response({"server_url": livekit_url, "participant_token": token.to_jwt(), "room_name": room_name})
+        ).with_grants(livekit_api.VideoGrants(
+            room_join=True,
+            room=room_name,
+            can_publish=can_publish,
+            can_publish_data=True,
+            can_subscribe=True,
+        ))
+        return Response({
+            "server_url": livekit_url,
+            "participant_token": token.to_jwt(),
+            "room_name": room_name,
+            "identity": identity,
+            "role": "host" if is_host else role or "listener",
+        })
 
 
 class AudioSpaceListView(generics.ListAPIView):
@@ -508,10 +534,118 @@ class AudioSpaceEndView(generics.GenericAPIView):
 
     def post(self, request):
         room_name = str(request.data.get("room_name", "")).strip()
-        updated = AudioSpace.objects.filter(room_name=room_name, host=request.user, is_live=True).update(
-            is_live=False, ended_at=timezone.now()
-        )
-        return Response({"ended": bool(updated)})
+        if not room_name:
+            return Response({"room_name": ["This field is required."]}, status=status.HTTP_400_BAD_REQUEST)
+        space = AudioSpace.objects.filter(room_name=room_name, is_live=True).first()
+        if not space:
+            return Response({"detail": "This Audio Space is no longer live."}, status=status.HTTP_404_NOT_FOUND)
+        if space.host_id != request.user.id:
+            return Response({"detail": "Only the host can end this Audio Space."}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            _run_livekit_room_call(
+                "delete_room",
+                livekit_api.DeleteRoomRequest(room=room_name),
+            )
+        except Exception:
+            logger.exception("Could not close LiveKit room %s", room_name)
+            return Response({"detail": "Could not close the live Audio Space."}, status=status.HTTP_502_BAD_GATEWAY)
+
+        space.is_live = False
+        space.ended_at = timezone.now()
+        space.save(update_fields=("is_live", "ended_at"))
+        return Response({"ended": True})
+
+
+class AudioSpaceParticipantsView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _space_and_role(self, request):
+        room_name = str(request.data.get("room_name") or request.query_params.get("room_name") or "").strip()
+        space = AudioSpace.objects.filter(room_name=room_name, is_live=True).first()
+        if not space:
+            return None, False
+        is_host = space.host_id == request.user.id
+        is_cohost = AudioSpaceParticipant.objects.filter(
+            audio_space=space,
+            identity=f"user-{request.user.id}",
+            role=AudioSpaceParticipant.Role.COHOST,
+        ).exists()
+        if not is_host and not is_cohost:
+            return None, False
+        return space, is_host
+
+    def get(self, request):
+        space, _ = self._space_and_role(request)
+        if not space:
+            return Response({"detail": "You cannot manage this Audio Space."}, status=status.HTTP_403_FORBIDDEN)
+        participants = AudioSpaceParticipant.objects.filter(audio_space=space).order_by("display_name", "identity")
+        return Response([{
+            "identity": participant.identity,
+            "display_name": participant.display_name,
+            "role": participant.role,
+        } for participant in participants])
+
+    def post(self, request):
+        space, is_host = self._space_and_role(request)
+        if not space:
+            return Response({"detail": "You cannot manage this Audio Space."}, status=status.HTTP_403_FORBIDDEN)
+
+        identity = str(request.data.get("identity", "")).strip()
+        role = str(request.data.get("role", "")).strip()
+        display_name = str(request.data.get("display_name", "")).strip()[:180]
+        if not identity or len(identity) > 180:
+            return Response({"identity": ["A valid participant identity is required."]}, status=status.HTTP_400_BAD_REQUEST)
+        if identity == f"user-{space.host_id}":
+            return Response({"detail": "The host role cannot be changed."}, status=status.HTTP_400_BAD_REQUEST)
+        if role not in (AudioSpaceParticipant.Role.SPEAKER, AudioSpaceParticipant.Role.COHOST, "listener", "remove"):
+            return Response({"role": ["Choose speaker, cohost, listener, or remove."]}, status=status.HTTP_400_BAD_REQUEST)
+        if role == AudioSpaceParticipant.Role.COHOST and not is_host:
+            return Response({"detail": "Only the host can appoint co-hosts."}, status=status.HTTP_403_FORBIDDEN)
+        if role == AudioSpaceParticipant.Role.COHOST and not re.fullmatch(r"user-\d+", identity):
+            return Response({"detail": "Only signed-in participants can be co-hosts."}, status=status.HTTP_400_BAD_REQUEST)
+
+        current_participant = AudioSpaceParticipant.objects.filter(audio_space=space, identity=identity).first()
+        if not is_host and current_participant and current_participant.role == AudioSpaceParticipant.Role.COHOST:
+            return Response({"detail": "Only the host can manage co-hosts."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            if role == "remove":
+                _run_livekit_room_call(
+                    "remove_participant",
+                    livekit_api.RoomParticipantIdentity(room=space.room_name, identity=identity),
+                )
+                AudioSpaceParticipant.objects.filter(audio_space=space, identity=identity).delete()
+                return Response({"identity": identity, "role": "removed"})
+
+            can_publish = role in (AudioSpaceParticipant.Role.SPEAKER, AudioSpaceParticipant.Role.COHOST)
+            _run_livekit_room_call(
+                "update_participant",
+                livekit_api.UpdateParticipantRequest(
+                    room=space.room_name,
+                    identity=identity,
+                    permission=livekit_api.ParticipantPermission(
+                        can_publish=can_publish,
+                        can_publish_data=True,
+                        can_subscribe=True,
+                    ),
+                ),
+            )
+        except Exception:
+            logger.exception("Could not update Audio Space participant %s in %s", identity, space.room_name)
+            return Response({"detail": "Could not update this participant's room permissions."}, status=status.HTTP_502_BAD_GATEWAY)
+
+        if can_publish:
+            AudioSpaceParticipant.objects.update_or_create(
+                audio_space=space,
+                identity=identity,
+                defaults={
+                    "display_name": display_name,
+                    "role": role,
+                },
+            )
+        else:
+            AudioSpaceParticipant.objects.filter(audio_space=space, identity=identity).delete()
+        return Response({"identity": identity, "display_name": display_name, "role": role})
 
 
 class ChurchViewSet(viewsets.ModelViewSet):

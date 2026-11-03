@@ -250,6 +250,14 @@ export interface AudioSpaceTokenResponse {
   server_url: string;
   participant_token: string;
   room_name: string;
+  identity: string;
+  role: 'host' | 'cohost' | 'speaker' | 'listener';
+}
+
+export interface AudioSpaceParticipantApi {
+  identity: string;
+  display_name: string;
+  role: 'cohost' | 'speaker';
 }
 
 export interface ActiveAudioSpaceApi {
@@ -293,6 +301,30 @@ class DjangoApiClient {
     await this.request('/audio-spaces/end/', {
       method: 'POST',
       body: JSON.stringify({ room_name: roomName }),
+    });
+  }
+
+  public async getAudioSpaceParticipants(roomName: string): Promise<AudioSpaceParticipantApi[]> {
+    const response = await this.request<AudioSpaceParticipantApi[]>(
+      `/audio-spaces/participants/?room_name=${encodeURIComponent(roomName)}`
+    );
+    return response;
+  }
+
+  public async setAudioSpaceParticipantRole(
+    roomName: string,
+    identity: string,
+    role: 'speaker' | 'cohost' | 'listener' | 'remove',
+    displayName = '',
+  ): Promise<{ identity: string; display_name: string; role: AudioSpaceParticipantApi['role'] | 'listener' | 'removed' }> {
+    return this.request<{ identity: string; display_name: string; role: AudioSpaceParticipantApi['role'] | 'listener' | 'removed' }>('/audio-spaces/participants/', {
+      method: 'POST',
+      body: JSON.stringify({
+        room_name: roomName,
+        identity,
+        role,
+        display_name: displayName,
+      }),
     });
   }
 

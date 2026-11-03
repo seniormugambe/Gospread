@@ -18,7 +18,7 @@ from botocore.exceptions import ClientError
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Church, ChurchEvent, Donation, GivingFund, LiveStream, PaymentGatewayCheckout, Scripture, Sermon, SermonShort, User
+from .models import AudioSpace, AudioSpaceParticipant, Church, ChurchEvent, Donation, GivingFund, LiveStream, PaymentGatewayCheckout, Scripture, Sermon, SermonShort, User
 
 
 class AuthenticationTests(APITestCase):
@@ -203,6 +203,165 @@ class ScriptureTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertNotEqual(response.data["reference"], previous.reference)
+
+
+class AudioSpaceCollaborationTests(APITestCase):
+    def setUp(self):
+        self.host = User.objects.create_user(username="space-host", email="host@example.com", password="StrongPass123!")
+        self.member = User.objects.create_user(username="space-member", email="member@example.com", password="StrongPass123!")
+        self.space = AudioSpace.objects.create(
+            host=self.host,
+            room_name="audio-space-test",
+            title="Bible study",
+            topic="Romans",
+            ministry_name="Grace Church",
+        )
+
+    def test_listener_cannot_request_a_publishing_token(self):
+        self.client.force_authenticate(user=self.member)
+
+        response = self.client.post(reverse("audio-space-token"), {
+            "room_name": self.space.room_name,
+            "can_publish": True,
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch("api.views._run_livekit_room_call")
+    def test_only_host_can_end_a_space_and_delete_the_live_room(self, room_call):
+        self.client.force_authenticate(user=self.member)
+        forbidden = self.client.post(reverse("audio-space-end"), {
+            "room_name": self.space.room_name,
+        }, format="json")
+        self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+        room_call.assert_not_called()
+
+        self.client.force_authenticate(user=self.host)
+        ended = self.client.post(reverse("audio-space-end"), {
+            "room_name": self.space.room_name,
+        }, format="json")
+
+        self.assertEqual(ended.status_code, status.HTTP_200_OK)
+        self.assertTrue(ended.data["ended"])
+        self.assertEqual(room_call.call_args.args[0], "delete_room")
+        self.space.refresh_from_db()
+        self.assertFalse(self.space.is_live)
+
+    @override_settings(
+        LIVEKIT_URL="wss://livekit.example",
+        LIVEKIT_API_KEY="test-key",
+        LIVEKIT_API_SECRET="test-secret",
+    )
+    @patch("api.views.livekit_api.AccessToken")
+    def test_approved_speaker_gets_publishing_token(self, access_token):
+        AudioSpaceParticipant.objects.create(
+            audio_space=self.space,
+            identity=f"user-{self.member.id}",
+            display_name=self.member.username,
+            role=AudioSpaceParticipant.Role.SPEAKER,
+        )
+        token = access_token.return_value
+        token.with_identity.return_value = token
+        token.with_name.return_value = token
+        token.with_grants.return_value = token
+        token.to_jwt.return_value = "test-jwt"
+        self.client.force_authenticate(user=self.member)
+
+        response = self.client.post(reverse("audio-space-token"), {
+            "room_name": self.space.room_name,
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["role"], "speaker")
+        grants = token.with_grants.call_args.args[0]
+        self.assertTrue(grants.can_publish)
+        self.assertTrue(grants.can_publish_data)
+
+    @patch("api.views._run_livekit_room_call")
+    def test_host_can_promote_a_room_participant_to_speaker(self, room_call):
+        self.client.force_authenticate(user=self.host)
+
+        response = self.client.post(reverse("audio-space-participants"), {
+            "room_name": self.space.room_name,
+            "identity": f"user-{self.member.id}",
+            "display_name": self.member.username,
+            "role": "speaker",
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["role"], "speaker")
+        self.assertTrue(AudioSpaceParticipant.objects.filter(
+            audio_space=self.space,
+            identity=f"user-{self.member.id}",
+            role=AudioSpaceParticipant.Role.SPEAKER,
+        ).exists())
+        update_request = room_call.call_args.args[1]
+        self.assertTrue(update_request.permission.can_publish)
+
+    @patch("api.views._run_livekit_room_call")
+    def test_only_authenticated_participants_can_become_cohosts(self, room_call):
+        self.client.force_authenticate(user=self.host)
+
+        invalid = self.client.post(reverse("audio-space-participants"), {
+            "room_name": self.space.room_name,
+            "identity": "guest-12345678",
+            "role": "cohost",
+        }, format="json")
+        promoted = self.client.post(reverse("audio-space-participants"), {
+            "room_name": self.space.room_name,
+            "identity": f"user-{self.member.id}",
+            "display_name": self.member.username,
+            "role": "cohost",
+        }, format="json")
+
+        self.assertEqual(invalid.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(promoted.status_code, status.HTTP_200_OK)
+        self.assertEqual(room_call.call_count, 1)
+        self.assertTrue(AudioSpaceParticipant.objects.filter(
+            audio_space=self.space,
+            identity=f"user-{self.member.id}",
+            role=AudioSpaceParticipant.Role.COHOST,
+        ).exists())
+
+    @patch("api.views._run_livekit_room_call")
+    def test_non_moderator_cannot_change_participant_permissions(self, room_call):
+        self.client.force_authenticate(user=self.member)
+
+        response = self.client.post(reverse("audio-space-participants"), {
+            "room_name": self.space.room_name,
+            "identity": f"user-{self.host.id}",
+            "role": "cohost",
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        room_call.assert_not_called()
+        self.assertFalse(AudioSpaceParticipant.objects.filter(audio_space=self.space).exists())
+
+    @patch("api.views._run_livekit_room_call")
+    def test_cohost_can_promote_speakers_but_cannot_appoint_cohosts(self, room_call):
+        AudioSpaceParticipant.objects.create(
+            audio_space=self.space,
+            identity=f"user-{self.member.id}",
+            display_name=self.member.username,
+            role=AudioSpaceParticipant.Role.COHOST,
+        )
+        self.client.force_authenticate(user=self.member)
+
+        promotion = self.client.post(reverse("audio-space-participants"), {
+            "room_name": self.space.room_name,
+            "identity": "guest-12345678",
+            "display_name": "Guest",
+            "role": "speaker",
+        }, format="json")
+        cohost_promotion = self.client.post(reverse("audio-space-participants"), {
+            "room_name": self.space.room_name,
+            "identity": "user-999",
+            "role": "cohost",
+        }, format="json")
+
+        self.assertEqual(promotion.status_code, status.HTTP_200_OK)
+        self.assertEqual(cohost_promotion.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(room_call.call_count, 1)
 
 
 class SermonShortTests(APITestCase):

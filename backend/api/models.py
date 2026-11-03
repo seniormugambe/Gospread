@@ -457,6 +457,22 @@ class AudioSpace(models.Model):
         return self.title
 
 
+class AudioSpaceParticipant(models.Model):
+    class Role(models.TextChoices):
+        SPEAKER = "speaker", "Speaker"
+        COHOST = "cohost", "Co-host"
+
+    audio_space = models.ForeignKey(AudioSpace, on_delete=models.CASCADE, related_name="participants")
+    identity = models.CharField(max_length=180)
+    display_name = models.CharField(max_length=180, blank=True)
+    role = models.CharField(max_length=16, choices=Role.choices)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("audio_space", "identity"), name="unique_audio_space_participant_identity"),
+        ]
+
+
 class SavedSermon(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="saved_sermons")
     sermon = models.ForeignKey(Sermon, on_delete=models.CASCADE, related_name="saved_by")

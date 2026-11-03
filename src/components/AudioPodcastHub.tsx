@@ -28,6 +28,7 @@ import { djangoApi } from '../services/djangoApi';
 import { GivingTarget } from './GivingModal';
 import { ActiveAudioSpace } from './AudioSpaceStudio';
 import { Room, RoomEvent, RemoteTrack } from 'livekit-client';
+import AudioSpaceRoomTools from './AudioSpaceRoomTools';
 
 interface AudioPodcastHubProps {
   currentTrack?: AudioTrack | null;
@@ -65,9 +66,11 @@ export default function AudioPodcastHub({
   const [isJoiningAudioSpace, setIsJoiningAudioSpace] = useState(false);
   const [audioSpaceError, setAudioSpaceError] = useState('');
   const [participantCount, setParticipantCount] = useState(0);
+  const [localRole, setLocalRole] = useState<'host' | 'cohost' | 'speaker' | 'listener'>('listener');
   const [remoteParticipants, setRemoteParticipants] = useState<{ identity: string; name: string }[]>([]);
   const listenerRoomRef = React.useRef<Room | null>(null);
   const audioElementsRef = React.useRef<HTMLAudioElement[]>([]);
+  const attachedTrackSidsRef = React.useRef(new Set<string>());
 
   const subCategories = ['All', 'Podcast', '24/7 Gospel Radio', 'Audio Sermon', 'Devotional', 'Praise & Worship'];
 
@@ -76,6 +79,7 @@ export default function AudioPodcastHub({
     listenerRoomRef.current = null;
     audioElementsRef.current.forEach(el => el.remove());
     audioElementsRef.current = [];
+    attachedTrackSidsRef.current.clear();
   }, []);
 
   // Auto-join when navigated here via "Join conversation" from home/feed
@@ -109,6 +113,7 @@ export default function AudioPodcastHub({
     setIsConnectedToSpace(false);
     setParticipantCount(0);
     setRemoteParticipants([]);
+    setLocalRole('listener');
   };
 
   useEffect(() => {
@@ -138,13 +143,16 @@ export default function AudioPodcastHub({
     setIsJoiningAudioSpace(true);
     try {
       const tokenData = await djangoApi.createAudioSpaceToken(activeAudioSpace.roomName);
+      setLocalRole(tokenData.role);
       const room = new Room();
 
       const playTrack = (track: RemoteTrack) => {
+        if (attachedTrackSidsRef.current.has(track.sid)) return;
         const element = track.attach();
         element.autoplay = true;
         document.body.appendChild(element);
         audioElementsRef.current.push(element);
+        attachedTrackSidsRef.current.add(track.sid);
       };
 
       room.on(RoomEvent.TrackSubscribed, (track) => playTrack(track));
@@ -156,9 +164,11 @@ export default function AudioPodcastHub({
           listenerRoomRef.current = null;
           audioElementsRef.current.forEach(el => el.remove());
           audioElementsRef.current = [];
+          attachedTrackSidsRef.current.clear();
           setIsConnectedToSpace(false);
           setParticipantCount(0);
           setRemoteParticipants([]);
+          setLocalRole('listener');
         }
       });
 
@@ -289,7 +299,7 @@ export default function AudioPodcastHub({
               <div className="flex flex-wrap items-center gap-2.5 pt-1">
                 <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-full text-xs font-bold text-emerald-300">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>You (Listening)</span>
+                  <span>You ({localRole === 'host' ? 'Host' : localRole === 'cohost' ? 'Co-host' : localRole === 'speaker' ? 'Speaker' : 'Listening'})</span>
                 </div>
                 {remoteParticipants.map(participant => (
                   <div key={participant.identity} className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs text-slate-300">
@@ -298,6 +308,12 @@ export default function AudioPodcastHub({
                 ))}
               </div>
             </div>
+            <AudioSpaceRoomTools
+              room={listenerRoomRef.current}
+              roomName={activeAudioSpace.roomName}
+              canManage={localRole === 'host' || localRole === 'cohost'}
+              isHost={localRole === 'host'}
+            />
           </motion.div>
         ) : (
           <div className="w-full rounded-2xl border border-fuchsia-400/40 bg-gradient-to-r from-fuchsia-950/70 via-slate-900 to-slate-900 p-4 shadow-lg shadow-fuchsia-950/20">
@@ -402,7 +418,7 @@ export default function AudioPodcastHub({
               <div className="flex flex-wrap items-center gap-2.5 pt-1">
                 <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-full text-xs font-bold text-emerald-300">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>You (Listening)</span>
+                  <span>You ({localRole === 'host' ? 'Host' : localRole === 'cohost' ? 'Co-host' : localRole === 'speaker' ? 'Speaker' : 'Listening'})</span>
                 </div>
                 {remoteParticipants.map(participant => (
                   <div key={participant.identity} className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs text-slate-300">

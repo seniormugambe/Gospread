@@ -2,7 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from .views import (
     ChangePasswordView, ChurchEventViewSet, ChurchViewSet, CommunityPostViewSet, DonationViewSet, GivingFundViewSet,
-    AudioSpaceEndView, AudioSpaceListView, AudioSpaceTokenView, GospreadTokenRefreshView, GospreadTokenView, HealthCheckView, LiveStreamViewSet, LogoutView, MeView,
+    AudioSpaceEndView, AudioSpaceListView, AudioSpaceParticipantsView, AudioSpaceTokenView, GospreadTokenRefreshView, GospreadTokenView, HealthCheckView, LiveStreamViewSet, LogoutView, MeView,
     PasswordResetConfirmView, PasswordResetRequestView,
     PrayerRequestViewSet, RandomScriptureView, SavedSermonViewSet, SermonShortViewSet,
     SermonUploadChunkView, SermonUploadCompleteView, SermonUploadSessionView, SermonViewSet,
@@ -28,6 +28,7 @@ urlpatterns = [
     path("audio-spaces/token/", AudioSpaceTokenView.as_view(), name="audio-space-token"),
     path("audio-spaces/", AudioSpaceListView.as_view(), name="audio-space-list"),
     path("audio-spaces/end/", AudioSpaceEndView.as_view(), name="audio-space-end"),
+    path("audio-spaces/participants/", AudioSpaceParticipantsView.as_view(), name="audio-space-participants"),
 
     # Primary auth endpoints (canonical)
     path("auth/signup/", SignupView.as_view(), name="signup"),

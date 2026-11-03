@@ -687,7 +687,7 @@ export default function App() {
 
   const handleClaimDailyReward = (xpGained: number) => {
     setPraiseXp(prev => prev + xpGained);
-    setStreakDays(prev => Math.min(7, prev + 1));
+    setStreakDays((prev: number) => Math.min(7, prev + 1));
   };
 
   const handleOpenGiving = (target?: GivingTarget) => {

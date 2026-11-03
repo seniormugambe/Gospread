@@ -319,6 +319,7 @@ export default function CreatePage({
   onLivePlaybackUpdated,
   onRequireAuth,
   onCancel,
+  activeAudioSpace,
   onAudioSpaceChange,
   theme = 'dark'
 }: CreatePageProps) {
@@ -1268,7 +1269,7 @@ export default function CreatePage({
   if (studioAction === 'audio_space') {
     return (
       <div className={`creator-studio-portal max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
-        <AudioSpaceStudio currentUser={currentUser} ministryName={ministryName} onBack={() => setStudioAction('choose')} onSpaceChange={onAudioSpaceChange} />
+        <AudioSpaceStudio currentUser={currentUser} ministryName={ministryName} activeAudioSpace={activeAudioSpace} onBack={() => setStudioAction('choose')} onSpaceChange={onAudioSpaceChange} />
       </div>
     );
   }

@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Check, Clock, Mic, MicOff, Radio, Share2, Users } from 'lucide-react';
+import { ArrowLeft, Check, Clock, Mic, Radio, Share2, Users } from 'lucide-react';
 import { UserSession } from './AuthModal';
-import { Room, RoomEvent } from 'livekit-client';
+import { Room, RoomEvent, RemoteTrack } from 'livekit-client';
 import { djangoApi } from '../services/djangoApi';
 import { INVITE_CALL_TO_ACTION, buildShareUrl } from '../lib/invites';
+import AudioSpaceRoomTools from './AudioSpaceRoomTools';
 
 export interface ActiveAudioSpace {
   title: string;
@@ -17,25 +18,54 @@ export interface ActiveAudioSpace {
 interface AudioSpaceStudioProps {
   currentUser?: UserSession;
   ministryName: string;
+  activeAudioSpace?: ActiveAudioSpace | null;
   onBack: () => void;
   onSpaceChange?: (space: ActiveAudioSpace | null, endedRoomName?: string) => void;
 }
 
-export default function AudioSpaceStudio({ currentUser, ministryName, onBack, onSpaceChange }: AudioSpaceStudioProps) {
+export default function AudioSpaceStudio({ currentUser, ministryName, activeAudioSpace, onBack, onSpaceChange }: AudioSpaceStudioProps) {
   const [title, setTitle] = useState('');
   const [topic, setTopic] = useState('');
   const [isLive, setIsLive] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [listenerCount, setListenerCount] = useState(0);
   const [error, setError] = useState('');
   const [inviteCopied, setInviteCopied] = useState(false);
   const roomRef = useRef<Room | null>(null);
   const roomNameRef = useRef<string | null>(null);
+  const audioElementsRef = useRef<HTMLAudioElement[]>([]);
+  const attachedAudioTrackSidsRef = useRef(new Set<string>());
 
   const syncListenerCount = (room: Room) => {
     setListenerCount(room.remoteParticipants.size);
   };
+
+  const playRemoteAudio = (track: RemoteTrack) => {
+    if (attachedAudioTrackSidsRef.current.has(track.sid)) return;
+    const element = document.createElement('audio');
+    element.autoplay = true;
+    track.attach(element);
+    document.body.appendChild(element);
+    audioElementsRef.current.push(element);
+    attachedAudioTrackSidsRef.current.add(track.sid);
+  };
+
+  const clearRemoteAudio = () => {
+    audioElementsRef.current.forEach(element => {
+      element.pause();
+      element.remove();
+    });
+    audioElementsRef.current = [];
+    attachedAudioTrackSidsRef.current.clear();
+  };
+
+  useEffect(() => () => {
+    const room = roomRef.current;
+    roomRef.current = null;
+    room?.disconnect();
+    clearRemoteAudio();
+  }, []);
 
   useEffect(() => {
     if (!isLive) return;
@@ -43,11 +73,65 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
     return () => window.clearInterval(timer);
   }, [isLive]);
 
-  const currentUserRef = useRef(currentUser);
-  useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
+  useEffect(() => {
+    if (!activeAudioSpace) return;
+    setTitle(activeAudioSpace.title);
+    setTopic(activeAudioSpace.topic);
+    setElapsedSeconds(Math.max(0, Math.floor((Date.now() - activeAudioSpace.startedAt) / 1000)));
+    setIsLive(true);
+    roomNameRef.current = activeAudioSpace.roomName;
+    if (roomRef.current?.state === 'connected' && roomRef.current.name === activeAudioSpace.roomName) return;
+    if (roomRef.current && roomRef.current.name !== activeAudioSpace.roomName) {
+      const previousRoom = roomRef.current;
+      roomRef.current = null;
+      previousRoom.disconnect();
+      clearRemoteAudio();
+    }
 
-  // Audio Space room persistence across navigation — space is only ended when host explicitly calls endSpace()
+    let cancelled = false;
+    void (async () => {
+      try {
+        const tokenData = await djangoApi.createAudioSpaceToken(activeAudioSpace.roomName, true);
+        const room = new Room();
+        roomRef.current = room;
+        room.on(RoomEvent.Connected, () => {
+          setIsConnected(true);
+          syncListenerCount(room);
+        });
+        room.on(RoomEvent.ParticipantConnected, () => syncListenerCount(room));
+        room.on(RoomEvent.ParticipantDisconnected, () => syncListenerCount(room));
+        room.on(RoomEvent.TrackSubscribed, track => playRemoteAudio(track));
+        room.on(RoomEvent.Disconnected, () => {
+          if (roomRef.current !== room) return;
+          roomRef.current = null;
+          setIsConnected(false);
+          setListenerCount(0);
+          clearRemoteAudio();
+        });
+        await room.connect(tokenData.server_url, tokenData.participant_token);
+        if (cancelled) {
+          room.disconnect();
+          return;
+        }
+        room.remoteParticipants.forEach(participant => {
+          participant.trackPublications.forEach(publication => {
+            if (publication.track) playRemoteAudio(publication.track);
+          });
+        });
+        setIsConnected(true);
+        syncListenerCount(room);
+        await room.localParticipant.setMicrophoneEnabled(true);
+      } catch (reconnectError) {
+        roomRef.current?.disconnect();
+        roomRef.current = null;
+        clearRemoteAudio();
+        setIsConnected(false);
+        setError(reconnectError instanceof Error ? reconnectError.message : 'Could not reconnect to the live Audio Space.');
+      }
+    })();
 
+    return () => { cancelled = true; };
+  }, [activeAudioSpace?.roomName, activeAudioSpace?.startedAt, activeAudioSpace?.title, activeAudioSpace?.topic]);
 
   const startSpace = async () => {
     setError('');
@@ -58,52 +142,40 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
     try {
       const roomName = `audio-space-${crypto.randomUUID()}`;
       roomNameRef.current = roomName;
+      setIsConnected(false);
       const spaceTitle = title.trim();
       const spaceTopic = topic.trim();
 
-      let serverUrl = '';
-      let token = '';
-
-      try {
-        const tokenRes = await djangoApi.createAudioSpaceToken(roomName, true, {
-          title: spaceTitle,
-          topic: spaceTopic,
-          ministry_name: ministryName,
+      const tokenData = await djangoApi.createAudioSpaceToken(roomName, true, {
+        title: spaceTitle,
+        topic: spaceTopic,
+        ministry_name: ministryName,
+      });
+      const room = new Room();
+      roomRef.current = room;
+      room.on(RoomEvent.Connected, () => {
+        setIsConnected(true);
+        syncListenerCount(room);
+      });
+      room.on(RoomEvent.ParticipantConnected, () => syncListenerCount(room));
+      room.on(RoomEvent.ParticipantDisconnected, () => syncListenerCount(room));
+      room.on(RoomEvent.TrackSubscribed, track => playRemoteAudio(track));
+      room.on(RoomEvent.Disconnected, () => {
+        if (roomRef.current !== room) return;
+        roomRef.current = null;
+        setIsConnected(false);
+        setListenerCount(0);
+        clearRemoteAudio();
+      });
+      await room.connect(tokenData.server_url, tokenData.participant_token);
+      room.remoteParticipants.forEach(participant => {
+        participant.trackPublications.forEach(publication => {
+          if (publication.track) playRemoteAudio(publication.track);
         });
-        if (tokenRes?.server_url && tokenRes?.participant_token) {
-          serverUrl = tokenRes.server_url;
-          token = tokenRes.participant_token;
-        }
-      } catch (apiErr) {
-        console.warn('[Audio Space] Backend token endpoint notice, attempting LiveKit room setup:', apiErr);
-      }
-
-      if (serverUrl && token) {
-        try {
-          const room = new Room();
-          roomRef.current = room;
-          room.on(RoomEvent.Connected, () => syncListenerCount(room));
-          room.on(RoomEvent.ParticipantConnected, () => syncListenerCount(room));
-          room.on(RoomEvent.ParticipantDisconnected, () => syncListenerCount(room));
-          room.on(RoomEvent.Disconnected, () => {
-            if (roomRef.current !== room) return;
-            roomRef.current = null;
-            roomNameRef.current = null;
-            void djangoApi.endAudioSpace(roomName);
-            setIsLive(false);
-            setIsMuted(false);
-            setListenerCount(0);
-            onSpaceChange?.(null, roomName);
-          });
-          await room.connect(serverUrl, token);
-          syncListenerCount(room);
-          if (room.state === 'connected') {
-            await room.localParticipant.setMicrophoneEnabled(true).catch(() => {});
-          }
-        } catch (connErr) {
-          console.warn('[Audio Space] Room connection note:', connErr);
-        }
-      }
+      });
+      setIsConnected(true);
+      syncListenerCount(room);
+      await room.localParticipant.setMicrophoneEnabled(true);
 
       // Transition host to Live Audio Room
       setIsLive(true);
@@ -116,33 +188,43 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
         roomName,
       });
     } catch (error) {
+      roomRef.current?.disconnect();
+      roomRef.current = null;
+      roomNameRef.current = null;
+      clearRemoteAudio();
+      setIsConnected(false);
       setError(error instanceof Error ? error.message : 'Could not start the live Audio Space.');
     }
   };
 
-  const endSpace = () => {
-    const roomName = roomNameRef.current;
-    roomRef.current?.disconnect();
-    roomRef.current = null;
-    roomNameRef.current = null;
-    if (roomName) void djangoApi.endAudioSpace(roomName);
-    setIsLive(false);
-    setIsMuted(false);
-    setListenerCount(0);
-    onSpaceChange?.(null, roomName || undefined);
-  };
-
-  const toggleMute = () => {
-    const nextMuted = !isMuted;
-    const room = roomRef.current;
-    if (room?.state === 'connected') {
-      void room.localParticipant.setMicrophoneEnabled(!nextMuted);
+  const endSpace = async () => {
+    const roomName = roomNameRef.current || activeAudioSpace?.roomName;
+    if (!roomName) {
+      setError('Could not find the active Audio Space to end.');
+      return;
     }
-    setIsMuted(nextMuted);
+
+    setError('');
+    try {
+      await djangoApi.endAudioSpace(roomName);
+    } catch (endError) {
+      setError(endError instanceof Error ? endError.message : 'Could not end the Audio Space.');
+      return;
+    }
+
+    const room = roomRef.current;
+    roomRef.current = null;
+    room?.disconnect();
+    clearRemoteAudio();
+    roomNameRef.current = null;
+    setIsLive(false);
+    setIsConnected(false);
+    setListenerCount(0);
+    onSpaceChange?.(null, roomName);
   };
 
   const inviteListeners = async () => {
-    const roomName = roomRef.current?.name;
+    const roomName = roomNameRef.current || activeAudioSpace?.roomName;
     if (!roomName) return;
     const inviteUrl = new URL(buildShareUrl(window.location.pathname));
     inviteUrl.searchParams.set('audio_space', roomName);
@@ -177,7 +259,7 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
           <ArrowLeft className="w-4 h-4" />
           <span>{isLive ? 'End and leave Space' : 'Back to Creator Studio'}</span>
         </button>
-        {isLive && <span className="flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-[10px] font-bold uppercase text-rose-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" /> Live</span>}
+        {isLive && <span className="flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-[10px] font-bold uppercase text-rose-300"><span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'animate-pulse bg-rose-400' : 'bg-amber-400'}`} />{isConnected ? 'Live' : 'Space open · host disconnected'}</span>}
       </div>
 
       {!isLive ? (
@@ -203,20 +285,20 @@ export default function AudioSpaceStudio({ currentUser, ministryName, onBack, on
         <div className="mx-auto max-w-3xl space-y-5">
           <div className="rounded-3xl border border-rose-500/30 bg-gradient-to-br from-rose-950/40 via-[#161616] to-[#161616] p-6 sm:p-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div><p className="text-xs font-bold uppercase tracking-wider text-rose-300">Live Audio Space</p><h1 className="mt-1 text-2xl font-black text-white">{title}</h1><p className="mt-1 text-sm text-slate-400">{topic || 'Open conversation'} · {currentUser?.fullName || 'Host'}</p></div>
+              <div><p className="text-xs font-bold uppercase tracking-wider text-rose-300">Live Audio Space</p><h1 className="mt-1 text-2xl font-black text-white">{title}</h1><p className="mt-1 text-sm text-slate-400">{topic || 'Open conversation'} · {activeAudioSpace?.hostName || currentUser?.fullName || 'Host'}</p></div>
               <div className="flex items-center gap-1.5 text-xs font-mono text-slate-300"><Clock className="w-4 h-4" />{formatTime(elapsedSeconds)}</div>
             </div>
             <div className="mt-10 flex flex-col items-center gap-4">
               <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-rose-400/60 bg-slate-900 text-rose-300 shadow-xl shadow-rose-500/20"><Mic className="h-10 w-10" /></div>
-              <p className="text-sm font-bold text-white">{currentUser?.fullName || 'Host'}</p>
+              <p className="text-sm font-bold text-white">{activeAudioSpace?.hostName || currentUser?.fullName || 'Host'}</p>
               <span className="rounded-full bg-rose-500/15 px-3 py-1 text-[10px] font-black uppercase text-rose-300">Host</span>
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3">
             <div className="rounded-2xl border border-slate-800 bg-[#161616] p-4"><Users className="mb-2 h-5 w-5 text-sky-400" /><p className="text-2xl font-black text-white">{listenerCount}</p><p className="text-xs text-slate-400">Participants connected</p></div>
           </div>
+          {roomRef.current && <AudioSpaceRoomTools room={roomRef.current} roomName={roomNameRef.current || ''} canManage isHost />}
           <div className="flex justify-center gap-3">
-            <button onClick={toggleMute} className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900 px-5 py-3 text-xs font-bold text-white hover:bg-slate-800">{isMuted ? <MicOff className="w-4 h-4 text-rose-400" /> : <Mic className="w-4 h-4 text-emerald-400" />}{isMuted ? 'Unmute' : 'Mute microphone'}</button>
             <button onClick={inviteListeners} className="flex items-center gap-2 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-5 py-3 text-xs font-bold text-fuchsia-200 hover:bg-fuchsia-500/25"><>{inviteCopied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}</>{inviteCopied ? 'Link copied' : 'Invite listeners'}</button>
             <button onClick={endSpace} className="rounded-full bg-rose-600 px-5 py-3 text-xs font-black text-white hover:bg-rose-500">End Space</button>
           </div>
