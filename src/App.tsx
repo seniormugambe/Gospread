@@ -2241,6 +2241,7 @@ export default function App() {
                     setActiveTab(tab);
                     setActiveVideo(null);
                   }}
+                  onOpenAudioSpace={() => handleCreateMenuSelect('audio_space')}
                   followerCounts={followerCounts}
                   userSession={userSession}
                   onOpenAuthPage={handleOpenAuthPage}

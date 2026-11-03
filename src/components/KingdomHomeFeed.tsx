@@ -44,6 +44,7 @@ interface KingdomHomeFeedProps {
   onOpenDailyPromise?: () => void;
   onOpenPrayerModal?: () => void;
   onNavigateTab: (tab: 'platform' | 'discover' | 'community' | 'profile' | 'create' | 'history') => void;
+  onOpenAudioSpace: () => void;
   followerCounts: Record<string, number>;
   userSession?: UserSession;
   onOpenAuthPage?: (mode?: 'signin' | 'signup') => void;
@@ -66,6 +67,7 @@ export default function KingdomHomeFeed({
   onToggleFollow,
   onOpenChannelModal,
   onNavigateTab,
+  onOpenAudioSpace,
   followerCounts = {},
   userSession,
   onOpenAuthPage = () => {},
@@ -791,14 +793,14 @@ export default function KingdomHomeFeed({
           </div>
 
           <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-none sm:gap-7">
-            <button type="button" onClick={() => onNavigateTab('create')} className="group flex min-w-[92px] flex-col items-center gap-2 text-center">
+            <button type="button" onClick={onOpenAudioSpace} className="group flex min-w-[92px] flex-col items-center gap-2 text-center">
               <span className="relative rounded-full bg-gradient-to-tr from-orange-400 via-rose-500 to-fuchsia-600 p-[3px] shadow-sm transition duration-200 group-hover:scale-105">
                 <span className="flex h-[86px] w-[86px] items-center justify-center overflow-hidden rounded-full border-4 border-white bg-slate-100 dark:border-slate-950 dark:bg-slate-800">
                   {userSession?.avatarUrl || userSession?.avatar ? <img src={userSession.avatarUrl || userSession.avatar} alt="" className="h-full w-full object-cover" /> : <span className="text-2xl font-black text-slate-400">{(userSession?.fullName || 'You').slice(0, 1).toUpperCase()}</span>}
                 </span>
                 <span className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-blue-500 text-white shadow-sm dark:border-slate-950"><Plus className="h-4 w-4" strokeWidth={3} /></span>
               </span>
-              <span className="max-w-[92px] truncate text-xs font-bold text-slate-900 dark:text-white">Your story</span>
+              <span className="max-w-[92px] truncate text-xs font-bold text-slate-900 dark:text-white">Your Space</span>
             </button>
 
             {activeAudioSpace && (

@@ -347,6 +347,8 @@ export default function CreatePage({
       } else if (initialAction === 'live' || initialAction === 'live_control_room') {
         setStudioAction(initialAction);
         setStudioNavTab('live_hub');
+      } else if (initialAction === 'audio_space') {
+        setStudioAction('audio_space');
       } else if (initialAction === 'short') {
         setStudioAction('short');
       } else if (initialAction === 'upload') {
