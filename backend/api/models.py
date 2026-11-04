@@ -26,6 +26,22 @@ class User(AbstractUser):
     REQUIRED_FIELDS = ["username"]
 
 
+class OnboardingProfile(models.Model):
+    class Track(models.TextChoices):
+        MINISTRY = "ministry", "Ministry"
+        ARTISTE = "artiste", "Artiste"
+        CREATOR = "creator", "Creator"
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="onboarding")
+    track = models.CharField(max_length=16, choices=Track.choices)
+    answers = models.JSONField(default=dict)
+    completed_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user_id}:{self.track}"
+
+
 class Scripture(models.Model):
     reference = models.CharField(max_length=80, unique=True)
     text = models.TextField()

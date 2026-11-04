@@ -50,6 +50,35 @@ export interface FaithBadgeAward {
   earnedDate: string;
 }
 
+export type OnboardingTrack = 'ministry' | 'artiste' | 'creator';
+export type OnboardingFieldType = 'text' | 'textarea' | 'url' | 'phone' | 'email' | 'single' | 'list' | 'urls' | 'locations';
+
+export interface OnboardingField {
+  key: string;
+  label: string;
+  type: OnboardingFieldType;
+  required: boolean;
+  options: string[];
+  hint: string;
+}
+
+export type OnboardingAnswers = Record<string, unknown>;
+
+export interface OnboardingState {
+  completed: boolean;
+  track: OnboardingTrack | null;
+  answers: OnboardingAnswers;
+  user?: UserProfileData;
+}
+
+export class OnboardingValidationError extends Error {
+  fieldErrors: Record<string, string>;
+  constructor(message: string, fieldErrors: Record<string, string>) {
+    super(message);
+    this.fieldErrors = fieldErrors;
+  }
+}
+
 export interface UserProfileData {
   id: number | string;
   username: string;
@@ -64,6 +93,8 @@ export interface UserProfileData {
   streak_days?: number;
   avatar_url?: string;
   role?: 'believer' | 'creator' | 'pastor' | 'artiste';
+  onboarding_completed?: boolean;
+  onboarding_track?: OnboardingTrack | null;
   badges?: FaithBadgeAward[];
 }
 
@@ -654,6 +685,40 @@ class DjangoApiClient {
 
   public async getMe(): Promise<UserProfileData> {
     return await this.request<UserProfileData>('/auth/me/');
+  }
+
+  public async getOnboardingQuestions(): Promise<Record<OnboardingTrack, OnboardingField[]>> {
+    const data = await this.request<{ tracks: Record<OnboardingTrack, OnboardingField[]> }>('/onboarding/questions/');
+    return data.tracks;
+  }
+
+  public async getOnboarding(): Promise<OnboardingState> {
+    return this.request<OnboardingState>('/onboarding/');
+  }
+
+  public async submitOnboarding(track: OnboardingTrack, answers: OnboardingAnswers): Promise<OnboardingState> {
+    try {
+      return await this.request<OnboardingState>('/onboarding/', {
+        method: 'POST',
+        body: JSON.stringify({ track, answers }),
+      });
+    } catch (error) {
+      // The request helper flattens DRF's {answers: {field: message}} into a JSON string.
+      const message = error instanceof Error ? error.message : '';
+      try {
+        const parsed = JSON.parse(message);
+        if (parsed && typeof parsed === 'object') {
+          const fieldErrors: Record<string, string> = {};
+          Object.entries(parsed).forEach(([key, value]) => {
+            fieldErrors[key] = Array.isArray(value) ? String(value[0]) : String(value);
+          });
+          throw new OnboardingValidationError('Please fix the highlighted fields.', fieldErrors);
+        }
+      } catch (parseError) {
+        if (parseError instanceof OnboardingValidationError) throw parseError;
+      }
+      throw error;
+    }
   }
 
   public async updateMe(payload: { avatar?: File | null; first_name?: string; last_name?: string; bio?: string }): Promise<UserProfileData> {

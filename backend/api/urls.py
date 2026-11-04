@@ -6,7 +6,7 @@ from .views import (
     PasswordResetConfirmView, PayoutAccountViewSet, PasswordResetRequestView,
     PrayerRequestViewSet, RandomScriptureView, SavedSermonViewSet, SermonShortViewSet,
     SermonUploadChunkView, SermonUploadCompleteView, SermonUploadSessionView, SermonViewSet,
-    SignupView, StreakCheckinView, WatchProgressViewSet, WorshipSongViewSet,
+    OnboardingQuestionsView, OnboardingView, SignupView, StreakCheckinView, WatchProgressViewSet, WorshipSongViewSet,
 )
 
 router = DefaultRouter()
@@ -40,6 +40,8 @@ urlpatterns = [
     path("auth/password-reset/", PasswordResetRequestView.as_view(), name="password-reset"),
     path("auth/password-reset/confirm/", PasswordResetConfirmView.as_view(), name="password-reset-confirm"),
     path("auth/me/", MeView.as_view(), name="me"),
+    path("onboarding/questions/", OnboardingQuestionsView.as_view(), name="onboarding-questions"),
+    path("onboarding/", OnboardingView.as_view(), name="onboarding"),
     path("auth/streak/checkin/", StreakCheckinView.as_view(), name="streak-checkin"),
 
     # Alias endpoints to match frontend djangoApi.ts expectations

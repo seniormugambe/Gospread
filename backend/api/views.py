@@ -28,14 +28,15 @@ from livekit import api as livekit_api
 from .models import (
     AudioSpace, AudioSpaceParticipant, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund,
     LiveStream, LiveStreamChatMessage, LiveStreamViewer, PaymentGatewayCheckout, PayoutAccount, PrayerComment,
-    PrayerRequest, Scripture, SavedSermon, Sermon, SermonShort, SermonUploadSession,
+    OnboardingProfile, PrayerRequest, Scripture, SavedSermon, Sermon, SermonShort, SermonUploadSession,
     WatchProgress, WorshipSong,
 )
+from . import onboarding
 from .permissions import IsPastorOwnerOrReadOnly
 from .serializers import (
     AudioSpaceSerializer, ChurchEventSerializer, ChurchSerializer, CommunityCommentSerializer, CommunityPostSerializer, DonationCheckoutSerializer, DonationSerializer,
     GivingFundSerializer, LiveStreamChatMessageSerializer, LiveStreamSerializer, PaymentGatewayCheckoutSerializer, PayoutAccountSerializer,
-    PrayerCommentSerializer, PrayerRequestSerializer, SavedSermonSerializer, ChangePasswordSerializer,
+    OnboardingSerializer, PrayerCommentSerializer, PrayerRequestSerializer, SavedSermonSerializer, ChangePasswordSerializer,
     GospreadTokenSerializer, PasswordResetConfirmSerializer, PasswordResetRequestSerializer,
     ScriptureSerializer, SermonSerializer, SermonShortSerializer,
     SermonUploadInitSerializer,
@@ -362,6 +363,41 @@ class MeView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+
+class OnboardingQuestionsView(generics.GenericAPIView):
+    """GET /onboarding/questions/?track=ministry|artiste|creator (all tracks if omitted)."""
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        track = request.query_params.get("track")
+        if track:
+            if track not in onboarding.QUESTIONS:
+                raise ValidationError({"track": "Unknown track."})
+            return Response({"track": track, "questions": onboarding.QUESTIONS[track]})
+        return Response({"tracks": onboarding.QUESTIONS})
+
+
+class OnboardingView(generics.GenericAPIView):
+    """GET returns the saved onboarding; POST submits or updates answers and sets the user's role."""
+    serializer_class = OnboardingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        profile = OnboardingProfile.objects.filter(user=request.user).first()
+        if not profile:
+            return Response({"completed": False, "track": None, "answers": {}})
+        return Response({"completed": True, "track": profile.track, "answers": profile.answers})
+
+    @transaction.atomic
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        track, answers = serializer.validated_data["track"], serializer.validated_data["answers"]
+        OnboardingProfile.objects.update_or_create(user=request.user, defaults={"track": track, "answers": answers})
+        request.user.role = onboarding.ROLE_BY_TRACK[track]
+        request.user.save(update_fields=["role"])
+        return Response({"completed": True, "track": track, "answers": answers, "user": UserSerializer(request.user).data})
 
 
 class StreakCheckinView(generics.GenericAPIView):

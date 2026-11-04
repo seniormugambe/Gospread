@@ -1150,3 +1150,33 @@ class MinistryFeatureTests(APITestCase):
         self.assertEqual(confirm.status_code, status.HTTP_200_OK)
         self.assertEqual(confirm.data["status"], PaymentGatewayCheckout.Status.PAID)
         self.assertEqual(confirm.data["donation"]["status"], Donation.Status.COMPLETED)
+
+
+class OnboardingTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="ob", email="ob@example.com", password="StrongPass123!")
+
+    def test_questions_are_public_per_track(self):
+        response = self.client.get(reverse("onboarding-questions"), {"track": "artiste"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["questions"])
+        self.assertEqual(self.client.get(reverse("onboarding-questions"), {"track": "x"}).status_code, 400)
+
+    def test_submit_sets_role_and_marks_complete(self):
+        self.client.force_authenticate(self.user)
+        self.assertFalse(self.client.get(reverse("onboarding")).data["completed"])
+        bad = self.client.post(reverse("onboarding"), {"track": "creator", "answers": {}}, format="json")
+        self.assertEqual(bad.status_code, 400)
+        answers = {
+            "creator_name": "Faith Talks", "categories": ["Podcast"], "topics": ["Prayer"],
+            "content_ownership": "Original", "full_name": "Jane Doe", "email": "Jane@Example.com",
+            "social_links": ["https://youtube.com/@faith"],
+        }
+        invalid = self.client.post(reverse("onboarding"), {"track": "creator", "answers": {**answers, "social_links": ["nope"]}}, format="json")
+        self.assertEqual(invalid.status_code, 400)
+        ok = self.client.post(reverse("onboarding"), {"track": "creator", "answers": answers}, format="json")
+        self.assertEqual(ok.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.role, User.Role.CREATOR)
+        self.assertTrue(ok.data["user"]["onboarding_completed"])
+        self.assertEqual(ok.data["answers"]["email"], "jane@example.com")

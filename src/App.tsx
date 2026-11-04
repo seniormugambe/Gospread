@@ -74,6 +74,7 @@ import DailyPromiseModal from './components/DailyPromiseModal';
 import GraceShortsModal from './components/GraceShortsModal';
 import YouTubeApiModal from './components/YouTubeApiModal';
 import AuthModal, { UserSession } from './components/AuthModal';
+import OnboardingModal from './components/OnboardingModal';
 import AuthPage from './components/AuthPage';
 import { djangoApi } from './services/djangoApi';
 import { youtubeApi } from './services/youtubeApi';
@@ -626,6 +627,8 @@ export default function App() {
   const [selectedShortId, setSelectedShortId] = useState<string | null>(null);
   const [showYouTubeModal, setShowYouTubeModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const onboardingCheckedFor = useRef<string>('');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showUserAccountDropdown, setShowUserAccountDropdown] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -660,6 +663,16 @@ export default function App() {
       token: ''
     };
   });
+  useEffect(() => {
+    if (!userSession.isLoggedIn || !djangoApi.getAccessToken()) return;
+    const key = String(userSession.id || userSession.email);
+    if (onboardingCheckedFor.current === key) return;
+    onboardingCheckedFor.current = key;
+    djangoApi.getMe()
+      .then(me => { if (me.onboarding_completed === false) setShowOnboarding(true); })
+      .catch(() => { onboardingCheckedFor.current = ''; });
+  }, [userSession.isLoggedIn, userSession.id, userSession.email]);
+
   const HeaderProfileIcon = {
     church: Church,
     heart: Heart,
@@ -2692,6 +2705,15 @@ export default function App() {
         praiseXp={praiseXp}
         theme={theme}
         onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
+      />
+
+      <OnboardingModal
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        onComplete={(user) => {
+          if (user?.role) setUserSession(prev => ({ ...prev, role: user.role }));
+          setShowOnboarding(false);
+        }}
       />
 
       {/* 🔐 Auth & JWT Session Modal */}

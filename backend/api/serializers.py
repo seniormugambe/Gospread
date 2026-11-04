@@ -15,6 +15,7 @@ from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
+from . import onboarding
 from .models import (
     AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund,
     LiveStream, LiveStreamChatMessage, PayoutAccount, PrayerComment, PrayerRequest, PaymentGatewayCheckout,
@@ -48,6 +49,8 @@ def validate_image_upload(value):
 class UserSerializer(serializers.ModelSerializer):
     church_name = serializers.SerializerMethodField()
     creator_type = serializers.SerializerMethodField()
+    onboarding_completed = serializers.SerializerMethodField()
+    onboarding_track = serializers.SerializerMethodField()
     avatar = serializers.FileField(write_only=True, required=False, allow_empty_file=False)
 
     class Meta:
@@ -55,7 +58,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = (
             "id", "email", "username", "first_name", "last_name", "avatar_url", "avatar",
             "bio", "role", "creator_type", "praise_xp", "streak_days", "last_checkin_date",
-            "total_study_minutes", "church_name",
+            "total_study_minutes", "church_name", "onboarding_completed", "onboarding_track",
         )
         read_only_fields = ("id", "email", "praise_xp", "streak_days", "last_checkin_date", "total_study_minutes")
 
@@ -72,8 +75,26 @@ class UserSerializer(serializers.ModelSerializer):
         church = user.owned_churches.order_by("created_at").first() or user.followed_churches.order_by("name").first()
         return church.name if church else None
 
+    def get_onboarding_completed(self, user):
+        return hasattr(user, "onboarding")
+
+    def get_onboarding_track(self, user):
+        return user.onboarding.track if hasattr(user, "onboarding") else None
+
     def get_creator_type(self, user):
         return {User.Role.PASTOR: "church", User.Role.ARTISTE: "artiste", User.Role.CREATOR: "creator"}.get(user.role)
+
+
+class OnboardingSerializer(serializers.Serializer):
+    track = serializers.ChoiceField(choices=list(onboarding.QUESTIONS))
+    answers = serializers.JSONField()
+
+    def validate(self, attrs):
+        cleaned, errors = onboarding.validate_answers(attrs["track"], attrs["answers"])
+        if errors:
+            raise serializers.ValidationError({"answers": errors})
+        attrs["answers"] = cleaned
+        return attrs
 
 
 class GospreadTokenSerializer(TokenObtainPairSerializer):
