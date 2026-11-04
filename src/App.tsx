@@ -94,6 +94,7 @@ import ChannelAvatar from './components/ChannelAvatar';
 import LiveChatPanel from './components/LiveChatPanel';
 import UpNextRail from './components/UpNextRail';
 import FloatingReactions from './components/FloatingReactions';
+import LiveBroadcastsHub from './components/LiveBroadcastsHub';
 import ChurchScheduleTimetable from './components/ChurchScheduleTimetable';
 import { 
   CHURCH_SCHEDULES,
@@ -199,6 +200,7 @@ export default function App() {
       return null;
     }
   });
+  const [activeAudioSpaces, setActiveAudioSpaces] = useState<ActiveAudioSpace[]>([]);
 
   useEffect(() => {
     const audioSpaceChannel = typeof window !== 'undefined' && 'BroadcastChannel' in window
@@ -237,24 +239,23 @@ export default function App() {
         if (!active) return;
         const requestedRoomName = new URLSearchParams(window.location.search).get('audio_space');
         const visibleSpaces = (spaces || []).filter(space => !isSuppressedAudioSpace(space.room_name));
-        if (visibleSpaces.length > 0) {
-          const space = visibleSpaces.find(item => item.room_name === requestedRoomName) || visibleSpaces[0];
-          if (space) {
-            const nextSpace = {
-              title: space.title,
-              topic: space.topic,
-              hostName: space.host_name,
-              ministryName: space.ministry_name,
-              startedAt: Date.parse(space.started_at) || Date.now(),
-              roomName: space.room_name,
-            };
-            setActiveAudioSpace(nextSpace);
-            localStorage.setItem('gospread_active_audio_space', JSON.stringify(nextSpace));
-            return;
-          }
+        const nextSpaces = visibleSpaces.map(space => ({
+          title: space.title,
+          topic: space.topic,
+          hostName: space.host_name,
+          ministryName: space.ministry_name,
+          startedAt: Date.parse(space.started_at) || Date.now(),
+          roomName: space.room_name,
+        }));
+        setActiveAudioSpaces(nextSpaces);
+        const nextSpace = nextSpaces.find(space => space.roomName === requestedRoomName) || nextSpaces[0];
+        if (nextSpace) {
+          setActiveAudioSpace(nextSpace);
+          localStorage.setItem('gospread_active_audio_space', JSON.stringify(nextSpace));
+        } else {
+          setActiveAudioSpace(null);
+          localStorage.removeItem('gospread_active_audio_space');
         }
-        setActiveAudioSpace(null);
-        localStorage.removeItem('gospread_active_audio_space');
       } catch (error) {
         console.warn('[Audio Space] Metadata sync notice:', error);
       }
@@ -1264,7 +1265,6 @@ export default function App() {
                   items: [
                     { id: 'live', label: 'Live Broadcasts', icon: Tv, badge: 'LIVE', badgeStyle: 'bg-red-600 text-white font-bold' },
                     { id: 'radio', label: '24/7 Gospel Radio', icon: RadioIcon, badge: '24/7', badgeStyle: 'bg-pink-600 text-white font-bold' },
-                    { id: 'podcasts', label: 'Audio Podcasts', icon: Music },
                     { id: 'schedule', label: 'Church Service Times', icon: Calendar, badge: 'TIMES', badgeStyle: 'bg-amber-400 text-slate-950 font-black' },
                   ],
                 },
@@ -1453,7 +1453,6 @@ export default function App() {
                         items: [
                           { id: 'live', label: 'Live Broadcasts', icon: Tv, badge: 'LIVE', badgeStyle: 'bg-red-600 text-white font-bold' },
                           { id: 'radio', label: '24/7 Gospel Radio', icon: RadioIcon, badge: '24/7', badgeStyle: 'bg-pink-600 text-white font-bold' },
-                          { id: 'podcasts', label: 'Audio Podcasts', icon: Music },
                           { id: 'schedule', label: 'Church Service Times', icon: Calendar, badge: 'TIMES', badgeStyle: 'bg-amber-400 text-slate-950 font-black' },
                         ],
                       },
@@ -2301,7 +2300,23 @@ export default function App() {
 
               {/* Dedicated Filtered Video & Audio Lists (Shown when user searches or picks specific categories other than All) */}
               {(selectedCategory !== 'All' || searchQuery.trim() !== '') && selectedCategory !== 'Podcasts' && selectedCategory !== 'Church Schedules' && selectedCategory !== 'Following' && (
-                <>
+                selectedCategory === 'Live' || selectedCategory === 'Live Worship' ? (
+                  <LiveBroadcastsHub
+                    videoStreams={videoStreams}
+                    audioSpaces={activeAudioSpaces}
+                    searchQuery={searchQuery}
+                    onSelectVideo={handleSelectVideo}
+                    onJoinAudioSpace={(space) => {
+                      setActiveAudioSpace(space);
+                      localStorage.setItem('gospread_active_audio_space', JSON.stringify(space));
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('audio_space', space.roomName);
+                      window.history.replaceState({}, '', url);
+                      setSelectedCategory('Podcasts');
+                      setAutoJoinAudioSpace(true);
+                    }}
+                  />
+                ) : <>
                   {/* Audio Tracks Strip (Only for Music/Radio category or search) */}
                   {(selectedCategory === 'Worship Music' || selectedCategory === '24/7 Gospel Radio') && (
                     <div className="space-y-3">
