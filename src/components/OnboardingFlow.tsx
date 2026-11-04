@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Church, Mic2, Plus, Sparkles, Trash2, X, Loader2 } from 'lucide-react';
+import { Church, Mic2, Plus, Sparkles, Trash2, Loader2 } from 'lucide-react';
 import {
   djangoApi,
   OnboardingAnswers,
@@ -9,9 +9,8 @@ import {
   UserProfileData,
 } from '../services/djangoApi';
 
-interface OnboardingModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+interface OnboardingFlowProps {
+  onSkip: () => void;
   onComplete: (user: UserProfileData | undefined, track: OnboardingTrack) => void;
 }
 
@@ -63,7 +62,7 @@ const inputClass = (invalid: boolean) =>
     invalid ? 'border-red-500' : 'border-zinc-300 dark:border-zinc-700'
   }`;
 
-export default function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModalProps) {
+export default function OnboardingFlow({ onSkip, onComplete }: OnboardingFlowProps) {
   const [questions, setQuestions] = useState<Record<OnboardingTrack, OnboardingField[]> | null>(null);
   const [track, setTrack] = useState<OnboardingTrack | null>(null);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
@@ -73,7 +72,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!isOpen || questions) return;
+    if (questions) return;
     let cancelled = false;
     setLoading(true);
     djangoApi.getOnboardingQuestions()
@@ -81,9 +80,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
       .catch(error => { if (!cancelled) setFormError(error instanceof Error ? error.message : 'Could not load onboarding.'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [isOpen, questions]);
-
-  if (!isOpen) return null;
+  }, [questions]);
 
   const fields = track && questions ? questions[track] : [];
 
@@ -208,13 +205,9 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
-      <div role="dialog" aria-modal="true" aria-label="Gospread onboarding"
-        className="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white dark:bg-zinc-950 p-5 sm:p-7 shadow-2xl">
-        <button type="button" onClick={onClose} aria-label="Close onboarding"
-          className="absolute right-4 top-4 rounded-full p-1 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-          <X className="h-5 w-5" />
-        </button>
+    <div className="w-full flex justify-center">
+      <section aria-label="Gospread onboarding"
+        className="w-full max-w-2xl rounded-2xl bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md p-5 sm:p-7 shadow-2xl">
 
         <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Welcome to Gospread Kingdom</h2>
         <p className="mt-1 text-sm text-zinc-500">
@@ -236,7 +229,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
                 </span>
               </button>
             ))}
-            <button type="button" onClick={onClose} className="mt-1 text-sm text-zinc-500 underline">Skip for now</button>
+            <button type="button" onClick={onSkip} className="mt-1 text-sm text-zinc-500 underline">Skip for now</button>
           </div>
         )}
 
@@ -253,7 +246,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
             </div>
           </form>
         )}
-      </div>
+      </section>
     </div>
   );
 }

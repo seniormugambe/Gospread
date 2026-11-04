@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { ArrowLeft, Sparkles, Church } from 'lucide-react';
 import { motion } from 'motion/react';
 import SimpleAuthCard from './SimpleAuthCard';
 import { UserSession } from './AuthModal';
 import GospreadLogo from './GospreadLogo';
+import OnboardingFlow from './OnboardingFlow';
+import { djangoApi } from '../services/djangoApi';
 
 export interface AuthPageProps {
   initialMode?: 'signin' | 'signup';
@@ -24,14 +26,30 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   onNavigateProfile,
   onAwardXp
 }) => {
-  const handleSuccess = (user: UserSession) => {
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  // The auth card navigates home itself after login; hold that back until the onboarding check finishes.
+  const holdNavigation = useRef(false);
+  const goHome = () => {
+    holdNavigation.current = false;
+    onNavigateHome?.();
+  };
+
+  const handleSuccess = async (user: UserSession) => {
     if (onAwardXp) {
       onAwardXp(25, 'Sanctuary Login');
     }
+    holdNavigation.current = true;
     onLoginSuccess(user);
-    if (onNavigateHome) {
-      onNavigateHome();
+    try {
+      const me = await djangoApi.getMe();
+      if (me.onboarding_completed === false) {
+        setNeedsOnboarding(true);
+        return;
+      }
+    } catch {
+      // Fall through to home; onboarding is offered again on the next login.
     }
+    goHome();
   };
 
   return (
@@ -67,14 +85,24 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
       {/* Centered Simple Auth Card */}
       <div className="relative z-10 w-full flex justify-center items-center">
-        <SimpleAuthCard
-          initialMode={initialMode === 'signup' ? 'signup' : 'signin'}
-          currentUser={currentUser}
-          onLoginSuccess={handleSuccess}
-          onLogout={onLogout}
-          onNavigateHome={onNavigateHome}
-          isModal={false}
-        />
+        {needsOnboarding ? (
+          <OnboardingFlow
+            onSkip={goHome}
+            onComplete={(user) => {
+              if (user?.role) onLoginSuccess({ ...currentUser, role: user.role });
+              goHome();
+            }}
+          />
+        ) : (
+          <SimpleAuthCard
+            initialMode={initialMode === 'signup' ? 'signup' : 'signin'}
+            currentUser={currentUser}
+            onLoginSuccess={handleSuccess}
+            onLogout={onLogout}
+            onNavigateHome={() => { if (!holdNavigation.current) onNavigateHome?.(); }}
+            isModal={false}
+          />
+        )}
       </div>
 
       {/* Footer Scripture or Fellowship note */}
