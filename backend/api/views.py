@@ -27,14 +27,14 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from livekit import api as livekit_api
 from .models import (
     AudioSpace, AudioSpaceParticipant, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund,
-    LiveStream, LiveStreamChatMessage, LiveStreamViewer, PaymentGatewayCheckout, PrayerComment,
+    LiveStream, LiveStreamChatMessage, LiveStreamViewer, PaymentGatewayCheckout, PayoutAccount, PrayerComment,
     PrayerRequest, Scripture, SavedSermon, Sermon, SermonShort, SermonUploadSession,
     WatchProgress, WorshipSong,
 )
 from .permissions import IsPastorOwnerOrReadOnly
 from .serializers import (
     AudioSpaceSerializer, ChurchEventSerializer, ChurchSerializer, CommunityCommentSerializer, CommunityPostSerializer, DonationCheckoutSerializer, DonationSerializer,
-    GivingFundSerializer, LiveStreamChatMessageSerializer, LiveStreamSerializer, PaymentGatewayCheckoutSerializer,
+    GivingFundSerializer, LiveStreamChatMessageSerializer, LiveStreamSerializer, PaymentGatewayCheckoutSerializer, PayoutAccountSerializer,
     PrayerCommentSerializer, PrayerRequestSerializer, SavedSermonSerializer, ChangePasswordSerializer,
     GospreadTokenSerializer, PasswordResetConfirmSerializer, PasswordResetRequestSerializer,
     ScriptureSerializer, SermonSerializer, SermonShortSerializer,
@@ -1114,6 +1114,31 @@ class GivingFundViewSet(viewsets.ModelViewSet):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You can only create giving funds for your own church.")
         serializer.save()
+
+
+class PayoutAccountViewSet(viewsets.ModelViewSet):
+    serializer_class = PayoutAccountSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        return PayoutAccount.objects.filter(owner=self.request.user)
+
+    @transaction.atomic
+    def _save(self, serializer, **extra):
+        instance = serializer.save(**extra)
+        owned = PayoutAccount.objects.filter(owner=self.request.user)
+        if instance.is_primary:
+            owned.exclude(pk=instance.pk).update(is_primary=False)
+        elif not owned.filter(is_primary=True).exists():
+            instance.is_primary = True
+            instance.save(update_fields=["is_primary"])
+
+    def perform_create(self, serializer):
+        self._save(serializer, owner=self.request.user)
+
+    def perform_update(self, serializer):
+        self._save(serializer)
 
 
 class DonationViewSet(viewsets.ModelViewSet):

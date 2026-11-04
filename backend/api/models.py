@@ -379,6 +379,31 @@ class Donation(models.Model):
         return f"{self.amount} {self.currency} to {self.fund}"
 
 
+class PayoutAccount(models.Model):
+    class AccountType(models.TextChoices):
+        BANK = "bank", "Bank account"
+        MOBILE_MONEY = "mobile_money", "Mobile money"
+
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="payout_accounts")
+    label = models.CharField(max_length=80)
+    account_type = models.CharField(max_length=16, choices=AccountType.choices)
+    currency = models.CharField(max_length=3, default="UGX")
+    account_holder = models.CharField(max_length=160)
+    provider = models.CharField(max_length=120, help_text="Bank name or mobile money network")
+    account_number = models.CharField(max_length=64, blank=True)
+    routing_or_swift = models.CharField(max_length=32, blank=True)
+    phone_number = models.CharField(max_length=24, blank=True)
+    is_primary = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-is_primary", "created_at"]
+
+    def __str__(self):
+        return f"{self.label} ({self.owner_id})"
+
+
 class PaymentGatewayCheckout(models.Model):
     class Provider(models.TextChoices):
         SANDBOX = "sandbox", "Sandbox"

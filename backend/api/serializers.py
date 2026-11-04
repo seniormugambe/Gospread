@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 from uuid import uuid4
 
@@ -16,7 +17,7 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from .models import (
     AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund,
-    LiveStream, LiveStreamChatMessage, PrayerComment, PrayerRequest, PaymentGatewayCheckout,
+    LiveStream, LiveStreamChatMessage, PayoutAccount, PrayerComment, PrayerRequest, PaymentGatewayCheckout,
     SavedSermon, Scripture, Sermon, SermonShort, User, WatchProgress, WorshipSlide,
     WorshipSong,
 )
@@ -685,6 +686,49 @@ class DonationSerializer(serializers.ModelSerializer):
         church = attrs.get("church")
         if fund and church and fund.church_id != church.id:
             raise serializers.ValidationError("The selected fund must belong to the selected church.")
+        return attrs
+
+
+class PayoutAccountSerializer(serializers.ModelSerializer):
+    # Full account numbers are write-only; clients only ever see the last 4 digits.
+    account_number = serializers.CharField(write_only=True, required=False, allow_blank=True, max_length=64)
+    account_number_masked = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PayoutAccount
+        fields = (
+            "id", "label", "account_type", "currency", "account_holder", "provider",
+            "account_number", "account_number_masked", "routing_or_swift", "phone_number",
+            "is_primary", "created_at", "updated_at",
+        )
+        read_only_fields = ("id", "created_at", "updated_at")
+
+    def get_account_number_masked(self, obj):
+        return f"••••{obj.account_number[-4:]}" if obj.account_number else ""
+
+    def validate_currency(self, value):
+        return value.strip().upper()
+
+    def validate_phone_number(self, value):
+        value = value.strip()
+        if value and not re.fullmatch(r"\+?[0-9 ()-]{7,20}", value):
+            raise serializers.ValidationError("Enter a valid phone number.")
+        return value
+
+    def validate_account_number(self, value):
+        value = re.sub(r"[\s-]", "", value)
+        if value and not re.fullmatch(r"[A-Za-z0-9]{4,34}", value):
+            raise serializers.ValidationError("Enter a valid account number.")
+        return value
+
+    def validate(self, attrs):
+        account_type = attrs.get("account_type", getattr(self.instance, "account_type", None))
+        number = attrs.get("account_number", getattr(self.instance, "account_number", ""))
+        phone = attrs.get("phone_number", getattr(self.instance, "phone_number", ""))
+        if account_type == PayoutAccount.AccountType.BANK and not number:
+            raise serializers.ValidationError({"account_number": "Bank accounts need an account number."})
+        if account_type == PayoutAccount.AccountType.MOBILE_MONEY and not phone:
+            raise serializers.ValidationError({"phone_number": "Mobile money accounts need a phone number."})
         return attrs
 
 

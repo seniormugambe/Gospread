@@ -525,6 +525,25 @@ export default function CreatePage({
 
   // 💳 GIVING & PAYOUT ACCOUNTS STATE
   const [payoutAccounts, setPayoutAccounts] = useState<PayoutAccountItem[]>([]);
+  useEffect(() => {
+    if (studioNavTab !== 'giving') return;
+    let active = true;
+    djangoApi.getPayoutAccounts().then(rows => {
+      if (!active) return;
+      setPayoutAccounts(rows.map(row => ({
+        id: String(row.id),
+        label: row.label,
+        type: row.account_type === 'bank' ? 'Direct Bank Wire' : 'Mobile Money (M-Pesa / MTN)',
+        currency: row.currency as PayoutAccountItem['currency'],
+        accountHolder: row.account_holder,
+        bankOrProvider: row.provider,
+        accountNumber: row.account_number_masked,
+        routingOrSwift: row.routing_or_swift,
+        isPrimary: row.is_primary,
+      })));
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [studioNavTab]);
 
   // 🌐 SOCIAL MEDIA CHANNELS STATE
   const [socialRows, setSocialRows] = useState<SocialPlatformRow[]>([]);

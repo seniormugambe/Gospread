@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ChangePasswordView, ChurchEventViewSet, ChurchViewSet, CommunityPostViewSet, DonationViewSet, GivingFundViewSet,
     AudioSpaceEndView, AudioSpaceListView, AudioSpaceParticipantsView, AudioSpaceTokenView, GospreadTokenRefreshView, GospreadTokenView, HealthCheckView, LiveStreamViewSet, LogoutView, MeView,
-    PasswordResetConfirmView, PasswordResetRequestView,
+    PasswordResetConfirmView, PayoutAccountViewSet, PasswordResetRequestView,
     PrayerRequestViewSet, RandomScriptureView, SavedSermonViewSet, SermonShortViewSet,
     SermonUploadChunkView, SermonUploadCompleteView, SermonUploadSessionView, SermonViewSet,
     SignupView, StreakCheckinView, WatchProgressViewSet, WorshipSongViewSet,
@@ -18,6 +18,7 @@ router.register("streams", LiveStreamViewSet, basename="stream")
 router.register("events", ChurchEventViewSet, basename="event")
 router.register("prayers", PrayerRequestViewSet, basename="prayer")
 router.register("giving-funds", GivingFundViewSet, basename="giving-fund")
+router.register("payout-accounts", PayoutAccountViewSet, basename="payout-account")
 router.register("donations", DonationViewSet, basename="donation")
 router.register("worship-songs", WorshipSongViewSet, basename="worship-song")
 router.register("saved", SavedSermonViewSet, basename="saved")

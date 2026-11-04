@@ -269,6 +269,45 @@ export interface ActiveAudioSpaceApi {
   started_at: string;
 }
 
+export interface PayoutAccountApi {
+  id: number;
+  label: string;
+  account_type: 'bank' | 'mobile_money';
+  currency: string;
+  account_holder: string;
+  provider: string;
+  account_number_masked: string;
+  routing_or_swift: string;
+  phone_number: string;
+  is_primary: boolean;
+}
+
+export interface PayoutAccountInput {
+  label: string;
+  account_type: 'bank' | 'mobile_money';
+  currency: string;
+  account_holder: string;
+  provider: string;
+  account_number?: string;
+  routing_or_swift?: string;
+  phone_number?: string;
+  is_primary?: boolean;
+}
+
+export interface DonationLedgerApi {
+  id: number;
+  church: number;
+  church_name: string;
+  fund_name: string;
+  donor: number | null;
+  donor_name: string;
+  amount: string;
+  currency: string;
+  status: string;
+  is_anonymous: boolean;
+  created_at: string;
+}
+
 class DjangoApiClient {
   private baseUrl: string;
   private refreshInFlight: Promise<string | null> | null = null;
@@ -1452,6 +1491,28 @@ class DjangoApiClient {
       receiptUrl: res?.checkout_url || '',
       message: 'Donation registered successfully in Django backend.'
     };
+  }
+
+  // === PAYOUT ACCOUNTS & GIVING LEDGER ===
+  public async getPayoutAccounts(): Promise<PayoutAccountApi[]> {
+    const res = await this.request<PayoutAccountApi[] | { results: PayoutAccountApi[] }>('/payout-accounts/');
+    return Array.isArray(res) ? res : (res?.results || []);
+  }
+
+  public async savePayoutAccount(payload: PayoutAccountInput, id?: number): Promise<PayoutAccountApi> {
+    return this.request<PayoutAccountApi>(id ? `/payout-accounts/${id}/` : '/payout-accounts/', {
+      method: id ? 'PATCH' : 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  public async deletePayoutAccount(id: number): Promise<void> {
+    await this.request<unknown>(`/payout-accounts/${id}/`, { method: 'DELETE' });
+  }
+
+  public async getGivingLedger(): Promise<DonationLedgerApi[]> {
+    const res = await this.request<DonationLedgerApi[] | { results: DonationLedgerApi[] }>('/donations/?ordering=-created_at');
+    return Array.isArray(res) ? res : (res?.results || []);
   }
 
   // === 7. PRAYER REQUESTS & ALTAR INTERCESSION ===

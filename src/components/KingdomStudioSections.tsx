@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import GivingPayoutsPanel from './GivingPayoutsPanel';
 import {
   BarChart3,
   Film,
@@ -1245,66 +1246,8 @@ export default function KingdomStudioSections({
           7. 💰 GIVING VIEW
          ══════════════════════════════════════════════════════════ */}
       {studioNavTab === 'giving' && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="text-base font-black text-white flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-emerald-400" />
-                <span>Tithes, Offerings & Seed Payout Gateway</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Manage mobile money and international bank accounts for ministry donations with 0% platform fee.
-              </p>
-            </div>
-            <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold self-start sm:self-auto">
-              0% Platform Fee on Tithes
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {payoutAccounts.map(acc => (
-              <div key={acc.id} className="p-4 sm:p-5 rounded-3xl bg-[#161616] border border-slate-800 flex items-center justify-between shadow-sm">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-white">{acc.label}</span>
-                    {acc.isPrimary && (
-                      <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[9px] font-bold">PRIMARY</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1">{acc.type} • {acc.currency} • {acc.bankOrProvider}</p>
-                </div>
-                <span className="text-xs text-emerald-400 font-mono font-bold">Connected</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Recent Partner Seed Ledger */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-[#161616] border border-slate-800 space-y-4">
-            <h4 className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
-              <Landmark className="w-4 h-4 text-emerald-400" />
-              <span>Recent Congregation Tithes & Giving Transactions</span>
-            </h4>
-            
-            <div className="space-y-2.5">
-              {[
-                { id: 'tx-1', giver: 'Partner Grace M.', fund: 'Tithe & First Fruit', amount: '$250.00', time: 'Today, 2:14 PM', status: 'Settled' },
-                { id: 'tx-2', giver: 'Anonymous Saint', fund: 'World Missions Outreach', amount: '$100.00', time: 'Yesterday, 8:45 PM', status: 'Settled' },
-                { id: 'tx-3', giver: 'Brother Emmanuel K.', fund: 'Church Media & Broadcast', amount: '$50.00', time: 'Aug 29, 2026', status: 'Settled' }
-              ].map(tx => (
-                <div key={tx.id} className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800/80 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-bold text-white">{tx.giver}</span>
-                    <span className="text-slate-500 ml-2">• {tx.fund}</span>
-                    <p className="text-[10px] text-slate-400">{tx.time}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-mono font-bold text-emerald-400">{tx.amount}</span>
-                    <span className="block text-[10px] text-emerald-500/80 font-semibold">{tx.status}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <GivingPayoutsPanel />
         </motion.div>
       )}
 
