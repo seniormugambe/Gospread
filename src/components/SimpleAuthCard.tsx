@@ -10,7 +10,9 @@ import {
   Loader2,
   ArrowLeft,
   LogOut,
-  Sparkles
+  Sparkles,
+  Church,
+  Mic2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { djangoApi } from '../services/djangoApi';
@@ -322,7 +324,7 @@ export default function SimpleAuthCard({
       initial={{ scale: 0.95, opacity: 0, y: 10 }}
       animate={{ scale: 1, opacity: 1, y: 0 }}
       exit={{ scale: 0.95, opacity: 0, y: 10 }}
-      className="relative w-full max-w-[390px] backdrop-blur-2xl bg-white/40 dark:bg-slate-900/50 border border-white/60 dark:border-white/20 rounded-[38px] shadow-[0_25px_60px_rgba(15,80,140,0.22)] p-7 sm:p-9 text-slate-900 dark:text-white"
+      className="relative w-full max-w-[420px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-xl p-6 sm:p-8 text-zinc-900 dark:text-white"
     >
       {/* Modal Close Button if opened in modal */}
       {isModal && onClose && (
@@ -338,7 +340,7 @@ export default function SimpleAuthCard({
 
       {/* Top Header: "Log in" / "Sign up" Toggle */}
       <div className="flex items-center justify-between mb-7">
-        <h2 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-white">
+        <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
           {mode === 'signin' && 'Log in'}
           {mode === 'signup' && 'Sign up'}
           {mode === 'forgot' && 'Reset password'}
@@ -354,7 +356,7 @@ export default function SimpleAuthCard({
               setErrorMessage(null);
               setSuccessMessage(null);
             }}
-            className="text-sky-700 dark:text-sky-400 hover:text-sky-900 dark:hover:text-sky-200 font-medium text-base flex items-center gap-1 cursor-pointer transition"
+            className="text-amber-700 dark:text-amber-400 hover:underline font-semibold text-sm flex items-center gap-1 cursor-pointer transition"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Log in</span>
@@ -367,12 +369,19 @@ export default function SimpleAuthCard({
               setErrorMessage(null);
               setSuccessMessage(null);
             }}
-            className="text-sky-700 dark:text-sky-400 hover:text-sky-900 dark:hover:text-sky-200 font-medium text-lg cursor-pointer transition"
+            className="text-amber-700 dark:text-amber-400 hover:underline font-semibold text-sm cursor-pointer transition"
           >
             {mode === 'signin' ? 'Sign up' : 'Log in'}
           </button>
         )}
       </div>
+
+      <p className="-mt-4 mb-6 text-sm text-zinc-500">
+        {mode === 'signin' && 'Welcome back. Sign in to continue.'}
+        {mode === 'signup' && 'Create your free Gospread account.'}
+        {mode === 'forgot' && 'We will email you a reset link.'}
+        {mode === 'reset' && 'Choose a new password for your account.'}
+      </p>
 
       {/* Alerts */}
       {errorMessage && (
@@ -393,53 +402,54 @@ export default function SimpleAuthCard({
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Full Name field if in Sign Up mode */}
         {mode === 'signup' && (
-          <div className="relative rounded-full border border-white/70 dark:border-white/20 bg-white/45 dark:bg-white/10 backdrop-blur-md px-5 py-3.5 sm:py-4 flex items-center gap-3.5 focus-within:ring-2 focus-within:ring-sky-400/50 focus-within:border-white transition shadow-sm">
-            <UserIcon className="w-5 h-5 text-sky-800 dark:text-sky-300 shrink-0 stroke-[2]" />
+          <div className="relative rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-4 py-3 flex items-center gap-3 focus-within:ring-2 focus-within:ring-amber-500/60 focus-within:border-amber-500 transition">
+            <UserIcon className="w-5 h-5 text-zinc-400 shrink-0 stroke-[2]" />
             <input
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              placeholder="full name"
-              className="w-full bg-transparent outline-none text-slate-800 dark:text-white placeholder:text-sky-900/60 dark:placeholder:text-sky-200/60 text-base font-normal"
+              placeholder="Full name"
+              className="w-full bg-transparent outline-none text-slate-800 dark:text-white placeholder:text-zinc-400 text-sm font-normal"
             />
           </div>
         )}
 
         {mode === 'signup' && (
           <div className="space-y-2">
-            <p className="px-2 text-xs font-semibold text-slate-700 dark:text-slate-200">What will you create?</p>
-            <div className="grid grid-cols-3 gap-2">
+            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">I am joining as</p>
+            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Account type">
               {([
-                ['church', 'Church'],
-                ['artiste', 'Artiste'],
-                ['creator', 'Content Creator'],
-              ] as const).map(([value, label]) => (
-                <button key={value} type="button" onClick={() => setCreatorType(value)} className={`rounded-2xl border px-2 py-3 text-xs font-bold transition ${creatorType === value ? 'border-sky-500 bg-sky-500/20 text-sky-900 dark:text-sky-200' : 'border-white/60 bg-white/30 text-slate-600 dark:border-white/20 dark:bg-white/10 dark:text-slate-300'}`}>
+                ['church', 'Ministry', Church],
+                ['artiste', 'Artiste', Mic2],
+                ['creator', 'Creator', Sparkles],
+              ] as const).map(([value, label, Icon]) => (
+                <button key={value} type="button" role="radio" aria-checked={creatorType === value} onClick={() => setCreatorType(value)}
+                  className={`flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-xs font-bold transition ${creatorType === value ? 'border-amber-500 bg-amber-500/15 text-amber-800 dark:text-amber-300' : 'border-zinc-300 text-zinc-600 hover:border-amber-500/60 dark:border-zinc-700 dark:text-zinc-300'}`}>
+                  <Icon className="h-5 w-5" />
                   {label}
                 </button>
               ))}
             </div>
             {creatorType === 'church' && (
-              <input value={churchName} onChange={event => setChurchName(event.target.value)} placeholder="Church or ministry name" className="w-full rounded-2xl border border-white/70 bg-white/45 px-4 py-3 text-sm text-slate-800 outline-none dark:border-white/20 dark:bg-white/10 dark:text-white" />
+              <input value={churchName} onChange={event => setChurchName(event.target.value)} placeholder="Church or ministry name" className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" />
             )}
-            <p className="px-2 text-[11px] text-slate-500">You can join an existing church later from Discover Ministries.</p>
           </div>
         )}
 
         {/* Email Field with @ symbol */}
         {mode !== 'reset' && (
-          <div className="relative rounded-full border border-white/70 dark:border-white/20 bg-white/45 dark:bg-white/10 backdrop-blur-md px-5 py-3.5 sm:py-4 flex items-center gap-3.5 focus-within:ring-2 focus-within:ring-sky-400/50 focus-within:border-white transition shadow-sm">
-            <span className="w-5 h-5 rounded-full flex items-center justify-center font-bold text-sky-800 dark:text-sky-300 text-base shrink-0 select-none">
+          <div className="relative rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-4 py-3 flex items-center gap-3 focus-within:ring-2 focus-within:ring-amber-500/60 focus-within:border-amber-500 transition">
+            <span className="w-5 h-5 rounded-full flex items-center justify-center font-bold text-zinc-400 text-base shrink-0 select-none">
               @
             </span>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="e-mail address"
+              placeholder="Email address"
               autoComplete="email"
               required
-              className="w-full bg-transparent outline-none text-slate-800 dark:text-white placeholder:text-sky-900/60 dark:placeholder:text-sky-200/60 text-base font-normal"
+              className="w-full bg-transparent outline-none text-slate-800 dark:text-white placeholder:text-zinc-400 text-sm font-normal"
             />
           </div>
         )}
@@ -447,22 +457,22 @@ export default function SimpleAuthCard({
         {/* Password field is hidden only while requesting a reset link. */}
         {mode !== 'forgot' && (
           <div>
-            <div className="relative rounded-full border border-white/70 dark:border-white/20 bg-white/45 dark:bg-white/10 backdrop-blur-md px-5 py-3.5 sm:py-4 flex items-center gap-3.5 focus-within:ring-2 focus-within:ring-sky-400/50 focus-within:border-white transition shadow-sm">
-              <Key className="w-5 h-5 text-sky-800 dark:text-sky-300 shrink-0 stroke-[2] -rotate-45" />
+            <div className="relative rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-4 py-3 flex items-center gap-3 focus-within:ring-2 focus-within:ring-amber-500/60 focus-within:border-amber-500 transition">
+              <Key className="w-5 h-5 text-zinc-400 shrink-0 stroke-[2] -rotate-45" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={mode === 'reset' ? 'new password' : 'password'}
+                placeholder={mode === 'reset' ? 'New password' : 'Password'}
                 autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                 required
                 minLength={mode === 'reset' || mode === 'signup' ? 8 : undefined}
-                className="w-full bg-transparent outline-none text-slate-800 dark:text-white placeholder:text-sky-900/60 dark:placeholder:text-sky-200/60 text-base font-normal"
+                className="w-full bg-transparent outline-none text-slate-800 dark:text-white placeholder:text-zinc-400 text-sm font-normal"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="text-sky-800/70 dark:text-sky-300/70 hover:text-sky-950 dark:hover:text-white transition p-1 cursor-pointer"
+                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition p-1 cursor-pointer"
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -478,7 +488,7 @@ export default function SimpleAuthCard({
                 autoComplete="new-password"
                 minLength={8}
                 required
-                className="mt-3 w-full rounded-full border border-white/70 bg-white/45 px-5 py-3.5 text-base text-slate-800 outline-none transition focus:border-white focus:ring-2 focus:ring-sky-400/50 dark:border-white/20 dark:bg-white/10 dark:text-white"
+                className="mt-3 w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
               />
             )}
 
@@ -492,7 +502,7 @@ export default function SimpleAuthCard({
                     setErrorMessage(null);
                     setSuccessMessage(null);
                   }}
-                  className="text-sm font-normal text-sky-800/80 dark:text-sky-300 hover:text-sky-950 dark:hover:text-white transition cursor-pointer"
+                  className="text-sm font-normal text-amber-700 dark:text-amber-400 hover:underline transition cursor-pointer"
                 >
                   Forgot password?
                 </button>
@@ -505,7 +515,7 @@ export default function SimpleAuthCard({
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full py-4 rounded-full bg-gradient-to-b from-[#26262a] via-[#1a1a1d] to-[#101012] hover:from-[#333338] hover:to-[#1b1b1e] text-white font-medium text-base sm:text-lg shadow-[0_12px_28px_rgba(0,0,0,0.38)] active:scale-[0.98] transition flex items-center justify-center gap-2 cursor-pointer mt-4"
+          className="w-full py-3.5 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 text-black font-bold text-base shadow-lg shadow-amber-500/20 active:scale-[0.98] transition flex items-center justify-center gap-2 cursor-pointer mt-4 disabled:opacity-60"
         >
           {isLoading ? (
             <Loader2 className="w-5 h-5 animate-spin" />
@@ -526,9 +536,9 @@ export default function SimpleAuthCard({
           {/* Divider */}
           <div className="relative flex items-center justify-center my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-sky-900/15 dark:border-white/15" />
+              <div className="w-full border-t border-zinc-200 dark:border-zinc-800" />
             </div>
-            <span className="relative px-3 text-xs sm:text-sm text-sky-900/70 dark:text-sky-200/70 font-normal select-none">
+            <span className="relative px-3 text-xs text-zinc-500 font-normal select-none">
               or continue with
             </span>
           </div>
@@ -539,7 +549,7 @@ export default function SimpleAuthCard({
               type="button"
               onClick={() => handleSocialLogin('Google')}
               disabled={isLoading}
-              className="w-full py-3.5 px-6 rounded-full border border-white/60 dark:border-white/20 bg-white/30 dark:bg-white/10 hover:bg-white/50 dark:hover:bg-white/20 backdrop-blur-md text-slate-800 dark:text-slate-100 font-medium text-sm sm:text-base flex items-center justify-center gap-3 transition shadow-sm active:scale-[0.98] cursor-pointer"
+              className="w-full py-3 px-6 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 font-medium text-sm flex items-center justify-center gap-3 transition shadow-sm active:scale-[0.98] cursor-pointer"
             >
               <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                 <path
@@ -567,7 +577,7 @@ export default function SimpleAuthCard({
               type="button"
               onClick={() => handleSocialLogin('Apple')}
               disabled={isLoading}
-              className="w-full py-3.5 px-6 rounded-full border border-white/60 dark:border-white/20 bg-white/30 dark:bg-white/10 hover:bg-white/50 dark:hover:bg-white/20 backdrop-blur-md text-slate-800 dark:text-slate-100 font-medium text-sm sm:text-base flex items-center justify-center gap-3 transition shadow-sm active:scale-[0.98] cursor-pointer"
+              className="w-full py-3 px-6 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 font-medium text-sm flex items-center justify-center gap-3 transition shadow-sm active:scale-[0.98] cursor-pointer"
             >
               <svg className="w-5 h-5 shrink-0 fill-current" viewBox="0 0 24 24">
                 <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.62-.75 1.04-1.8 0.92-2.85-.9.04-2 .6-2.65 1.35-.58.67-1.09 1.74-.95 2.77 1 .08 2.06-.52 2.68-1.27z" />

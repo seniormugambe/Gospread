@@ -1,11 +1,11 @@
 import React, { useRef, useState } from 'react';
-import { ArrowLeft, Sparkles, Church } from 'lucide-react';
-import { motion } from 'motion/react';
+import { createPortal } from 'react-dom';
+import { ArrowLeft, Church, Mic2, Tv } from 'lucide-react';
 import SimpleAuthCard from './SimpleAuthCard';
 import { UserSession } from './AuthModal';
 import GospreadLogo from './GospreadLogo';
 import OnboardingFlow from './OnboardingFlow';
-import { djangoApi } from '../services/djangoApi';
+import { djangoApi, OnboardingTrack } from '../services/djangoApi';
 
 export interface AuthPageProps {
   initialMode?: 'signin' | 'signup';
@@ -27,6 +27,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   onAwardXp
 }) => {
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [signupTrack, setSignupTrack] = useState<OnboardingTrack | undefined>();
   // The auth card navigates home itself after login; hold that back until the onboarding check finishes.
   const holdNavigation = useRef(false);
   const goHome = () => {
@@ -43,6 +44,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     try {
       const me = await djangoApi.getMe();
       if (me.onboarding_completed === false) {
+        setSignupTrack(({ pastor: 'ministry', artiste: 'artiste', creator: 'creator' } as Record<string, OnboardingTrack>)[me.role || '']);
         setNeedsOnboarding(true);
         return;
       }
@@ -52,66 +54,83 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     goHome();
   };
 
-  return (
-    <div
-      className="relative min-h-[calc(100vh-4rem)] w-full flex flex-col items-center justify-center p-4 sm:p-8 bg-cover bg-center overflow-hidden"
-      style={{
-        backgroundImage: `url('/ethereal_water_bg.jpg')`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed'
-      }}
-    >
-      {/* Soft celestial water glow overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-sky-400/20 via-sky-300/15 to-blue-950/40 backdrop-blur-[1px] pointer-events-none" />
+  const benefits = [
+    { icon: Tv, title: 'Sermons, worship and live broadcasts', text: 'One home for Gospel video and audio from ministries worldwide.' },
+    { icon: Mic2, title: 'Built for artistes and creators', text: 'Share your music and teaching and grow a faithful audience.' },
+    { icon: Church, title: 'Ministries that stay connected', text: 'Events, giving and community in one place.' },
+  ];
 
-      {/* Top Navigation Bar */}
-      <div className="relative z-10 w-full max-w-5xl flex items-center justify-between mb-6 sm:mb-8">
-        <button
-          type="button"
-          onClick={onNavigateHome}
-          className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/40 dark:bg-slate-900/50 hover:bg-white/60 dark:hover:bg-slate-900/70 backdrop-blur-md border border-white/60 dark:border-white/20 text-slate-800 dark:text-white font-medium text-xs sm:text-sm shadow-md transition active:scale-95 cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Return to Sanctuary</span>
-        </button>
-
-        <div className="flex items-center gap-3">
-          <div className="px-3.5 py-1.5 rounded-full bg-white/40 dark:bg-slate-900/50 backdrop-blur-md border border-white/60 dark:border-white/20 shadow-md">
-            <GospreadLogo size="xs" />
-          </div>
+  // Rendered in a portal: the app's global light theme recolors every h1-h6/p/span inside <main> and <aside>.
+  return createPortal(
+    <div className="auth-surface fixed inset-0 z-[60] overflow-y-auto bg-zinc-50 dark:bg-zinc-950">
+    <div className="grid min-h-full w-full dark:bg-zinc-950 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      {/* Brand panel */}
+      <div className="relative hidden overflow-hidden bg-gradient-to-br from-zinc-950 via-[#14122b] to-[#2a1a05] p-10 text-white lg:flex lg:flex-col lg:justify-between xl:p-14">
+        <div className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-amber-500/25 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-indigo-500/20 blur-3xl" />
+        <div className="relative"><GospreadLogo size="sm" /></div>
+        <div className="relative max-w-md">
+          <h2 className="text-4xl font-bold leading-tight tracking-tight xl:text-5xl">
+            Your Gospel <span className="text-amber-400">home</span>, wherever you are.
+          </h2>
+          <ul className="mt-10 space-y-6">
+            {benefits.map(({ icon: Icon, title, text }) => (
+              <li key={title} className="flex gap-4">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-amber-400 ring-1 ring-white/15">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <span>
+                  <span className="block font-semibold">{title}</span>
+                  <span className="block text-sm text-white/60">{text}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
-
-      {/* Centered Simple Auth Card */}
-      <div className="relative z-10 w-full flex justify-center items-center">
-        {needsOnboarding ? (
-          <OnboardingFlow
-            onSkip={goHome}
-            onComplete={(user) => {
-              if (user?.role) onLoginSuccess({ ...currentUser, role: user.role });
-              goHome();
-            }}
-          />
-        ) : (
-          <SimpleAuthCard
-            initialMode={initialMode === 'signup' ? 'signup' : 'signin'}
-            currentUser={currentUser}
-            onLoginSuccess={handleSuccess}
-            onLogout={onLogout}
-            onNavigateHome={() => { if (!holdNavigation.current) onNavigateHome?.(); }}
-            isModal={false}
-          />
-        )}
-      </div>
-
-      {/* Footer Scripture or Fellowship note */}
-      <div className="relative z-10 mt-8 text-center max-w-md">
-        <p className="text-xs sm:text-sm text-sky-950/80 dark:text-sky-100/90 font-medium tracking-wide drop-shadow-sm">
+        <p className="relative max-w-md text-sm italic text-white/60">
           “For where two or three gather in my name, there am I with them.” — Matthew 18:20
         </p>
       </div>
+
+      {/* Form panel */}
+      <div className="flex flex-col px-5 py-6 sm:px-10">
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={onNavigateHome}
+            className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-200/60 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Return to Sanctuary
+          </button>
+          <div className="lg:hidden"><GospreadLogo size="xs" /></div>
+        </div>
+
+        <div className="flex flex-1 items-center justify-center py-8">
+          {needsOnboarding ? (
+            <OnboardingFlow
+              initialTrack={signupTrack}
+              onSkip={goHome}
+              onComplete={(user) => {
+                if (user?.role) onLoginSuccess({ ...currentUser, role: user.role });
+                goHome();
+              }}
+            />
+          ) : (
+            <SimpleAuthCard
+              initialMode={initialMode === 'signup' ? 'signup' : 'signin'}
+              currentUser={currentUser}
+              onLoginSuccess={handleSuccess}
+              onLogout={onLogout}
+              onNavigateHome={() => { if (!holdNavigation.current) onNavigateHome?.(); }}
+              isModal={false}
+            />
+          )}
+        </div>
+      </div>
     </div>
+    </div>,
+    document.body
   );
 };
 

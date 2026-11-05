@@ -230,6 +230,19 @@
   box-shadow: inset 0 2px 4px rgba(244, 63, 94, 0.05) !important;
 }
 
+/* Auth & onboarding page opts out of the pink light-theme form styling */
+.light-theme .auth-surface input,
+.light-theme .auth-surface textarea,
+.light-theme .auth-surface select {
+  border-color: #d4d4d8 !important;
+  box-shadow: none !important;
+}
+.light-theme .auth-surface input:focus,
+.light-theme .auth-surface textarea:focus,
+.light-theme .auth-surface select:focus {
+  border-color: #f59e0b !important;
+}
+
 /* 9. Scrollbars */
 .light-theme ::-webkit-scrollbar-track {
   background: #fce7f3;
