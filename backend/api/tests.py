@@ -18,7 +18,10 @@ from botocore.exceptions import ClientError
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import AudioSpace, AudioSpaceParticipant, Church, ChurchEvent, Donation, GivingFund, LiveStream, PaymentGatewayCheckout, Scripture, Sermon, SermonShort, User
+from .models import (
+    AudioSpace, AudioSpaceParticipant, Church, ChurchEvent, Donation, GivingFund, LiveStream,
+    DiscoveryImpression, PaymentGatewayCheckout, PlaybackEvent, PlaybackSession, Scripture, Sermon, SermonShort, User,
+)
 
 
 class AuthenticationTests(APITestCase):
@@ -704,6 +707,239 @@ class SermonSchedulingTests(APITestCase):
         detail = self.client.get(f"/api/v1/sermons/{response.data['id']}/")
         self.assertEqual(feed.data["count"], 0)
         self.assertEqual(detail.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class DiscoveryAlgorithmTests(APITestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(username="discovery-owner", email="discovery@example.com", password="StrongPass123!")
+        self.viewer = User.objects.create_user(username="discovery-viewer", email="viewer@example.com", password="StrongPass123!")
+        self.church = Church.objects.create(name="Discovery Church", slug="discovery-church", owner=self.owner)
+        self.client.force_authenticate(user=self.viewer)
+
+    def create_sermon(self, title, *, category="Sermon", published_at=None, visibility="public"):
+        return Sermon.objects.create(
+            church=self.church,
+            speaker="Pastor Grace",
+            title=title,
+            category=category,
+            thumbnail_url="https://example.com/thumb.jpg",
+            duration_seconds=120,
+            visibility=visibility,
+            is_published=True,
+            published_at=published_at or timezone.now(),
+        )
+
+    @override_settings(DISCOVERY_ALGORITHM_ENABLED=False)
+    def test_discovery_endpoint_preserves_chronological_behavior_when_flag_is_disabled(self):
+        older = self.create_sermon("Older sermon", published_at=timezone.now() - timedelta(days=2))
+        newer = self.create_sermon("Newer sermon")
+        prayer_altar = self.create_sermon("Prayer Altar", category="Prayer Altar")
+
+        response = self.client.get("/api/v1/sermons/discover/?surface=home")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item["id"] for item in response.data["results"]],
+            [prayer_altar.id, newer.id, older.id],
+        )
+        self.assertEqual(DiscoveryImpression.objects.count(), 0)
+
+    @override_settings(DISCOVERY_ALGORITHM_ENABLED=True, DISCOVERY_EVENTS_ENABLED=True)
+    def test_discovery_config_exposes_only_public_pilot_flags(self):
+        response = self.client.get("/api/v1/discovery/config/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["config_version"], "2.2-pilot-1")
+        self.assertTrue(response.data["algorithm_enabled"])
+        self.assertTrue(response.data["events_enabled"])
+
+    @override_settings(DISCOVERY_ALGORITHM_ENABLED=True, DISCOVERY_EVENTS_ENABLED=True)
+    def test_ranked_feed_records_served_impressions_for_private_aggregate_report(self):
+        sermons = [self.create_sermon(f"Pilot sermon {index}") for index in range(10)]
+
+        feed = self.client.get("/api/v1/sermons/discover/?surface=home")
+
+        self.assertEqual(feed.status_code, status.HTTP_200_OK)
+        self.assertEqual(DiscoveryImpression.objects.count(), len(sermons))
+        self.assertTrue(
+            DiscoveryImpression.objects.filter(
+                viewer=self.viewer,
+                config_version="2.2-pilot-1",
+                is_fairness_slot=True,
+                is_fairness_filled=True,
+            ).exists()
+        )
+
+        self.client.force_authenticate(user=self.owner)
+        self.assertEqual(
+            self.client.get("/api/v1/discovery/fairness-report/").status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+        admin = User.objects.create_user(
+            username="discovery-admin",
+            email="admin@example.com",
+            password="StrongPass123!",
+            is_staff=True,
+        )
+        self.client.force_authenticate(user=admin)
+        report = self.client.get("/api/v1/discovery/fairness-report/")
+
+        self.assertEqual(report.status_code, status.HTTP_200_OK)
+        self.assertEqual(report.data["current"]["eligible_algorithmic_impressions"], len(sermons))
+        self.assertEqual(report.data["current"]["fairness_slots"], 1)
+        self.assertEqual(report.data["current"]["filled_fairness_slots"], 1)
+        self.assertEqual(report.data["current"]["fairness_slot_fill_rate"], 1)
+        self.assertEqual(report.data["current"]["repeat_exposure_rate"], 0.9)
+        self.assertTrue(any("Repeat exposure" in alert for alert in report.data["alerts"]))
+        self.assertNotIn("viewer_id", str(report.data))
+
+    @override_settings(DISCOVERY_ALGORITHM_ENABLED=True, DISCOVERY_EVENTS_ENABLED=True)
+    @patch("api.discovery.GROWING_MAX_FOLLOWERS", -1)
+    def test_report_counts_unfilled_reserved_slots(self):
+        for index in range(10):
+            self.create_sermon(f"Large account sermon {index}")
+
+        feed = self.client.get("/api/v1/sermons/discover/?surface=home")
+
+        self.assertEqual(feed.status_code, status.HTTP_200_OK)
+        reserved_slot = DiscoveryImpression.objects.get(is_fairness_slot=True)
+        self.assertFalse(reserved_slot.is_fairness_filled)
+
+    @override_settings(DISCOVERY_ALGORITHM_ENABLED=True, DISCOVERY_EVENTS_ENABLED=True)
+    def test_discovery_ranks_eligible_new_content_and_excludes_prayer_altar(self):
+        old_sermon = self.create_sermon("Older sermon", published_at=timezone.now() - timedelta(days=45))
+        new_sermon = self.create_sermon("New sermon")
+        self.create_sermon("Prayer Altar", category="Prayer Altar")
+        self.create_sermon("Private sermon", visibility="private")
+
+        response = self.client.get("/api/v1/sermons/discover/?surface=home")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [item["id"] for item in response.data["results"]]
+        self.assertEqual(ids, [new_sermon.id, old_sermon.id])
+
+    @override_settings(DISCOVERY_ALGORITHM_ENABLED=True, DISCOVERY_EVENTS_ENABLED=False)
+    def test_ranked_discovery_requires_event_collection(self):
+        response = self.client.get("/api/v1/sermons/discover/?surface=home")
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertIn("event ingestion", response.data["detail"])
+
+    @override_settings(DISCOVERY_ALGORITHM_ENABLED=True)
+    def test_following_surface_is_chronological_and_limited_to_followed_churches(self):
+        followed = self.create_sermon("Followed sermon", published_at=timezone.now() - timedelta(days=2))
+        self.church.followers.add(self.viewer)
+        other_owner = User.objects.create_user(username="other-owner", email="other@example.com", password="StrongPass123!")
+        other_church = Church.objects.create(name="Other Church", slug="other-church", owner=other_owner)
+        other = Sermon.objects.create(
+            church=other_church,
+            speaker="Another pastor",
+            title="Not followed",
+            is_published=True,
+            published_at=timezone.now(),
+        )
+
+        response = self.client.get("/api/v1/sermons/discover/?surface=following")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([item["id"] for item in response.data["results"]], [followed.id])
+        self.assertNotIn(other.id, [item["id"] for item in response.data["results"]])
+
+    @override_settings(DISCOVERY_EVENTS_ENABLED=True)
+    def test_playback_heartbeat_is_authenticated_idempotent_and_conservative(self):
+        sermon = self.create_sermon("Heartbeat sermon")
+        session_id = uuid4()
+        first_event_id = uuid4()
+        first = self.client.post(
+            f"/api/v1/sermons/{sermon.id}/heartbeat/",
+            {"session_id": str(session_id), "event_id": str(first_event_id), "position_seconds": 10},
+            format="json",
+        )
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(first.data["qualified_watch_seconds"], 0)
+
+        playback_session = PlaybackSession.objects.get(user=self.viewer, sermon=sermon, session_id=session_id)
+        PlaybackSession.objects.filter(pk=playback_session.pk).update(
+            last_heartbeat_at=timezone.now() - timedelta(seconds=15),
+            last_position_seconds=10,
+        )
+        second_event_id = uuid4()
+        second = self.client.post(
+            f"/api/v1/sermons/{sermon.id}/heartbeat/",
+            {"session_id": str(session_id), "event_id": str(second_event_id), "position_seconds": 25},
+            format="json",
+        )
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.assertEqual(second.data["qualified_watch_seconds"], 15)
+        self.assertFalse(second.data["qualified_view"])
+
+        duplicate = self.client.post(
+            f"/api/v1/sermons/{sermon.id}/heartbeat/",
+            {"session_id": str(session_id), "event_id": str(second_event_id), "position_seconds": 25},
+            format="json",
+        )
+        self.assertEqual(duplicate.status_code, status.HTTP_200_OK)
+        self.assertTrue(duplicate.data["duplicate"])
+        self.assertEqual(PlaybackEvent.objects.filter(session=playback_session).count(), 2)
+
+        playback_session.refresh_from_db()
+        PlaybackSession.objects.filter(pk=playback_session.pk).update(
+            last_heartbeat_at=timezone.now() - timedelta(seconds=15),
+            last_position_seconds=25,
+        )
+        third = self.client.post(
+            f"/api/v1/sermons/{sermon.id}/heartbeat/",
+            {"session_id": str(session_id), "event_id": str(uuid4()), "position_seconds": 40},
+            format="json",
+        )
+        self.assertEqual(third.status_code, status.HTTP_200_OK)
+        self.assertEqual(third.data["qualified_watch_seconds"], 30)
+        self.assertTrue(third.data["qualified_view"])
+
+    @override_settings(DISCOVERY_EVENTS_ENABLED=True)
+    def test_playback_heartbeat_rejects_unavailable_content_and_impossible_positions(self):
+        private_sermon = self.create_sermon("Private sermon", visibility="private")
+        private_response = self.client.post(
+            f"/api/v1/sermons/{private_sermon.id}/heartbeat/",
+            {"session_id": str(uuid4()), "event_id": str(uuid4()), "position_seconds": 10},
+            format="json",
+        )
+        self.assertEqual(private_response.status_code, status.HTTP_404_NOT_FOUND)
+
+        sermon = self.create_sermon("Position check")
+        invalid_position = self.client.post(
+            f"/api/v1/sermons/{sermon.id}/heartbeat/",
+            {"session_id": str(uuid4()), "event_id": str(uuid4()), "position_seconds": 121},
+            format="json",
+        )
+        self.assertEqual(invalid_position.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(PlaybackEvent.objects.count(), 0)
+
+    @override_settings(DISCOVERY_EVENTS_ENABLED=False)
+    def test_playback_heartbeat_is_disabled_by_default(self):
+        sermon = self.create_sermon("Events disabled")
+
+        response = self.client.post(
+            f"/api/v1/sermons/{sermon.id}/heartbeat/",
+            {"session_id": str(uuid4()), "event_id": str(uuid4()), "position_seconds": 10},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertEqual(PlaybackEvent.objects.count(), 0)
+
+    def test_playback_heartbeat_requires_authentication(self):
+        sermon = self.create_sermon("Auth required")
+        self.client.force_authenticate(user=None)
+
+        response = self.client.post(
+            f"/api/v1/sermons/{sermon.id}/heartbeat/",
+            {"session_id": str(uuid4()), "event_id": str(uuid4()), "position_seconds": 10},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
 class LiveStreamTests(APITestCase):

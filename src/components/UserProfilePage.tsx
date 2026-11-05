@@ -42,6 +42,7 @@ import { GivingTarget } from './GivingModal';
 import { UserSession } from './AuthModal';
 import { profilePath } from '../lib/routes';
 import { shareWithInvite } from '../lib/invites';
+import OnboardingProfileCard from './OnboardingProfileCard';
 
 interface UserProfilePageProps {
   streakDays: number;
@@ -642,6 +643,8 @@ export default function UserProfilePage({
           <span>Profile changes successfully updated!</span>
         </div>
       )}
+
+      {currentUser?.isLoggedIn && <OnboardingProfileCard />}
 
       {/* 🟢 2. AUTHENTIC ACCOUNT ACTIVITY METRICS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">

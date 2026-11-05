@@ -306,6 +306,8 @@ export default function App() {
     setActiveVideo(null);
   };
   const [videoStreams, setVideoStreams] = useState<VideoStream[]>([]);
+  const playbackSessionsRef = useRef(new Map<string, string>());
+  const discoveryEventsEnabledRef = useRef(false);
   const [shorts, setShorts] = useState<VideoStream[]>([]);
   const [churches, setChurches] = useState<Awaited<ReturnType<typeof djangoApi.getChurchLocations>>>([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -438,13 +440,36 @@ export default function App() {
 
   const handlePlaybackStarted = (video: VideoStream) => {
     addToWatchHistory(video);
+    if (!video.isLive && !video.isShort && /^\d+$/.test(video.id)) {
+      playbackSessionsRef.current.set(video.id, crypto.randomUUID());
+      if (playbackSessionsRef.current.size > 20) {
+        const oldestVideoId = playbackSessionsRef.current.keys().next().value;
+        if (oldestVideoId) playbackSessionsRef.current.delete(oldestVideoId);
+      }
+    }
   };
 
   const handlePlaybackProgress = (video: VideoStream, positionSeconds: number, completed: boolean) => {
     if (!video?.id) return;
-    void djangoApi.updateWatchProgress(video.id, Math.max(0, Math.floor(positionSeconds)), completed).catch((error) => {
-      console.warn('Watch progress update notice:', error);
-    });
+    const isEligibleSermon = !video.isLive && !video.isShort && /^\d+$/.test(video.id);
+    if (userSession?.isLoggedIn && isEligibleSermon) {
+      void djangoApi.updateWatchProgress(video.id, Math.max(0, Math.floor(positionSeconds)), completed).catch((error) => {
+        console.warn('Watch progress update notice:', error);
+      });
+      if (discoveryEventsEnabledRef.current) {
+        const sessionId = playbackSessionsRef.current.get(video.id) || crypto.randomUUID();
+        playbackSessionsRef.current.set(video.id, sessionId);
+        void djangoApi.queuePlaybackHeartbeat(
+          userSession.id,
+          Number(video.id),
+          sessionId,
+          crypto.randomUUID(),
+          Math.max(0, Math.floor(positionSeconds)),
+        ).catch((error) => {
+          console.warn('Playback heartbeat notice:', error);
+        });
+      }
+    }
   };
 
   const removeFromWatchHistory = (videoId: string) => {
@@ -660,6 +685,34 @@ export default function App() {
       token: ''
     };
   });
+  useEffect(() => {
+    let isMounted = true;
+    void djangoApi.getDiscoveryConfig().then((config) => {
+      if (!isMounted) return;
+      discoveryEventsEnabledRef.current = config.events_enabled;
+      if (config.events_enabled && userSession.isLoggedIn && userSession.id) {
+        void djangoApi.flushPlaybackEvents(userSession.id).catch((error) => {
+          console.warn('Queued playback event notice:', error);
+        });
+      }
+    }).catch((error) => {
+      console.warn('Discovery configuration notice:', error);
+    });
+    return () => { isMounted = false; };
+  }, [userSession.id, userSession.isLoggedIn]);
+
+  useEffect(() => {
+    if (!userSession.isLoggedIn || !userSession.id) return;
+    const flushWhenOnline = () => {
+      if (!discoveryEventsEnabledRef.current) return;
+      void djangoApi.flushPlaybackEvents(userSession.id).catch((error) => {
+        console.warn('Queued playback event notice:', error);
+      });
+    };
+    window.addEventListener('online', flushWhenOnline);
+    return () => window.removeEventListener('online', flushWhenOnline);
+  }, [userSession.id, userSession.isLoggedIn]);
+
   const HeaderProfileIcon = {
     church: Church,
     heart: Heart,

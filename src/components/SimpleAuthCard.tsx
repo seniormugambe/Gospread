@@ -26,6 +26,11 @@ export interface SimpleAuthCardProps {
   onClose?: () => void;
   onNavigateHome?: () => void;
   isModal?: boolean;
+  // Account type already chosen during onboarding; hides the role picker.
+  presetRole?: 'church' | 'artiste' | 'creator';
+  presetChurchName?: string;
+  // When set, the "Sign up" toggle calls this instead of switching to the in-card sign-up form.
+  onRequestSignup?: () => void;
 }
 
 export default function SimpleAuthCard({
@@ -35,7 +40,10 @@ export default function SimpleAuthCard({
   onLogout,
   onClose,
   onNavigateHome,
-  isModal = false
+  isModal = false,
+  presetRole,
+  presetChurchName,
+  onRequestSignup
 }: SimpleAuthCardProps) {
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot' | 'reset'>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -48,8 +56,8 @@ export default function SimpleAuthCard({
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [creatorType, setCreatorType] = useState<'church' | 'artiste' | 'creator'>('creator');
-  const [churchName, setChurchName] = useState('');
+  const [creatorType, setCreatorType] = useState<'church' | 'artiste' | 'creator'>(presetRole ?? 'creator');
+  const [churchName, setChurchName] = useState(presetChurchName ?? '');
 
   // Status feedback
   const [isLoading, setIsLoading] = useState(false);
@@ -365,6 +373,7 @@ export default function SimpleAuthCard({
           <button
             type="button"
             onClick={() => {
+              if (mode === 'signin' && onRequestSignup) { onRequestSignup(); return; }
               setMode(mode === 'signin' ? 'signup' : 'signin');
               setErrorMessage(null);
               setSuccessMessage(null);
@@ -414,7 +423,7 @@ export default function SimpleAuthCard({
           </div>
         )}
 
-        {mode === 'signup' && (
+        {mode === 'signup' && !presetRole && (
           <div className="space-y-2">
             <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">I am joining as</p>
             <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Account type">

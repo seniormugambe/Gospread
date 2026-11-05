@@ -35,6 +35,10 @@ Public read endpoints include the health check, random scripture, published mini
 
 - `/api/churches/`
 - `/api/sermons/`
+- `/api/sermons/discover/?surface=home|explore|sermons|following`
+- `/api/discovery/config/` — public pilot feature-flag state
+- `/api/discovery/fairness-report/` — staff-only aggregate weekly fairness report
+- `POST /api/sermons/{id}/heartbeat/` — authenticated, deduplicated playback heartbeat
 - `POST /api/sermons/uploads/` — create or resume an authenticated video upload session
 - `PUT /api/sermons/uploads/{upload_id}/chunks/` — append a chunk using the `Upload-Offset` header
 - `POST /api/sermons/uploads/{upload_id}/complete/` — validate and publish/save the uploaded sermon
@@ -47,6 +51,10 @@ Public read endpoints include the health check, random scripture, published mini
 The initial migration includes a small public-domain KJV scripture library. Staff can add, edit, or deactivate scriptures through Django Admin.
 
 Search list endpoints with `?search=faith` and paginate with `?page=2`.
+
+Discovery v2.2 is integrated as a staged pilot for published sermons. `DISCOVERY_ALGORITHM_ENABLED` and `DISCOVERY_EVENTS_ENABLED` both default to `false`; while ranking is disabled, the discovery endpoint preserves the existing newest-first sermon order, and while event ingestion is disabled, no playback events are stored. Ranked Discovery returns `503` unless event ingestion is enabled as well. Enable both settings only in a private pilot environment after reviewing the proposal and its safety requirements. Following stays chronological, Prayer Altar content is excluded from ranking and playback metrics, and no Standing score or public percentile is produced. The staff-only fairness report aggregates the most recent seven days and the preceding week; it returns no viewer or church identifiers. Cold-start and non-cold-start view rates are item-level diagnostics, not impression-attributed or matched causal comparisons. Shorts/live-specific calibration and Standing remain unimplemented pending their required trusted signals and pilot review.
+
+When event ingestion is enabled, authenticated sermon playback clients submit a heartbeat every 15 seconds. Events are stored in a per-user browser queue while offline and retried when connectivity returns. The API deduplicates client event UUIDs and only accrues qualified watch time when server receipt intervals and forward playback positions are plausible. The first heartbeat establishes a baseline and earns no watch time; gaps over 60 seconds and implausible jumps are not counted. Backfilled offline events are retained for audit but do not earn watch time unless they meet the same server-side interval rules. The pilot ranker uses neutral Quality and Trust values until their authoritative signals exist. The initial pilot therefore must not be treated as calibrated ranking or as approval to publish Standing.
 
 Video upload sessions accept files up to 10 GB in 8 MiB chunks and expire after 24 hours. The Creator Studio stores the session ID in the current browser session so a retry with the same file resumes from the last server-confirmed byte offset. Configure the deployment's request-body limit to allow an 8 MiB chunk.
 Partial chunks are stored under `MEDIA_ROOT/resumable_uploads`; use persistent shared storage before running multiple API instances or expecting in-flight uploads to survive an instance replacement.

@@ -533,3 +533,55 @@ class WatchProgress(models.Model):
     class Meta:
         ordering = ["-updated_at"]
         constraints = [models.UniqueConstraint(fields=["user", "sermon"], name="unique_watch_progress")]
+
+
+class PlaybackSession(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="playback_sessions")
+    sermon = models.ForeignKey(Sermon, on_delete=models.CASCADE, related_name="playback_sessions")
+    session_id = models.UUIDField()
+    last_position_seconds = models.PositiveIntegerField(default=0)
+    qualified_watch_seconds = models.PositiveIntegerField(default=0)
+    is_qualified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_heartbeat_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("user", "sermon", "session_id"),
+                name="unique_playback_session_per_user_sermon",
+            ),
+        ]
+
+
+class PlaybackEvent(models.Model):
+    session = models.ForeignKey(PlaybackSession, on_delete=models.CASCADE, related_name="events")
+    event_id = models.UUIDField(unique=True)
+    position_seconds = models.PositiveIntegerField()
+    accepted_watch_seconds = models.PositiveSmallIntegerField(default=0)
+    received_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+
+class DiscoveryImpression(models.Model):
+    sermon = models.ForeignKey(Sermon, on_delete=models.CASCADE, related_name="discovery_impressions")
+    church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="discovery_impressions")
+    viewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="discovery_impressions",
+    )
+    surface = models.CharField(max_length=16)
+    config_version = models.CharField(max_length=32)
+    follower_count = models.PositiveIntegerField(default=0)
+    is_fairness_slot = models.BooleanField(default=False)
+    is_fairness_filled = models.BooleanField(default=False)
+    cold_start_prior_applied = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=("created_at", "surface"), name="disc_impr_week_surface_idx"),
+            models.Index(fields=("viewer", "church", "created_at"), name="disc_impr_repeat_idx"),
+        ]

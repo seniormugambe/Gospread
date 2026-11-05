@@ -673,6 +673,18 @@ class WatchProgressSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "updated_at")
 
 
+class PlaybackHeartbeatSerializer(serializers.Serializer):
+    event_id = serializers.UUIDField()
+    session_id = serializers.UUIDField()
+    position_seconds = serializers.IntegerField(min_value=0, max_value=86400)
+
+    def validate_position_seconds(self, value):
+        duration = self.context["sermon"].duration_seconds
+        if duration and value > duration:
+            raise serializers.ValidationError("Position cannot exceed the media duration.")
+        return value
+
+
 class GivingFundSerializer(serializers.ModelSerializer):
     church_name = serializers.CharField(source="church.name", read_only=True)
     raised_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)

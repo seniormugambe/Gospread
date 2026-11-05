@@ -5,7 +5,7 @@ from .views import (
     AudioSpaceEndView, AudioSpaceListView, AudioSpaceParticipantsView, AudioSpaceTokenView, GospreadTokenRefreshView, GospreadTokenView, HealthCheckView, LiveStreamViewSet, LogoutView, MeView,
     PasswordResetConfirmView, PayoutAccountViewSet, PasswordResetRequestView,
     PrayerRequestViewSet, RandomScriptureView, SavedSermonViewSet, SermonShortViewSet,
-    SermonUploadChunkView, SermonUploadCompleteView, SermonUploadSessionView, SermonViewSet,
+    DiscoveryConfigView, DiscoveryFairnessReportView, SermonHeartbeatView, SermonUploadChunkView, SermonUploadCompleteView, SermonUploadSessionView, SermonViewSet,
     OnboardingQuestionsView, OnboardingView, SignupView, StreakCheckinView, WatchProgressViewSet, WorshipSongViewSet,
 )
 
@@ -26,6 +26,8 @@ router.register("progress", WatchProgressViewSet, basename="progress")
 
 urlpatterns = [
     path("health/", HealthCheckView.as_view(), name="health"),
+    path("discovery/config/", DiscoveryConfigView.as_view(), name="discovery-config"),
+    path("discovery/fairness-report/", DiscoveryFairnessReportView.as_view(), name="discovery-fairness-report"),
     path("audio-spaces/token/", AudioSpaceTokenView.as_view(), name="audio-space-token"),
     path("audio-spaces/", AudioSpaceListView.as_view(), name="audio-space-list"),
     path("audio-spaces/end/", AudioSpaceEndView.as_view(), name="audio-space-end"),
@@ -52,5 +54,6 @@ urlpatterns = [
     path("sermons/uploads/", SermonUploadSessionView.as_view(), name="sermon-upload-session"),
     path("sermons/uploads/<uuid:upload_id>/chunks/", SermonUploadChunkView.as_view(), name="sermon-upload-chunk"),
     path("sermons/uploads/<uuid:upload_id>/complete/", SermonUploadCompleteView.as_view(), name="sermon-upload-complete"),
+    path("sermons/<int:sermon_id>/heartbeat/", SermonHeartbeatView.as_view(), name="sermon-heartbeat"),
     path("", include(router.urls)),
 ]

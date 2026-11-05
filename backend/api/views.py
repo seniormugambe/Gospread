@@ -1,6 +1,7 @@
 import base64
 import binascii
 import logging
+import math
 from pathlib import Path
 import re
 from datetime import timedelta
@@ -13,9 +14,10 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files import File
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, DecimalField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateformat import format as date_format
 from rest_framework import generics, permissions, serializers, status, viewsets
@@ -26,11 +28,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from livekit import api as livekit_api
 from .models import (
-    AudioSpace, AudioSpaceParticipant, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund,
+    AudioSpace, AudioSpaceParticipant, Church, ChurchEvent, CommunityComment, CommunityPost, DiscoveryImpression, Donation, GivingFund,
     LiveStream, LiveStreamChatMessage, LiveStreamViewer, PaymentGatewayCheckout, PayoutAccount, PrayerComment,
-    OnboardingProfile, PrayerRequest, Scripture, SavedSermon, Sermon, SermonShort, SermonUploadSession,
+    OnboardingProfile, PlaybackEvent, PlaybackSession, PrayerRequest, Scripture, SavedSermon, Sermon, SermonShort, SermonUploadSession,
     WatchProgress, WorshipSong,
 )
+from . import discovery
 from . import onboarding
 from .permissions import IsPastorOwnerOrReadOnly
 from .serializers import (
@@ -38,7 +41,7 @@ from .serializers import (
     GivingFundSerializer, LiveStreamChatMessageSerializer, LiveStreamSerializer, PaymentGatewayCheckoutSerializer, PayoutAccountSerializer,
     OnboardingSerializer, PrayerCommentSerializer, PrayerRequestSerializer, SavedSermonSerializer, ChangePasswordSerializer,
     GospreadTokenSerializer, PasswordResetConfirmSerializer, PasswordResetRequestSerializer,
-    ScriptureSerializer, SermonSerializer, SermonShortSerializer,
+    PlaybackHeartbeatSerializer, ScriptureSerializer, SermonSerializer, SermonShortSerializer,
     SermonUploadInitSerializer,
     GospreadTokenRefreshSerializer, SignupSerializer, UserSerializer, WatchProgressSerializer, WorshipSongSerializer,
 )
@@ -479,6 +482,143 @@ class HealthCheckView(generics.GenericAPIView):
         )
 
 
+class DiscoveryConfigView(generics.GenericAPIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        return Response(
+            {
+                "config_version": discovery.CONFIG_VERSION,
+                "algorithm_enabled": settings.DISCOVERY_ALGORITHM_ENABLED,
+                "events_enabled": settings.DISCOVERY_EVENTS_ENABLED,
+            }
+        )
+
+
+class DiscoveryFairnessReportView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request):
+        now = timezone.now()
+        current_start = now - timedelta(days=7)
+        previous_start = now - timedelta(days=14)
+        surfaces = ("home", "explore", "sermons")
+
+        def summarize(start, end):
+            impressions = DiscoveryImpression.objects.filter(
+                surface__in=surfaces,
+                created_at__gte=start,
+                created_at__lt=end,
+            )
+            total = impressions.count()
+            small_accounts = impressions.filter(follower_count__lte=discovery.GROWING_MAX_FOLLOWERS).count()
+            fairness_slots = impressions.filter(is_fairness_slot=True).count()
+            filled_slots = impressions.filter(
+                is_fairness_filled=True,
+                follower_count__lte=discovery.GROWING_MAX_FOLLOWERS,
+            ).count()
+
+            account_counts = list(
+                impressions.filter(follower_count__lte=discovery.GROWING_MAX_FOLLOWERS)
+                .values("church_id")
+                .annotate(impression_count=Count("id"))
+                .values_list("impression_count", flat=True)
+            )
+            account_counts.sort(reverse=True)
+            top_account_count = math.ceil(len(account_counts) * 0.10)
+            small_impression_total = sum(account_counts)
+            top_account_impressions = sum(account_counts[:top_account_count])
+
+            attributed_small_impressions = impressions.filter(
+                viewer__isnull=False,
+                follower_count__lte=discovery.GROWING_MAX_FOLLOWERS,
+            )
+            repeated_exposure_groups = attributed_small_impressions.values(
+                "viewer_id", "church_id"
+            ).annotate(exposure_count=Count("id")).filter(exposure_count__gt=1)
+            repeated_exposures = sum(group["exposure_count"] - 1 for group in repeated_exposure_groups)
+            attributed_small_count = attributed_small_impressions.count()
+
+            cold_impressions = impressions.filter(cold_start_prior_applied=True).count()
+            cold_sermon_ids = impressions.filter(cold_start_prior_applied=True).values("sermon_id")
+            cold_qualified = PlaybackSession.objects.filter(
+                sermon_id__in=cold_sermon_ids,
+                is_qualified=True,
+                last_heartbeat_at__gte=start,
+                last_heartbeat_at__lt=end,
+            ).values("sermon_id", "user_id").distinct().count()
+            non_cold_impressions = total - cold_impressions
+            non_cold_sermon_ids = impressions.filter(cold_start_prior_applied=False).values("sermon_id")
+            non_cold_qualified = PlaybackSession.objects.filter(
+                sermon_id__in=non_cold_sermon_ids,
+                is_qualified=True,
+                last_heartbeat_at__gte=start,
+                last_heartbeat_at__lt=end,
+            ).values("sermon_id", "user_id").distinct().count()
+
+            return {
+                "eligible_algorithmic_impressions": total,
+                "seed_and_growing_impressions": small_accounts,
+                "fairness_impression_share": small_accounts / total if total else None,
+                "fairness_slots": fairness_slots,
+                "filled_fairness_slots": filled_slots,
+                "fairness_slot_fill_rate": filled_slots / fairness_slots if fairness_slots else None,
+                "viewer_attributed_seed_and_growing_impressions": attributed_small_count,
+                "repeat_exposure_rate": (
+                    repeated_exposures / attributed_small_count if attributed_small_count else None
+                ),
+                "small_account_count": len(account_counts),
+                "top_10_percent_small_account_impression_share": (
+                    top_account_impressions / small_impression_total if small_impression_total else None
+                ),
+                "cold_start": {
+                    "impressions": cold_impressions,
+                    "qualified_views": cold_qualified,
+                    "qualified_views_per_impression": cold_qualified / cold_impressions if cold_impressions else None,
+                },
+                "non_cold_start": {
+                    "impressions": non_cold_impressions,
+                    "qualified_views": non_cold_qualified,
+                    "qualified_views_per_impression": (
+                        non_cold_qualified / non_cold_impressions if non_cold_impressions else None
+                    ),
+                },
+            }
+
+        current = summarize(current_start, now)
+        previous = summarize(previous_start, current_start)
+        current_concentration = current["top_10_percent_small_account_impression_share"]
+        previous_concentration = previous["top_10_percent_small_account_impression_share"]
+        concentration_change = (
+            (current_concentration - previous_concentration) * 100
+            if current_concentration is not None and previous_concentration is not None
+            else None
+        )
+        current["top_account_concentration_change_percentage_points"] = concentration_change
+
+        alerts = []
+        share = current["fairness_impression_share"]
+        if share is not None and not 0.12 <= share <= 0.18:
+            alerts.append("Fairness impression share is outside the initial 12%-18% range.")
+        fill_rate = current["fairness_slot_fill_rate"]
+        if fill_rate is not None and fill_rate < 0.60:
+            alerts.append("Fairness slot fill rate is below the initial 60% threshold.")
+        repeat_rate = current["repeat_exposure_rate"]
+        if repeat_rate is not None and repeat_rate > 0.10:
+            alerts.append("Repeat exposure rate is above the initial 10% threshold.")
+        return Response(
+            {
+                "window_start": current_start,
+                "window_end": now,
+                "previous_window_start": previous_start,
+                "config_version": discovery.CONFIG_VERSION,
+                "current": current,
+                "previous": previous,
+                "alerts": alerts,
+            }
+        )
+
+
 class AudioSpaceTokenView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]  # Hosts need auth (checked below); listeners can join as guest
 
@@ -750,6 +890,92 @@ class SermonViewSet(viewsets.ModelViewSet):
             public_content |= Q(is_published=True, visibility="unlisted", pk=self.kwargs.get("pk"))
         return queryset.filter(public_content)
 
+    @action(detail=False, methods=["get"], permission_classes=[permissions.AllowAny])
+    def discover(self, request):
+        surface = request.query_params.get("surface", "home")
+        if surface not in {"home", "explore", "sermons", "following"}:
+            raise ValidationError({"surface": "Choose home, explore, sermons, or following."})
+        if surface == "following" and not request.user.is_authenticated:
+            return Response({"detail": "Sign in to view your Following feed."}, status=status.HTTP_401_UNAUTHORIZED)
+        if (
+            surface != "following"
+            and settings.DISCOVERY_ALGORITHM_ENABLED
+            and not settings.DISCOVERY_EVENTS_ENABLED
+        ):
+            return Response(
+                {"detail": "Enable playback event ingestion before ranked Discovery."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        queryset = Sermon.objects.select_related("church").filter(is_published=True, visibility="public")
+        if surface == "following":
+            queryset = queryset.filter(church__followers=request.user).distinct()
+        elif settings.DISCOVERY_ALGORITHM_ENABLED:
+            queryset = queryset.exclude(
+                Q(category__icontains="prayer altar") | Q(title__icontains="prayer altar")
+            )
+
+        category = request.query_params.get("category", "").strip()
+        if category and category.casefold() != "all":
+            queryset = queryset.filter(category__iexact=category)
+        search = request.query_params.get("search", "").strip()
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search)
+                | Q(description__icontains=search)
+                | Q(speaker__icontains=search)
+                | Q(category__icontains=search)
+                | Q(church__name__icontains=search)
+            )
+
+        if surface == "following" or not settings.DISCOVERY_ALGORITHM_ENABLED:
+            sermons = queryset.order_by("-published_at", "-created_at")
+        else:
+            sermons = list(
+                queryset.annotate(
+                    follower_count=Count("church__followers", distinct=True),
+                    qualified_view_count=Count(
+                        "playback_sessions__user_id",
+                        filter=Q(playback_sessions__is_qualified=True),
+                        distinct=True,
+                    ),
+                )
+            )
+            sermons = discovery.rank_sermons(
+                sermons,
+                surface=surface,
+                category=category if category.casefold() != "all" else "",
+                search=search,
+                viewer_id=request.user.pk if request.user.is_authenticated else None,
+            )
+
+        page = self.paginate_queryset(sermons)
+        if settings.DISCOVERY_ALGORITHM_ENABLED and surface != "following":
+            from_page = page if page is not None else sermons
+            DiscoveryImpression.objects.bulk_create(
+                [
+                    DiscoveryImpression(
+                        sermon=sermon,
+                        church_id=sermon.church_id,
+                        viewer=request.user if request.user.is_authenticated else None,
+                        surface=surface,
+                        config_version=discovery.CONFIG_VERSION,
+                        follower_count=getattr(sermon, "_discovery_follower_count", 0),
+                        is_fairness_slot=getattr(sermon, "_discovery_is_fairness_slot", False),
+                        is_fairness_filled=getattr(sermon, "_discovery_is_fairness_filled", False),
+                        cold_start_prior_applied=getattr(
+                            sermon, "_discovery_cold_start_prior_applied", False
+                        ),
+                    )
+                    for sermon in from_page
+                ]
+            )
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(sermons, many=True)
+        return Response(serializer.data)
+
     def perform_create(self, serializer):
         _save_sermon_for_user(serializer, self.request.user)
 
@@ -765,6 +991,85 @@ class SermonViewSet(viewsets.ModelViewSet):
         if not created:
             saved.delete()
         return Response({"saved": created})
+
+
+class SermonHeartbeatView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = PlaybackHeartbeatSerializer
+
+    @transaction.atomic
+    def post(self, request, sermon_id):
+        if not settings.DISCOVERY_EVENTS_ENABLED:
+            return Response(
+                {"detail": "Playback event ingestion is not enabled."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        sermon = get_object_or_404(
+            Sermon,
+            pk=sermon_id,
+            is_published=True,
+            visibility="public",
+        )
+        if sermon.category.casefold() == "prayer altar" or "prayer altar" in sermon.title.casefold():
+            raise NotFound()
+
+        serializer = self.get_serializer(data=request.data, context={"sermon": sermon})
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        if PlaybackEvent.objects.filter(event_id=data["event_id"]).exists():
+            return Response({"accepted": True, "duplicate": True})
+
+        session, _ = PlaybackSession.objects.select_for_update().get_or_create(
+            user=request.user,
+            sermon=sermon,
+            session_id=data["session_id"],
+        )
+        if PlaybackEvent.objects.filter(event_id=data["event_id"]).exists():
+            return Response({"accepted": True, "duplicate": True})
+
+        now = timezone.now()
+        position = data["position_seconds"]
+        accepted_seconds = 0
+        if session.last_heartbeat_at:
+            elapsed = int((now - session.last_heartbeat_at).total_seconds())
+            position_delta = position - session.last_position_seconds
+            if 5 <= elapsed <= 60 and 0 <= position_delta <= elapsed + 10:
+                accepted_seconds = min(elapsed, position_delta)
+
+        try:
+            with transaction.atomic():
+                PlaybackEvent.objects.create(
+                    session=session,
+                    event_id=data["event_id"],
+                    position_seconds=position,
+                    accepted_watch_seconds=accepted_seconds,
+                )
+        except IntegrityError:
+            return Response({"accepted": True, "duplicate": True})
+
+        session.qualified_watch_seconds += accepted_seconds
+        session.is_qualified = (
+            session.is_qualified
+            or session.qualified_watch_seconds >= discovery.QUALIFIED_VIEW_SECONDS
+        )
+        session.last_position_seconds = position
+        session.last_heartbeat_at = now
+        session.save(
+            update_fields=(
+                "qualified_watch_seconds",
+                "is_qualified",
+                "last_position_seconds",
+                "last_heartbeat_at",
+            )
+        )
+        return Response(
+            {
+                "accepted": True,
+                "duplicate": False,
+                "qualified_watch_seconds": session.qualified_watch_seconds,
+                "qualified_view": session.is_qualified,
+            }
+        )
 
 
 class SermonShortViewSet(viewsets.ModelViewSet):

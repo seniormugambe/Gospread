@@ -71,6 +71,13 @@ export interface OnboardingState {
   user?: UserProfileData;
 }
 
+interface PendingPlaybackEvent {
+  sermonId: number;
+  sessionId: string;
+  eventId: string;
+  positionSeconds: number;
+}
+
 export class OnboardingValidationError extends Error {
   fieldErrors: Record<string, string>;
   constructor(message: string, fieldErrors: Record<string, string>) {
@@ -163,6 +170,8 @@ const CSRF_TOKEN_KEY = 'gospread_django_csrftoken';
 const PUBLIC_READ_ENDPOINTS = new Set([
   '/audio-spaces/',
   '/churches/',
+  '/discovery/config/',
+  '/sermons/discover/',
   '/sermons/',
   '/streams/',
   '/shorts/',
@@ -342,6 +351,8 @@ export interface DonationLedgerApi {
 class DjangoApiClient {
   private baseUrl: string;
   private refreshInFlight: Promise<string | null> | null = null;
+  private playbackQueueFlushInProgress = false;
+  private readonly maxPendingPlaybackEvents = 100;
 
   constructor() {
     this.baseUrl = DJANGO_API_BASE_URL.replace(/\/$/, '');
@@ -475,10 +486,11 @@ class DjangoApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     const url = `${this.baseUrl}${cleanEndpoint}`;
+    const endpointPath = cleanEndpoint.split('?')[0];
     const token = this.getAccessToken();
     const csrfToken = this.getCsrfToken();
     const method = options.method?.toUpperCase() || 'GET';
-    const isPublicRead = PUBLIC_READ_ENDPOINTS.has(cleanEndpoint) && ['GET', 'HEAD', 'OPTIONS'].includes(method);
+    const isPublicRead = PUBLIC_READ_ENDPOINTS.has(endpointPath) && ['GET', 'HEAD', 'OPTIONS'].includes(method);
     const isPublicAuth = PUBLIC_AUTH_ENDPOINTS.has(cleanEndpoint);
 
     const headers: Record<string, string> = {
@@ -568,7 +580,9 @@ class DjangoApiClient {
             : Object.values(errorData)[0]) ||
           `API Error ${response.status}`;
         if (typeof errorMessage !== 'string') errorMessage = JSON.stringify(errorMessage);
-        throw new Error(errorMessage);
+        const apiError = new Error(errorMessage) as Error & { status: number };
+        apiError.status = response.status;
+        throw apiError;
       }
 
       return await response.json();
@@ -1074,13 +1088,18 @@ class DjangoApiClient {
     isLive?: boolean,
     search?: string,
     includeLocalFallback = true,
+    surface: 'home' | 'explore' | 'sermons' | 'following' = 'home',
   ): Promise<VideoStream[]> {
     const params = new URLSearchParams();
     if (category && category !== 'all') params.append('category', category);
     if (search?.trim()) params.append('search', search.trim());
+    params.append('surface', surface);
 
     const streamsPromise = this.request<any[] | { results: any[] }>(`/streams/${params.toString() ? `?${params.toString()}` : ''}`).catch(() => []);
-    const sermonsPromise = this.request<any[] | { results: any[] }>(`/sermons/${params.toString() ? `?${params.toString()}` : ''}`).catch(() => []);
+    const sermonsPromise = this.request<any[] | { results: any[] }>(`/sermons/discover/?${params.toString()}`).catch((error) => {
+      console.warn('[Django API] Discovery feed request failed:', error);
+      return [];
+    });
 
     const [streamsRes, sermonsRes] = await Promise.all([streamsPromise, sermonsPromise]);
 
@@ -1207,6 +1226,18 @@ class DjangoApiClient {
     }
 
     return localVideos;
+  }
+
+  public async getDiscoveryConfig(): Promise<{
+    config_version: string;
+    algorithm_enabled: boolean;
+    events_enabled: boolean;
+  }> {
+    return this.request<{
+      config_version: string;
+      algorithm_enabled: boolean;
+      events_enabled: boolean;
+    }>('/discovery/config/');
   }
 
   public async getLiveStreams(category?: string): Promise<VideoStream[]> {
@@ -1697,6 +1728,106 @@ class DjangoApiClient {
         completed
       })
     });
+  }
+
+  public async submitPlaybackHeartbeat(
+    sermonId: number,
+    sessionId: string,
+    eventId: string,
+    positionSeconds: number,
+  ): Promise<{ accepted: boolean; duplicate: boolean; qualified_watch_seconds?: number; qualified_view?: boolean }> {
+    return await this.request(`/sermons/${sermonId}/heartbeat/`, {
+      method: 'POST',
+      body: JSON.stringify({
+        session_id: sessionId,
+        event_id: eventId,
+        position_seconds: positionSeconds,
+      }),
+    });
+  }
+
+  private playbackQueueKey(userId: string | number): string {
+    return `gospread_playback_events_${encodeURIComponent(String(userId))}`;
+  }
+
+  private readPlaybackQueue(key: string): PendingPlaybackEvent[] {
+    const stored = localStorage.getItem(key);
+    if (!stored) return [];
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(stored);
+    } catch (error) {
+      console.error('Playback event queue contains invalid JSON:', error);
+      throw new Error('Saved playback events could not be read.');
+    }
+
+    if (
+      !Array.isArray(parsed)
+      || parsed.some((event) => (
+        !event
+        || !Number.isInteger(event.sermonId)
+        || typeof event.sessionId !== 'string'
+        || typeof event.eventId !== 'string'
+        || !Number.isInteger(event.positionSeconds)
+      ))
+    ) {
+      throw new Error('Saved playback events have an invalid format.');
+    }
+    return parsed as PendingPlaybackEvent[];
+  }
+
+  public async queuePlaybackHeartbeat(
+    userId: string | number,
+    sermonId: number,
+    sessionId: string,
+    eventId: string,
+    positionSeconds: number,
+  ): Promise<void> {
+    const key = this.playbackQueueKey(userId);
+    const queue = this.readPlaybackQueue(key);
+    if (queue.length >= this.maxPendingPlaybackEvents) {
+      throw new Error('Playback event queue is full; saved events were kept for retry.');
+    }
+    queue.push({ sermonId, sessionId, eventId, positionSeconds });
+    localStorage.setItem(key, JSON.stringify(queue));
+    await this.flushPlaybackEvents(userId);
+  }
+
+  public async flushPlaybackEvents(userId: string | number): Promise<void> {
+    if (this.playbackQueueFlushInProgress || !navigator.onLine || !this.getAccessToken()) return;
+
+    this.playbackQueueFlushInProgress = true;
+    const key = this.playbackQueueKey(userId);
+    try {
+      const queue = this.readPlaybackQueue(key);
+      while (queue.length > 0 && navigator.onLine) {
+        const event = queue[0];
+        try {
+          await this.submitPlaybackHeartbeat(
+            event.sermonId,
+            event.sessionId,
+            event.eventId,
+            event.positionSeconds,
+          );
+        } catch (error) {
+          const status = (error as Error & { status?: number }).status;
+          if (status && status >= 400 && status < 500 && status !== 401 && status !== 429) {
+            console.warn('Dropping permanently rejected playback event:', error);
+            queue.shift();
+            localStorage.setItem(key, JSON.stringify(queue));
+            continue;
+          }
+          console.warn('Playback event delivery paused; queued events will be retried:', error);
+          return;
+        }
+
+        queue.shift();
+        localStorage.setItem(key, JSON.stringify(queue));
+      }
+    } finally {
+      this.playbackQueueFlushInProgress = false;
+    }
   }
 }
 

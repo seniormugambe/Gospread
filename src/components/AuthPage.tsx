@@ -5,7 +5,7 @@ import SimpleAuthCard from './SimpleAuthCard';
 import { UserSession } from './AuthModal';
 import GospreadLogo from './GospreadLogo';
 import OnboardingFlow from './OnboardingFlow';
-import { djangoApi, OnboardingTrack } from '../services/djangoApi';
+import { djangoApi, OnboardingAnswers, OnboardingTrack } from '../services/djangoApi';
 
 export interface AuthPageProps {
   initialMode?: 'signin' | 'signup';
@@ -27,6 +27,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   onAwardXp
 }) => {
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  // Sign-up runs questions first, then account creation; answers are saved once the account exists.
+  const [stage, setStage] = useState<'questions' | 'account'>(initialMode === 'signup' ? 'questions' : 'account');
+  const [signupIntent, setSignupIntent] = useState(initialMode === 'signup');
+  const [collected, setCollected] = useState<{ track: OnboardingTrack; answers: OnboardingAnswers } | null>(null);
   const [signupTrack, setSignupTrack] = useState<OnboardingTrack | undefined>();
   // The auth card navigates home itself after login; hold that back until the onboarding check finishes.
   const holdNavigation = useRef(false);
@@ -41,6 +45,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     }
     holdNavigation.current = true;
     onLoginSuccess(user);
+    if (collected) {
+      try {
+        await djangoApi.submitOnboarding(collected.track, collected.answers);
+        setCollected(null);
+      } catch {
+        // Account exists; fall back to the in-page onboarding below so answers can be corrected.
+        setSignupTrack(collected.track);
+        setNeedsOnboarding(true);
+        return;
+      }
+      goHome();
+      return;
+    }
     try {
       const me = await djangoApi.getMe();
       if (me.onboarding_completed === false) {
@@ -65,9 +82,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     <div className="auth-surface fixed inset-0 z-[60] overflow-y-auto bg-zinc-50 dark:bg-zinc-950">
     <div className="grid min-h-full w-full dark:bg-zinc-950 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
       {/* Brand panel */}
-      <div className="relative hidden overflow-hidden bg-gradient-to-br from-zinc-950 via-[#14122b] to-[#2a1a05] p-10 text-white lg:flex lg:flex-col lg:justify-between xl:p-14">
-        <div className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-amber-500/25 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-indigo-500/20 blur-3xl" />
+      <div className="relative hidden overflow-hidden bg-gradient-to-br from-[#0b0a1a] via-[#1b1340] to-[#3a2208] p-10 text-white lg:flex lg:flex-col lg:justify-between xl:p-14">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.09)_1px,transparent_1px)] [background-size:24px_24px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]" />
+        <div className="pointer-events-none absolute -right-24 -top-24 h-[26rem] w-[26rem] rounded-full bg-amber-500/30 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 -left-20 h-[26rem] w-[26rem] rounded-full bg-violet-600/30 blur-3xl" />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-rose-500/10 blur-3xl" />
         <div className="relative"><GospreadLogo size="sm" /></div>
         <div className="relative max-w-md">
           <h2 className="text-4xl font-bold leading-tight tracking-tight xl:text-5xl">
@@ -93,7 +112,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       </div>
 
       {/* Form panel */}
-      <div className="flex flex-col px-5 py-6 sm:px-10">
+      <div className="relative isolate flex flex-col overflow-hidden bg-gradient-to-br from-amber-50 via-orange-50/60 to-violet-50 px-5 py-6 dark:from-zinc-950 dark:via-[#15112b] dark:to-[#1f1406] sm:px-10">
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(rgba(180,120,20,0.16)_1px,transparent_1px)] [background-size:22px_22px] dark:bg-[radial-gradient(rgba(255,255,255,0.06)_1px,transparent_1px)]" />
+        <div className="pointer-events-none absolute -right-20 -top-20 -z-10 h-80 w-80 rounded-full bg-amber-300/40 blur-3xl dark:bg-amber-500/15" />
+        <div className="pointer-events-none absolute -bottom-24 -left-16 -z-10 h-80 w-80 rounded-full bg-violet-300/40 blur-3xl dark:bg-violet-600/15" />
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -103,11 +125,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             <ArrowLeft className="h-4 w-4" />
             Return to Sanctuary
           </button>
-          <div className="lg:hidden"><GospreadLogo size="xs" /></div>
+          <div className="rounded-full bg-zinc-900 px-3 py-1.5 shadow-md lg:hidden"><GospreadLogo size="xs" /></div>
         </div>
 
         <div className="flex flex-1 items-center justify-center py-8">
-          {needsOnboarding ? (
+          {!needsOnboarding && stage === 'questions' ? (
+            <OnboardingFlow
+              onSkip={() => { setSignupIntent(true); setStage('account'); }}
+              onComplete={() => undefined}
+              onCollect={(track, answers) => { setCollected({ track, answers }); setSignupIntent(true); setStage('account'); }}
+            />
+          ) : needsOnboarding ? (
             <OnboardingFlow
               initialTrack={signupTrack}
               onSkip={goHome}
@@ -118,7 +146,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             />
           ) : (
             <SimpleAuthCard
-              initialMode={initialMode === 'signup' ? 'signup' : 'signin'}
+              initialMode={signupIntent ? 'signup' : 'signin'}
+              presetRole={collected ? ({ ministry: 'church', artiste: 'artiste', creator: 'creator' } as const)[collected.track] : undefined}
+              presetChurchName={collected?.track === 'ministry' ? String(collected.answers.ministry_name ?? '') : undefined}
+              onRequestSignup={() => { setCollected(null); setStage('questions'); }}
               currentUser={currentUser}
               onLoginSuccess={handleSuccess}
               onLogout={onLogout}

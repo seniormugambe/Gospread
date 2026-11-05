@@ -13,6 +13,11 @@ interface OnboardingFlowProps {
   initialTrack?: OnboardingTrack;
   onSkip: () => void;
   onComplete: (user: UserProfileData | undefined, track: OnboardingTrack) => void;
+  // Pre-account mode: hand the answers back instead of saving them to the API.
+  onCollect?: (track: OnboardingTrack, answers: OnboardingAnswers) => void;
+  // Editing mode: prefill drafts from saved answers and relabel the skip action.
+  initialAnswers?: OnboardingAnswers;
+  skipLabel?: string;
 }
 
 interface LocationDraft {
@@ -86,6 +91,17 @@ const isEmpty = (field: OnboardingField, draft: Draft | undefined) => {
   }
   if (Array.isArray(draft)) return draft.length === 0;
   return !String(draft ?? '').trim();
+};
+
+const draftFromAnswer = (field: OnboardingField, value: unknown): Draft => {
+  if (field.type === 'locations') {
+    const rows = Array.isArray(value)
+      ? (value as Partial<LocationDraft>[]).map(row => ({ name: row.name ?? '', address: row.address ?? '', map_url: row.map_url ?? '' }))
+      : [];
+    return rows.length ? rows : [{ ...EMPTY_LOCATION }];
+  }
+  if (field.type === 'list' || field.type === 'urls') return Array.isArray(value) ? value.map(String) : [];
+  return value == null ? '' : String(value);
 };
 
 const toAnswers = (fields: OnboardingField[], drafts: Record<string, Draft>): OnboardingAnswers => {
@@ -179,7 +195,7 @@ function ChipInput({ values, onChange, placeholder, suggestions = [], commitOnCo
   );
 }
 
-export default function OnboardingFlow({ initialTrack, onSkip, onComplete }: OnboardingFlowProps) {
+export default function OnboardingFlow({ initialTrack, onSkip, onComplete, onCollect, initialAnswers, skipLabel = 'Skip for now' }: OnboardingFlowProps) {
   const [questions, setQuestions] = useState<Record<OnboardingTrack, OnboardingField[]> | null>(null);
   const [track, setTrack] = useState<OnboardingTrack | null>(initialTrack ?? null);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
@@ -191,7 +207,11 @@ export default function OnboardingFlow({ initialTrack, onSkip, onComplete }: Onb
 
   const seedDrafts = (data: Record<OnboardingTrack, OnboardingField[]>, next: OnboardingTrack) => {
     const initial: Record<string, Draft> = {};
-    data[next].forEach(field => { initial[field.key] = initialDraft(field); });
+    data[next].forEach(field => {
+      initial[field.key] = initialAnswers && field.key in initialAnswers
+        ? draftFromAnswer(field, initialAnswers[field.key])
+        : initialDraft(field);
+    });
     setDrafts(initial);
     setErrors({});
     setFormError('');
@@ -270,6 +290,11 @@ export default function OnboardingFlow({ initialTrack, onSkip, onComplete }: Onb
     setFormError('');
     if (!isLast) {
       setStepIndex(stepIndex + 1);
+      return;
+    }
+
+    if (onCollect) {
+      onCollect(track, toAnswers(fields, drafts));
       return;
     }
 
@@ -379,7 +404,7 @@ export default function OnboardingFlow({ initialTrack, onSkip, onComplete }: Onb
   };
 
   return (
-    <section aria-label="Gospread onboarding" className="w-full max-w-xl">
+    <section aria-label="Gospread onboarding" className="w-full max-w-xl rounded-3xl border border-white/70 bg-white/85 p-6 shadow-[0_20px_60px_-20px_rgba(120,70,10,0.35)] ring-1 ring-amber-900/5 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/80 dark:ring-white/5 sm:p-8">
       {loading && <div className="flex justify-center py-20"><Loader2 className="h-7 w-7 animate-spin text-amber-500" /></div>}
       {!loading && !questions && <p role="alert" className="text-sm text-red-600">{formError || 'Could not load onboarding.'}</p>}
 
@@ -404,7 +429,7 @@ export default function OnboardingFlow({ initialTrack, onSkip, onComplete }: Onb
             ))}
           </div>
           <button type="button" onClick={onSkip} className="mt-6 text-sm font-medium text-zinc-500 underline-offset-4 hover:underline">
-            Skip for now
+            {skipLabel}
           </button>
         </div>
       )}
@@ -445,11 +470,11 @@ export default function OnboardingFlow({ initialTrack, onSkip, onComplete }: Onb
                 <ArrowLeft className="h-4 w-4" /> Back
               </button>
               <div className="flex items-center gap-4">
-                <button type="button" onClick={onSkip} className="text-sm font-medium text-zinc-500 underline-offset-4 hover:underline">Skip for now</button>
+                <button type="button" onClick={onSkip} className="text-sm font-medium text-zinc-500 underline-offset-4 hover:underline">{skipLabel}</button>
                 <button type="submit" disabled={saving}
                   className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 px-6 py-3 text-sm font-bold text-black shadow-lg shadow-amber-500/20 transition hover:from-amber-300 active:scale-[0.98] disabled:opacity-60">
                   {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {isLast ? 'Finish' : 'Continue'}
+                  {isLast ? (onCollect ? 'Continue to create account' : 'Finish') : 'Continue'}
                   {!isLast && <ArrowRight className="h-4 w-4" />}
                 </button>
               </div>
