@@ -1329,7 +1329,7 @@ export default function App() {
                 },
               ].map((grp) => (
                 <div key={grp.section} className="space-y-1.5">
-                  <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest px-2 block">
+                  <span className="flex items-center gap-2 px-2 pb-1 text-[10px] font-black uppercase tracking-[0.2em] text-amber-600/80 dark:text-amber-400/70 after:h-px after:flex-1 after:bg-gradient-to-r after:from-amber-500/30 after:to-transparent">
                     {grp.section}
                   </span>
                   <div className="space-y-1">
@@ -1401,15 +1401,23 @@ export default function App() {
                               );
                             }
                           }}
-                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition group ${
+                          className={`relative w-full flex items-center gap-3 pl-3 pr-2.5 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 group ${
                             isActive
-                              ? 'bg-amber-100/90 dark:bg-amber-500/20 text-amber-900 dark:text-amber-300 border border-amber-300/80 dark:border-amber-500/40 font-bold shadow-xs'
-                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/90 dark:hover:bg-slate-800/80 hover:text-slate-950 dark:hover:text-white'
+                              ? 'bg-gradient-to-r from-amber-100 to-amber-50/40 dark:from-amber-500/25 dark:to-amber-500/5 text-amber-950 dark:text-amber-200 shadow-sm ring-1 ring-amber-300/70 dark:ring-amber-500/30'
+                              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/90 dark:hover:bg-white/5 hover:text-slate-950 dark:hover:text-white hover:translate-x-0.5'
                           }`}
                         >
-                          <span className="truncate">{item.label}</span>
+                          {isActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-gradient-to-b from-amber-400 to-orange-500" />}
+                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition ${
+                            isActive
+                              ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 shadow-md shadow-amber-500/30'
+                              : 'bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 group-hover:bg-amber-100 dark:group-hover:bg-amber-500/15 group-hover:text-amber-600 dark:group-hover:text-amber-300'
+                          }`}>
+                            <Icon className="h-4 w-4" />
+                          </span>
+                          <span className="flex-1 truncate text-left">{item.label}</span>
                           {item.badge && (
-                            <span className={`px-2 py-0.5 rounded text-[9px] shrink-0 ${item.badgeStyle || 'bg-amber-500 text-slate-950 font-extrabold'}`}>
+                            <span className={`px-1.5 py-0.5 rounded-md text-[9px] tracking-wide shrink-0 ${item.badgeStyle || 'bg-amber-500 text-slate-950 font-extrabold'}`}>
                               {item.badge}
                             </span>
                           )}
@@ -1517,7 +1525,7 @@ export default function App() {
                       },
                     ].map((grp) => (
                       <div key={grp.section} className="space-y-1.5">
-                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest px-2 block">
+                        <span className="flex items-center gap-2 px-2 pb-1 text-[10px] font-black uppercase tracking-[0.2em] text-amber-600/80 dark:text-amber-400/70 after:h-px after:flex-1 after:bg-gradient-to-r after:from-amber-500/30 after:to-transparent">
                           {grp.section}
                         </span>
                         <div className="space-y-1">
@@ -1590,15 +1598,23 @@ export default function App() {
                                     );
                                   }
                                 }}
-                                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition group ${
+                                className={`relative w-full flex items-center gap-3 pl-3 pr-2.5 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 group ${
                                   isActive
-                                    ? 'bg-amber-100/90 dark:bg-amber-500/20 text-amber-900 dark:text-amber-300 border border-amber-300/80 dark:border-amber-500/40 font-bold shadow-xs'
-                                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/90 dark:hover:bg-slate-800/80 hover:text-slate-950 dark:hover:text-white'
+                                    ? 'bg-gradient-to-r from-amber-100 to-amber-50/40 dark:from-amber-500/25 dark:to-amber-500/5 text-amber-950 dark:text-amber-200 shadow-sm ring-1 ring-amber-300/70 dark:ring-amber-500/30'
+                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/90 dark:hover:bg-white/5 hover:text-slate-950 dark:hover:text-white hover:translate-x-0.5'
                                 }`}
                               >
-                                <span className="truncate">{item.label}</span>
+                                {isActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-gradient-to-b from-amber-400 to-orange-500" />}
+                                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition ${
+                                  isActive
+                                    ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 shadow-md shadow-amber-500/30'
+                                    : 'bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 group-hover:bg-amber-100 dark:group-hover:bg-amber-500/15 group-hover:text-amber-600 dark:group-hover:text-amber-300'
+                                }`}>
+                                  <Icon className="h-4 w-4" />
+                                </span>
+                                <span className="flex-1 truncate text-left">{item.label}</span>
                                 {item.badge && (
-                                  <span className={`px-2 py-0.5 rounded text-[9px] shrink-0 ${item.badgeStyle || 'bg-amber-500 text-slate-950 font-extrabold'}`}>
+                                  <span className={`px-1.5 py-0.5 rounded-md text-[9px] tracking-wide shrink-0 ${item.badgeStyle || 'bg-amber-500 text-slate-950 font-extrabold'}`}>
                                     {item.badge}
                                   </span>
                                 )}
