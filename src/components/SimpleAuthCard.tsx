@@ -305,9 +305,10 @@ export default function SimpleAuthCard({
               <button
                 type="button"
                 onClick={onNavigateHome}
-                className="w-full py-4 rounded-full bg-gradient-to-b from-[#252528] to-[#121214] hover:from-[#323236] hover:to-[#1a1a1c] text-white font-medium text-base shadow-[0_12px_28px_rgba(0,0,0,0.35)] active:scale-[0.98] transition cursor-pointer"
+                className="group w-full py-4 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 font-black text-base shadow-[0_12px_28px_rgba(245,158,11,0.35)] ring-1 ring-amber-200/60 active:scale-[0.98] transition cursor-pointer inline-flex items-center justify-center gap-2"
               >
-                Return to Sanctuary
+                <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+                Return to Gospread
               </button>
             )}
 

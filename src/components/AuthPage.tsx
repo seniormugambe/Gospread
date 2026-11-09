@@ -120,10 +120,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           <button
             type="button"
             onClick={onNavigateHome}
-            className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-200/60 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer"
+            className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 px-4 py-2 text-sm font-black text-slate-950 shadow-lg shadow-amber-500/25 ring-1 ring-amber-200/60 transition hover:from-amber-300 hover:to-orange-400 active:scale-[0.98] cursor-pointer"
           >
-            <ArrowLeft className="h-4 w-4" />
-            Return to Sanctuary
+            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+            Return to Gospread
           </button>
           <div className="rounded-full bg-zinc-900 px-3 py-1.5 shadow-md lg:hidden"><GospreadLogo size="xs" /></div>
         </div>
