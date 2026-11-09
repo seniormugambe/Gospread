@@ -62,7 +62,7 @@ import GospreadLogo from './components/GospreadLogo';
 import youtubeGospelImg from './assets/images/youtube_gospel_ui_1785687242032.jpg';
 import CreatePage, { StudioAction } from './components/CreatePage';
 import CreateModalDropdown from './components/CreateModalDropdown';
-import DiscoverMinistriesHub, { DISCOVER_MINISTRIES } from './components/DiscoverMinistriesHub';
+import DiscoverMinistriesHub from './components/DiscoverMinistriesHub';
 import UserProfilePage from './components/UserProfilePage';
 import FellowshipCommunityHub from './components/FellowshipCommunityHub';
 import AccountSettingsModal from './components/AccountSettingsModal';
@@ -534,7 +534,7 @@ export default function App() {
   };
 
   const openMinistry = (ministryId: string) => {
-    const ministry = DISCOVER_MINISTRIES.find(item => item.id === ministryId);
+    const ministry = churches.find(item => item.slug === ministryId || item.id === ministryId);
     if (!ministry) return;
     setActiveTab('discover');
     setSelectedChannelModal(ministry.name);
@@ -998,9 +998,8 @@ export default function App() {
     }
 
     if (route.kind === 'ministry') {
-      const ministry = DISCOVER_MINISTRIES.find(item => item.id === route.id);
       const church = churches.find(item => item.slug === route.id || item.id === route.id);
-      const ministryName = ministry?.name || church?.name;
+      const ministryName = church?.name;
       if (ministryName) {
         setActiveTab('discover');
         setSelectedCommunityPostId(null);
@@ -1009,7 +1008,7 @@ export default function App() {
           title: `${ministryName} | Gospread`,
           description: `Visit the digital home of ${ministryName} on Gospread.`,
           path: ministryPath(route.id),
-          image: ministry?.bannerImage || church?.coverImage || church?.avatar,
+          image: church?.coverImage || church?.avatar,
         });
       }
       return;
@@ -1304,7 +1303,7 @@ export default function App() {
                   section: 'PLATFORM',
                   items: [
                     { id: 'home', label: 'Home Feed', icon: Compass },
-                    { id: 'community', label: 'Fellowship & Voices', icon: MessageSquareHeart, badge: 'COMMUNITY', badgeStyle: 'bg-fuchsia-600 text-white font-black' },
+                    { id: 'community', label: 'Circles', icon: MessageSquareHeart },
                     { id: 'discover', label: 'Discover Ministries', icon: Building2, badge: 'EXPLORE', badgeStyle: 'bg-pink-600 text-white font-black' },
                     { id: 'history', label: 'Watch History', icon: History, badge: watchHistory.length > 0 ? `${watchHistory.length}` : undefined, badgeStyle: 'bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/30' },
                     ...(!userSession.isLoggedIn ? [
@@ -1492,7 +1491,7 @@ export default function App() {
                         section: 'PLATFORM',
                         items: [
                           { id: 'home', label: 'Home Feed', icon: Compass },
-                          { id: 'community', label: 'Fellowship & Voices', icon: MessageSquareHeart, badge: 'COMMUNITY', badgeStyle: 'bg-fuchsia-600 text-white font-black' },
+                          { id: 'community', label: 'Circles', icon: MessageSquareHeart },
                           { id: 'discover', label: 'Discover Ministries', icon: Building2, badge: 'EXPLORE', badgeStyle: 'bg-pink-600 text-white font-black' },
                           { id: 'history', label: 'Watch History', icon: History, badge: watchHistory.length > 0 ? `${watchHistory.length}` : undefined, badgeStyle: 'bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/30' },
                           ...(!userSession.isLoggedIn ? [

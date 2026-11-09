@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Building2, 
   Music, 
@@ -30,6 +30,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream, AudioTrack } from '../data/gospelData';
 import { GivingTarget } from './GivingModal';
 import SpiritualMomentumRankings from './SpiritualMomentumRankings';
+import { djangoApi, DirectoryEntryApi } from '../services/djangoApi';
 
 export type MinistryCategory = 'all' | 'churches' | 'artistes' | 'creators';
 
@@ -55,123 +56,33 @@ export interface MinistryItem {
   socialHandle?: string;
 }
 
-export const DISCOVER_MINISTRIES: MinistryItem[] = [
-  {
-    id: 'min-gcc',
-    name: 'Grace City Cathedral',
-    category: 'churches',
-    avatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1600&q=80',
-    followersCount: 1480000,
-    followersFormatted: '1.48M',
-    locationOrOrigin: 'Atlanta, GA (HQ) • London • Lagos • Nairobi • Worldwide',
-    leadPersonOrGenre: 'Senior Pastor David & Pastor Sarah Williams',
-    description: 'Apostolic sanctuary dedicated to uncompromised gospel truth, revival worship, 24/7 prayer altar, and radical kingdom generosity.',
-    isVerified: true,
-    isLiveNow: true,
-    liveViewersCount: 12480,
-    featuredMediaTitle: 'Sunday Apostolic Communion & Prophetic Impartation',
-    featuredMediaType: 'video',
-    featuredMediaId: 'stream-gcc-live',
-    tags: ['Cathedral', 'Apostolic', 'Revival', 'Live Sanctuary'],
-    serviceTimesOrReleaseFreq: 'Sundays 9:00 AM & 11:30 AM EST • Wed 7 PM',
-    socialHandle: '@GraceCityCathedralLive'
-  },
-  {
-    id: 'min-elevation',
-    name: 'Elevation Praise Center',
-    category: 'churches',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1600&q=80',
-    followersCount: 2800000,
-    followersFormatted: '2.8M',
-    locationOrOrigin: 'Charlotte, NC • Global Broadcasts',
-    leadPersonOrGenre: 'Pastor Steven & Holly Furtick',
-    description: 'Empowering believers to see what God can do through dynamic worship, faith teachings, and world-class media.',
-    isVerified: true,
-    isLiveNow: false,
-    featuredMediaTitle: 'Elevation Worship & Praise Celebration',
-    featuredMediaType: 'video',
-    featuredMediaId: 'stream-elevation-live',
-    tags: ['Contemporary Praise', 'Elevation Worship', 'Youth'],
-    serviceTimesOrReleaseFreq: 'Sundays 9:30 AM & 11:45 AM EST',
-    socialHandle: '@ElevationChurch'
-  },
-  {
-    id: 'min-dunamis',
-    name: 'Dunamis International Gospel Centre',
-    category: 'churches',
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1600&q=80',
-    followersCount: 1950000,
-    followersFormatted: '1.95M',
-    locationOrOrigin: 'Abuja, Nigeria • The Glory Dome',
-    leadPersonOrGenre: 'Dr. Pastor Paul & Dr. Becky Enenche',
-    description: 'Apostolic breakthrough center hosting the 100,000-seat Glory Dome sanctuary with healing, miracles, and intense revival fire.',
-    isVerified: true,
-    isLiveNow: false,
-    featuredMediaTitle: 'Nights of Holy Fire & Deliverance Altar',
-    featuredMediaType: 'video',
-    featuredMediaId: 'stream-dunamis-live',
-    tags: ['Glory Dome', 'Deliverance', 'Miracles', 'Fire Altar'],
-    serviceTimesOrReleaseFreq: 'Sundays 6:30 AM to 2:00 PM (6 Services)',
-    socialHandle: '@DrPaulEnenche'
-  },
-  {
-    id: 'min-sinach',
-    name: 'Sinach Global Ministry',
-    category: 'artistes',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1600&q=80',
-    followersCount: 2100000,
-    followersFormatted: '2.1M',
-    locationOrOrigin: 'Lagos • Houston • Global Tour',
-    leadPersonOrGenre: 'Global Worship Leader & Songwriter',
-    description: 'International gospel psalmist and author of "Way Maker" and "I Know Who I Am", leading millions in global adoration.',
-    isVerified: true,
-    isLiveNow: false,
-    featuredMediaTitle: 'Way Maker & I Know Who I Am Concert',
-    featuredMediaType: 'video',
-    featuredMediaId: 'stream-sinach-waymaker',
-    tags: ['Way Maker', 'Global Worship', 'Gospel Hits'],
-    serviceTimesOrReleaseFreq: 'Monthly Worship Encounters & Concerts',
-    socialHandle: '@therealsinach'
-  },
-  {
-    id: 'min-bibleproject',
-    name: 'The Bible Project & Kingdom Creators',
-    category: 'creators',
-    avatar: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=300&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&w=1600&q=80',
-    followersCount: 1420000,
-    followersFormatted: '1.42M',
-    locationOrOrigin: 'Portland, OR • Global Translations',
-    leadPersonOrGenre: 'Dr. Tim Mackie & Jon Collins',
-    description: 'Visual animation studio helping the world experience the Bible as a unified story that leads to Jesus.',
-    isVerified: true,
-    isLiveNow: false,
-    tags: ['Animation', 'Biblical Theology', 'Visual Exegesis'],
-    serviceTimesOrReleaseFreq: 'Bi-weekly Animated Releases',
-    socialHandle: '@bibleproject'
-  },
-  {
-    id: 'min-hillsong',
-    name: 'Hillsong Global Fellowship',
-    category: 'churches',
-    avatar: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=300&q=80',
-    bannerImage: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1600&q=80',
-    followersCount: 3200000,
-    followersFormatted: '3.2M',
-    locationOrOrigin: 'Sydney • London • New York • Global',
-    leadPersonOrGenre: 'Global Pastoral & Creative Team',
-    description: 'Connecting communities worldwide through praise, creative storytelling, and local church campus fellowships.',
-    isVerified: true,
-    isLiveNow: false,
-    tags: ['Worship', 'Global Fellowship', 'Acoustic Praise'],
-    serviceTimesOrReleaseFreq: 'Sundays Worldwide',
-    socialHandle: '@hillsong'
-  }
-];
+const formatFollowers = (count: number) =>
+  count >= 1_000_000 ? `${(count / 1_000_000).toFixed(2).replace(/\.?0+$/, '')}M`
+    : count >= 1_000 ? `${(count / 1_000).toFixed(1).replace(/\.0$/, '')}K`
+    : String(count);
+
+const DEFAULT_BANNER = 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1600&q=80';
+
+const initialsAvatar = (name: string) =>
+  `data:image/svg+xml;utf8,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="120" height="120" fill="#1e293b"/><text x="50%" y="50%" dy=".35em" text-anchor="middle" font-family="sans-serif" font-size="52" font-weight="700" fill="#fbbf24">${(name.trim()[0] || '?').toUpperCase().replace(/[<>&]/g, '')}</text></svg>`
+  )}`;
+
+const mapDirectoryEntry = (entry: DirectoryEntryApi): MinistryItem => ({
+  id: entry.id,
+  name: entry.name,
+  category: entry.category,
+  avatar: entry.avatar || initialsAvatar(entry.name),
+  bannerImage: entry.banner_image || DEFAULT_BANNER,
+  followersCount: entry.followers_count,
+  followersFormatted: formatFollowers(entry.followers_count),
+  locationOrOrigin: entry.location,
+  leadPersonOrGenre: entry.lead,
+  description: entry.description,
+  isVerified: entry.verified,
+  tags: entry.tags,
+  socialHandle: entry.handle,
+});
 
 interface DiscoverMinistriesHubProps {
   subscribedChannels: string[];
@@ -216,15 +127,27 @@ export default function DiscoverMinistriesHub({
   const [filterRegion, setFilterRegion] = useState<string>('all');
   const [onlyLiveNow, setOnlyLiveNow] = useState<boolean>(false);
   const [showBellMenuFor, setShowBellMenuFor] = useState<string | null>(null);
+  const [directory, setDirectory] = useState<MinistryItem[]>([]);
+  const [isLoadingDirectory, setIsLoadingDirectory] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    djangoApi.getDirectory().then(entries => {
+      if (isMounted) setDirectory(entries.map(mapDirectoryEntry));
+    }).finally(() => {
+      if (isMounted) setIsLoadingDirectory(false);
+    });
+    return () => { isMounted = false; };
+  }, []);
 
   // Category Counts
-  const totalCount = DISCOVER_MINISTRIES.length;
-  const churchesCount = DISCOVER_MINISTRIES.filter(m => m.category === 'churches').length;
-  const artistesCount = DISCOVER_MINISTRIES.filter(m => m.category === 'artistes').length;
-  const creatorsCount = DISCOVER_MINISTRIES.filter(m => m.category === 'creators').length;
+  const totalCount = directory.length;
+  const churchesCount = directory.filter(m => m.category === 'churches').length;
+  const artistesCount = directory.filter(m => m.category === 'artistes').length;
+  const creatorsCount = directory.filter(m => m.category === 'creators').length;
 
   // Filtered List
-  const filteredMinistries = DISCOVER_MINISTRIES.filter((m) => {
+  const filteredMinistries = directory.filter((m) => {
     // 1. Category filter
     if (activeCategory !== 'all' && m.category !== activeCategory) {
       return false;
@@ -259,6 +182,11 @@ export default function DiscoverMinistriesHub({
     }
     return true;
   });
+
+  const openEntry = (ministry: MinistryItem) => {
+    if (ministry.category === 'churches') onOpenMinistry(ministry.id);
+    else onSelectChannelModal(ministry.name);
+  };
 
   const handleMediaPlay = (ministry: MinistryItem) => {
     if (ministry.featuredMediaId) {
@@ -388,112 +316,6 @@ export default function DiscoverMinistriesHub({
         />
       ) : (
         <div className="space-y-8">
-          {/* 🏛️ FLAGSHIP FEATURED MINISTRY SPOTLIGHT (GRACE CITY CATHEDRAL) */}
-          <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-red-950/70 via-slate-950 to-slate-950 border-2 border-red-500/50 p-6 sm:p-8 shadow-2xl">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center relative z-10">
-              <div className="lg:col-span-8 space-y-4">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <span className="px-3 py-1 rounded-full bg-red-600 text-white font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-red-600/40 animate-pulse">
-                    <span className="w-2.5 h-2.5 rounded-full bg-white" />
-                    <span>🔴 LIVE NOW</span>
-                  </span>
-                  <span className="px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-amber-300 text-xs font-mono font-bold">
-                    12,480 worshippers joined in the Spirit
-                  </span>
-                  <span className="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-xs font-bold">
-                    Featured Digital Church Home
-                  </span>
-                </div>
-
-                <div>
-                  <h2 
-                    onClick={() => onOpenMinistry('min-gcc')}
-                    className="text-2xl sm:text-3xl font-black text-white font-serif tracking-tight cursor-pointer hover:text-amber-300 transition"
-                  >
-                    Grace City Cathedral
-                  </h2>
-                  <p className="text-xs sm:text-sm text-slate-300 mt-1">
-                    Senior Pastor David & Pastor Sarah Williams • Apostolic Overseers • 1.48M Followers
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                  <div>
-                    <span className="text-amber-400 font-bold block">Upcoming Gathering:</span>
-                    <span className="text-white font-semibold">Sunday Service — 9:00 AM EST (Sanctuary & Global Broadcast)</span>
-                  </div>
-                  <button
-                    onClick={() => onOpenMinistry('min-gcc')}
-                    className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold border border-slate-700 self-start sm:self-auto transition"
-                  >
-                    View Schedule
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-3 flex-wrap pt-1">
-                  <button
-                    onClick={() => {
-                      const gccLive = allVideos.find(v => v.id === 'stream-gcc-live') || allVideos[0];
-                      if (gccLive) onSelectVideo(gccLive);
-                    }}
-                    className="px-5 py-2.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-xs transition flex items-center gap-2 shadow-xl shadow-red-600/30"
-                  >
-                    <Play className="w-4 h-4 fill-current" />
-                    <span>Watch Live Sanctuary</span>
-                  </button>
-
-                  <button
-                    onClick={() => onOpenMinistry('min-gcc')}
-                    className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 font-black text-xs transition flex items-center gap-2 shadow-xl shadow-amber-500/20"
-                  >
-                    <Building2 className="w-4 h-4" />
-                    <span>Explore Digital Home</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onOpenGivingModal({
-                        id: 'target-gcc',
-                        name: 'Grace City Cathedral',
-                        avatar: 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
-                        type: 'church',
-                        categoryTitle: 'Grace City Cathedral Kingdom Stewardship'
-                      });
-                    }}
-                    className="px-4 py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/40 font-bold text-xs transition flex items-center gap-1.5"
-                  >
-                    <DollarSign className="w-4 h-4" />
-                    <span>Give / Tithe</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="lg:col-span-4">
-                <div 
-                  onClick={() => onOpenMinistry('min-gcc')}
-                  className="relative aspect-video lg:aspect-square rounded-2xl overflow-hidden bg-slate-900 border-2 border-red-500/40 shadow-2xl cursor-pointer group"
-                >
-                  <img 
-                    src="https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=800&q=80" 
-                    alt="Grace City Cathedral Live" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                  />
-                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition flex items-center justify-center">
-                    <div className="w-12 h-12 rounded-full bg-red-600 text-white flex items-center justify-center shadow-xl group-hover:scale-110 transition">
-                      <Play className="w-5 h-5 fill-current ml-0.5" />
-                    </div>
-                  </div>
-                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-[10px] text-white bg-black/70 px-2.5 py-1 rounded-lg backdrop-blur-md">
-                    <span>Main Cathedral Live</span>
-                    <span className="text-red-400 font-mono font-bold">12,480 Online</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* 🎯 CATEGORY SELECTOR TABS & SEARCH BAR */}
           <div className="space-y-4">
         
@@ -632,9 +454,11 @@ export default function DiscoverMinistriesHub({
       {filteredMinistries.length === 0 ? (
         <div className="py-16 text-center space-y-3 rounded-3xl bg-slate-900/50 border border-slate-800/80 p-8">
           <Building2 className="w-10 h-10 text-slate-600 mx-auto animate-bounce" />
-          <h3 className="text-base font-bold text-white">No Ministries Found</h3>
+          <h3 className="text-base font-bold text-white">{isLoadingDirectory ? 'Loading directory…' : directory.length === 0 ? 'No Members Yet' : 'No Ministries Found'}</h3>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            Try adjusting your search keywords or switching category filters to view more kingdom ministries.
+            {directory.length === 0 && !isLoadingDirectory
+              ? 'Churches, artistes and creators will appear here as they join Gospread.'
+              : 'Try adjusting your search keywords or switching category filters to view more kingdom ministries.'}
           </p>
           <button
             onClick={() => {
@@ -707,7 +531,7 @@ export default function DiscoverMinistriesHub({
                       <div className="flex items-end justify-between -mt-10 mb-3 z-10 relative">
                         {/* Avatar */}
                         <div
-                          onClick={() => onOpenMinistry(ministry.id)}
+                          onClick={() => openEntry(ministry)}
                           className="relative cursor-pointer group/avatar"
                         >
                           <img
@@ -828,7 +652,7 @@ export default function DiscoverMinistriesHub({
                       {/* Title & Leader */}
                       <div>
                         <div
-                          onClick={() => onOpenMinistry(ministry.id)}
+                          onClick={() => openEntry(ministry)}
                           className="flex items-center gap-1.5 cursor-pointer group/title"
                         >
                           <h3 className="font-bold text-base text-white group-hover/title:text-amber-300 transition font-serif line-clamp-1">
@@ -904,7 +728,7 @@ export default function DiscoverMinistriesHub({
                   {/* Card Footer Actions */}
                   <div className="px-4 py-3 bg-slate-950/60 border-t border-slate-800/80 flex items-center justify-between gap-2 text-xs">
                     <button
-                      onClick={() => onOpenMinistry(ministry.id)}
+                      onClick={() => openEntry(ministry)}
                       className="text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 group/link"
                     >
                       <span>Explore Channel</span>

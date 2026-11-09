@@ -2,7 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from .views import (
     ChangePasswordView, ChurchEventViewSet, ChurchViewSet, CommunityPostViewSet, DonationViewSet, GivingFundViewSet,
-    AudioSpaceEndView, AudioSpaceListView, AudioSpaceParticipantsView, AudioSpaceTokenView, GospreadTokenRefreshView, GospreadTokenView, HealthCheckView, LiveStreamViewSet, LogoutView, MeView,
+    AudioSpaceEndView, AudioSpaceListView, AudioSpaceParticipantsView, AudioSpaceTokenView, GospreadTokenRefreshView, GospreadTokenView, DirectoryView, HealthCheckView, LiveStreamViewSet, LogoutView, MeView,
     PasswordResetConfirmView, PayoutAccountViewSet, PasswordResetRequestView,
     PrayerRequestViewSet, RandomScriptureView, SavedSermonViewSet, SermonShortViewSet,
     DiscoveryConfigView, DiscoveryFairnessReportView, SermonHeartbeatView, SermonUploadChunkView, SermonUploadCompleteView, SermonUploadSessionView, SermonViewSet,
@@ -25,6 +25,7 @@ router.register("saved", SavedSermonViewSet, basename="saved")
 router.register("progress", WatchProgressViewSet, basename="progress")
 
 urlpatterns = [
+    path("directory/", DirectoryView.as_view(), name="directory"),
     path("health/", HealthCheckView.as_view(), name="health"),
     path("discovery/config/", DiscoveryConfigView.as_view(), name="discovery-config"),
     path("discovery/fairness-report/", DiscoveryFairnessReportView.as_view(), name="discovery-fairness-report"),

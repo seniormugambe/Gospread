@@ -537,7 +537,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
         <div>
           <div className="mb-1 flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">Fellowship & voices</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">Circles</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">Live Praying</h1>
         </div>

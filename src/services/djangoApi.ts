@@ -3,6 +3,21 @@
 import { AUDIO_TRACKS, CHURCH_LOCATIONS, GRACE_SHORTS, LIVE_VIDEO_STREAMS } from '../data/gospelData';
 import { getSavedReferrer } from '../lib/invites';
 
+export interface DirectoryEntryApi {
+  id: string;
+  name: string;
+  category: 'churches' | 'artistes' | 'creators';
+  avatar: string;
+  banner_image: string;
+  followers_count: number;
+  location: string;
+  lead: string;
+  description: string;
+  verified: boolean;
+  tags: string[];
+  handle: string;
+}
+
 export interface ChurchCampusLocation {
   id?: string;
   campusName: string;
@@ -1642,6 +1657,11 @@ class DjangoApiClient {
       method: 'POST',
       body: JSON.stringify({ body })
     });
+  }
+
+  public async getDirectory(): Promise<DirectoryEntryApi[]> {
+    const res = await this.request<DirectoryEntryApi[]>('/directory/').catch(() => []);
+    return Array.isArray(res) ? res : [];
   }
 
   // === 8. FELLOWSHIP & VOICES COMMUNITY ===

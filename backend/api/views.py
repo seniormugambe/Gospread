@@ -468,6 +468,77 @@ class RandomScriptureView(generics.RetrieveAPIView):
         return scripture
 
 
+class DirectoryView(generics.GenericAPIView):
+    """GET /directory/?category=churches|artistes|creators&search= - public, categorized profiles."""
+    permission_classes = [permissions.AllowAny]
+    pagination_class = None
+
+    @staticmethod
+    def _user_profile(user, category):
+        answers = getattr(getattr(user, "onboarding", None), "answers", None) or {}
+        if category == "artistes":
+            name = answers.get("stage_name")
+            focus = ", ".join(answers.get("genres") or [])
+            tags = (answers.get("artiste_type") or []) + (answers.get("genres") or [])
+            location = answers.get("ministry_affiliation") or ""
+        else:
+            name = answers.get("creator_name")
+            focus = ", ".join(answers.get("categories") or [])
+            tags = (answers.get("categories") or []) + (answers.get("topics") or [])
+            location = ""
+        return {
+            "id": f"user-{user.id}",
+            "name": name or user.get_full_name() or user.username,
+            "category": category,
+            "avatar": user.avatar_url,
+            "banner_image": "",
+            "followers_count": 0,
+            "location": location,
+            "lead": focus,
+            "description": user.bio,
+            "verified": bool(getattr(user, "onboarding", None)),
+            "tags": tags[:6],
+            "handle": f"@{user.username}",
+        }
+
+    def get(self, request):
+        category = request.query_params.get("category", "").strip()
+        search = request.query_params.get("search", "").strip()
+        if category and category not in ("churches", "artistes", "creators"):
+            raise ValidationError({"category": "Use churches, artistes or creators."})
+        results = []
+
+        if category in ("", "churches"):
+            churches = Church.objects.select_related("owner").annotate(follower_total=Count("followers", distinct=True))
+            if search:
+                churches = churches.filter(Q(name__icontains=search) | Q(location__icontains=search) | Q(denomination__icontains=search))
+            for church in churches:
+                results.append({
+                    "id": church.slug,
+                    "name": church.name,
+                    "category": "churches",
+                    "avatar": church.logo_url,
+                    "banner_image": church.cover_image_url,
+                    "followers_count": church.follower_total,
+                    "location": church.location,
+                    "lead": church.owner.get_full_name() or church.owner.username,
+                    "description": church.description,
+                    "verified": church.is_featured,
+                    "tags": [t for t in (church.denomination, church.ministry_focus) if t],
+                    "handle": f"@{church.slug}",
+                })
+
+        for role, key, track in ((User.Role.ARTISTE, "artistes", "artiste"), (User.Role.CREATOR, "creators", "creator")):
+            if category not in ("", key):
+                continue
+            users = User.objects.filter(Q(role=role) | Q(onboarding__track=track), is_active=True).select_related("onboarding")
+            if search:
+                users = users.filter(Q(username__icontains=search) | Q(first_name__icontains=search) | Q(last_name__icontains=search) | Q(bio__icontains=search))
+            results.extend(self._user_profile(user, key) for user in users.distinct())
+
+        return Response(results)
+
+
 class HealthCheckView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
 
