@@ -112,6 +112,94 @@
   color: #be185d !important;
 }
 
+/* Sunset side menu items */
+.light-theme aside {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(253, 242, 248, 0.94) 55%, rgba(224, 242, 254, 0.94) 100%) !important;
+}
+
+.light-theme aside .menu-section {
+  color: #be185d !important;
+}
+
+.light-theme aside .menu-section::after {
+  background: linear-gradient(90deg, rgba(236, 72, 153, 0.35), transparent) !important;
+}
+
+.light-theme aside .menu-item {
+  border: 1px solid transparent;
+  transition: background-color 0.2s, box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+}
+
+.light-theme aside .menu-item:hover {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.95), rgba(251, 207, 232, 0.35)) !important;
+  border-color: rgba(244, 114, 182, 0.35);
+  box-shadow: 0 4px 14px rgba(236, 72, 153, 0.12);
+}
+
+.light-theme aside .menu-item:hover .menu-icon {
+  background: linear-gradient(135deg, #7dd3fc, #f9a8d4) !important;
+}
+
+.light-theme aside .menu-item:hover .menu-icon svg {
+  color: #0f172a !important;
+}
+
+.light-theme aside .menu-item-active {
+  background: linear-gradient(90deg, #ffffff 0%, #fce7f3 60%, #e0f2fe 100%) !important;
+  border-color: rgba(236, 72, 153, 0.45);
+  box-shadow: 0 8px 22px rgba(236, 72, 153, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.light-theme aside .menu-item-active,
+.light-theme aside .menu-item-active > span:not(.menu-icon):not(.menu-badge) {
+  color: #9d174d !important;
+  font-weight: 800;
+}
+
+.light-theme aside .menu-accent {
+  background: linear-gradient(180deg, #38bdf8, #ec4899) !important;
+}
+
+.light-theme aside .menu-icon {
+  background: linear-gradient(135deg, #e0f2fe, #fce7f3) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 6px rgba(56, 189, 248, 0.2);
+}
+
+.light-theme aside .menu-icon svg {
+  color: #0369a1 !important;
+}
+
+.light-theme aside .menu-item-active .menu-icon {
+  background: linear-gradient(135deg, #38bdf8, #ec4899) !important;
+  box-shadow: 0 6px 14px rgba(236, 72, 153, 0.4);
+}
+
+.light-theme aside .menu-item-active .menu-icon svg {
+  color: #ffffff !important;
+}
+
+/* Badges keep their own readable colours instead of the forced dark text */
+.light-theme aside .menu-badge {
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.light-theme aside .menu-badge.bg-amber-400,
+.light-theme aside .menu-badge.bg-amber-500 {
+  color: #0f172a !important;
+}
+
+.light-theme aside .menu-badge[class*="bg-amber-500/20"] {
+  color: #92400e !important;
+  box-shadow: none;
+}
+
+.light-theme aside .menu-badge[class*="bg-emerald-600/20"] {
+  color: #047857 !important;
+  box-shadow: none;
+}
+
 /* 3. Universal Pods & Cards (Clean High-Contrast Light Cards) */
 .light-theme main [class*="bg-slate-900"],
 .light-theme main [class*="bg-slate-800"],
