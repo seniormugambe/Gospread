@@ -137,14 +137,14 @@ declare global {
   }
 }
 
-let youtubeApiPromise: Promise<void> | null = null;
+let youtubeIframeApiPromise: Promise<void> | null = null;
 
 /** Load the YouTube IFrame Player API once per page. */
 export function loadYouTubeIframeApi(): Promise<void> {
   if (window.YT?.Player) return Promise.resolve();
-  if (youtubeApiPromise) return youtubeApiPromise;
+  if (youtubeIframeApiPromise) return youtubeIframeApiPromise;
 
-  youtubeApiPromise = new Promise((resolve) => {
+  youtubeIframeApiPromise = new Promise((resolve) => {
     const previousReady = window.onYouTubeIframeAPIReady;
     window.onYouTubeIframeAPIReady = () => {
       previousReady?.();
@@ -159,7 +159,7 @@ export function loadYouTubeIframeApi(): Promise<void> {
     }
   });
 
-  return youtubeApiPromise;
+  return youtubeIframeApiPromise;
 }
 
 export type { YouTubePlayer };

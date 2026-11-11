@@ -72,11 +72,9 @@ import GivingModal, { GivingTarget } from './components/GivingModal';
 import DailyStreakModal from './components/DailyStreakModal';
 import DailyPromiseModal from './components/DailyPromiseModal';
 import GraceShortsModal from './components/GraceShortsModal';
-import YouTubeApiModal from './components/YouTubeApiModal';
 import AuthModal, { UserSession } from './components/AuthModal';
 import AuthPage from './components/AuthPage';
 import { djangoApi } from './services/djangoApi';
-import { youtubeApi } from './services/youtubeApi';
 import VideoDownloadModal from './components/VideoDownloadModal';
 import VideoPlayer from './components/VideoPlayer';
 import PictureInPictureWindow from './components/PictureInPictureWindow';
@@ -649,7 +647,6 @@ export default function App() {
   const [showPromiseModal, setShowPromiseModal] = useState(false);
   const [showShortsModal, setShowShortsModal] = useState(false);
   const [selectedShortId, setSelectedShortId] = useState<string | null>(null);
-  const [showYouTubeModal, setShowYouTubeModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showUserAccountDropdown, setShowUserAccountDropdown] = useState(false);
@@ -2779,13 +2776,6 @@ export default function App() {
           });
         }}
         onOpenFullAuthPage={handleOpenAuthPage}
-      />
-
-      {/* 🔴 YouTube Data API v3 Live Stream Hub Modal */}
-      <YouTubeApiModal
-        isOpen={showYouTubeModal}
-        onClose={() => setShowYouTubeModal(false)}
-        onSelectVideo={(video) => handleSelectVideo(video)}
       />
 
       {/* 📥 Video & Audio Downloader Modal */}

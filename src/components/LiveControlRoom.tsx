@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   RadioTower, 
   Users, 
@@ -37,9 +37,10 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserSession } from './AuthModal';
-import LiveViewerTrendSparkline from './LiveViewerTrendSparkline';
+import MediaEngine from './MediaEngine';
 import { djangoApi, LiveChatMessageApi } from '../services/djangoApi';
 import { IvsBroadcastCredentials, startIvsBroadcast, stopIvsBroadcast } from '../services/ivsBroadcast';
+import type { ResolvedPlayback } from '../utils/videoPlayback';
 
 export interface LiveChatEntry {
   id: string;
@@ -126,7 +127,10 @@ export default function LiveControlRoom({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [worshipperCount, setWorshipperCount] = useState(0);
   const [peakWorshippers, setPeakWorshippers] = useState(0);
+  const [streamStatus, setStreamStatus] = useState<'waiting' | 'live' | 'ended' | 'unavailable'>('waiting');
+  const [statusError, setStatusError] = useState('');
   const sessionIdRef = useRef<string>(`live-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+  const hasNotifiedStreamStartedRef = useRef(false);
   const [isMuted, setIsMuted] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
 
@@ -163,13 +167,18 @@ export default function LiveControlRoom({
       checking = true;
       try {
         const result = await djangoApi.syncLiveStream(streamId);
+        setStatusError('');
+        setStreamStatus(result.active ? 'live' : result.status === 'ended' ? 'ended' : 'waiting');
         if (result.active) {
-          stopped = true;
-          window.clearInterval(timer);
-          onIvsStartedRef.current();
+          if (!hasNotifiedStreamStartedRef.current) {
+            hasNotifiedStreamStartedRef.current = true;
+            onIvsStartedRef.current();
+          }
         }
       } catch (error) {
         console.warn('IVS stream status could not be synchronized:', error);
+        setStatusError(error instanceof Error ? error.message : 'Stream status is temporarily unavailable.');
+        setStreamStatus(current => current === 'live' ? current : 'unavailable');
       } finally {
         checking = false;
       }
@@ -243,16 +252,26 @@ export default function LiveControlRoom({
     if (!streamId) return;
 
     const sessionId = sessionIdRef.current;
-    void djangoApi.joinLiveStream(streamId, sessionId)
-      .then((result) => {
-        setWorshipperCount(result.viewer_count || 0);
-        setPeakWorshippers((prev) => Math.max(prev, result.viewer_count || 0));
-      })
-      .catch((error) => {
-        console.warn('Viewer session could not be registered:', error);
-      });
+    let active = true;
+    const refreshViewerCount = () => {
+      void djangoApi.joinLiveStream(streamId, sessionId)
+        .then((result) => {
+          if (!active) return;
+          const count = Math.max(0, (result.viewer_count || 0) - 1);
+          setWorshipperCount(count);
+          setPeakWorshippers((prev) => Math.max(prev, count));
+        })
+        .catch((error) => {
+          if (active) console.warn('Viewer session could not be registered:', error);
+        });
+    };
+
+    refreshViewerCount();
+    const timer = window.setInterval(refreshViewerCount, 15000);
 
     return () => {
+      active = false;
+      window.clearInterval(timer);
       void djangoApi.leaveLiveStream(streamId, sessionId).catch(() => undefined);
     };
   }, [streamId]);
@@ -300,11 +319,6 @@ export default function LiveControlRoom({
       isActive: false
     }
   ]);
-
-  // Telemetry Metrics
-  const [bitrate, setBitrate] = useState(4820);
-  const [fps, setFps] = useState(60);
-  const [audioKbps, setAudioKbps] = useState(192);
 
   // Toggle Camera Feed
   const toggleCameraFeed = async () => {
@@ -398,12 +412,13 @@ export default function LiveControlRoom({
 
   // Live Timer Effect
   useEffect(() => {
+    if (streamStatus !== 'live') return;
     const timer = setInterval(() => {
       setElapsedSeconds(prev => prev + 1);
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [streamStatus]);
 
   const formatElapsed = (sec: number) => {
     const hrs = Math.floor(sec / 3600);
@@ -414,17 +429,6 @@ export default function LiveControlRoom({
     }
     return `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
-
-  const analyticsSummary = useMemo(() => {
-    const totalMinutes = Math.max(1, Math.round(elapsedSeconds / 60));
-    const averageConcurrentAudience = Math.max(12, Math.round((worshipperCount + peakWorshippers) / 2));
-    const engagementRate = Math.min(98, Math.round((peakWorshippers / Math.max(1, worshipperCount + 60)) * 100 + 38));
-    const retentionScore = Math.min(96, Math.round((averageConcurrentAudience / Math.max(1, peakWorshippers + 10)) * 100 + 40));
-    const durationLabel = totalMinutes >= 60 ? `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m` : `${totalMinutes}m`;
-    const recapHeadline = `${broadcastTitle || 'Live Broadcast'} • ${durationLabel}`;
-    const recapBody = `${peakWorshippers.toLocaleString()} peak viewers, ${worshipperCount.toLocaleString()} live audience, ${prayerRequests.length} prayer requests, and ${engagementRate}% engagement during the service.`;
-    return { averageConcurrentAudience, engagementRate, retentionScore, durationLabel, recapHeadline, recapBody };
-  }, [elapsedSeconds, worshipperCount, peakWorshippers, prayerRequests.length, broadcastTitle]);
 
   const handleCopyStreamKey = () => {
     if (!streamKey) return;
@@ -526,8 +530,8 @@ export default function LiveControlRoom({
 
     const recapDescription = [
       `${broadcastTitle || `${broadcastType} — Live Service Recording`} was streamed for ${durationFormatted}.`,
-      `Audience reached ${worshipperCount.toLocaleString()} live viewers with a peak of ${peakWorshippers.toLocaleString()} concurrent worshippers.`,
-      `${prayerRequests.length} prayer requests were submitted during the service, and the live engagement score landed at ${analyticsSummary.engagementRate}% for the session.`,
+      `Audience reached ${worshipperCount.toLocaleString()} live viewers with a peak of ${peakWorshippers.toLocaleString()} concurrent viewers.`,
+      `${prayerRequests.length} prayer requests were recorded during the service.`,
       `Speaker: ${speaker || currentUser?.fullName || 'Senior Pastor'} • Scripture: ${scripture || 'Isaiah 40:29-31'}`
     ].join('\n\n');
 
@@ -539,9 +543,9 @@ export default function LiveControlRoom({
       category: category || 'Live Worship',
       durationMinutes: durationMins,
       durationFormatted: durationFormatted,
-      totalWorshippers: worshipperCount + 890,
+      totalWorshippers: worshipperCount,
       peakWorshippers: peakWorshippers,
-      prayersCount: prayerRequests.length + 31,
+      prayersCount: prayerRequests.length,
       thumbnail: '',
       videoUrl: ''
     });
@@ -559,10 +563,16 @@ export default function LiveControlRoom({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg sm:text-xl font-black text-white tracking-tight flex items-center gap-2">
-                <span>LIVE CONTROL ROOM</span>
+                <span>GOSPREAD LIVE ROOM</span>
               </h1>
-              <span className="px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-mono font-black uppercase">
-                ON AIR
+              <span className={`px-2.5 py-0.5 rounded-full border text-[10px] font-mono font-black uppercase ${
+                streamStatus === 'live'
+                  ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                  : streamStatus === 'ended'
+                    ? 'bg-slate-500/20 text-slate-300 border-slate-500/30'
+                    : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+              }`}>
+                {streamStatus === 'live' ? 'ON AIR' : streamStatus === 'ended' ? 'ENDED' : streamStatus === 'unavailable' ? 'STATUS UNAVAILABLE' : 'WAITING FOR SIGNAL'}
               </span>
             </div>
             <p className="text-xs text-slate-400 truncate max-w-md mt-0.5">
@@ -591,9 +601,13 @@ export default function LiveControlRoom({
           </div>
 
           {/* Stream Health Quick Indicator */}
-          <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-bold text-emerald-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>1080p60 • {bitrate} kbps</span>
+          <div className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-[11px] font-bold ${
+            streamStatus === 'live'
+              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+              : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+          }`}>
+            <span className={`w-2 h-2 rounded-full ${streamStatus === 'live' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+            <span>{streamStatus === 'live' ? 'Gospread stream live' : 'Waiting for encoder signal'}</span>
           </div>
 
           {/* End Stream Button */}
@@ -652,8 +666,21 @@ export default function LiveControlRoom({
               </div>
             )}
 
+            {videoSourceMode === 'rtmp' && streamStatus === 'live' && ivsCredentials?.playback_url && (
+              <MediaEngine
+                playback={{ kind: 'direct', directUrl: ivsCredentials.playback_url } satisfies ResolvedPlayback}
+                isPlaying
+                isMuted
+                playbackRate={1}
+                onStatusChange={() => {}}
+                onPlayingChange={() => {}}
+                onTimeUpdate={() => {}}
+                onError={(message) => console.warn('Gospread live preview playback failed:', message)}
+              />
+            )}
+
             {/* RTMP INGEST MONITOR */}
-            {videoSourceMode === 'rtmp' && (
+            {videoSourceMode === 'rtmp' && streamStatus !== 'live' && (
               <div className="absolute inset-0 bg-[#0c0c0e] flex flex-col items-center justify-center gap-3 px-6 text-center">
                 <div className="w-14 h-14 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
                   <RadioTower className="w-7 h-7" />
@@ -661,7 +688,11 @@ export default function LiveControlRoom({
                 <div>
                   <h3 className="text-sm font-black text-white">OBS / vMix to Amazon IVS</h3>
                   <p className="mt-1 text-xs text-slate-400 max-w-sm">
-                    Set your encoder to the private RTMPS endpoint and stream key shown below. Your feed will play in Gospread.
+                    {streamStatus === 'unavailable'
+                      ? statusError || 'Gospread cannot confirm the stream status right now.'
+                      : streamStatus === 'ended'
+                        ? 'This broadcast has ended.'
+                        : 'Set your encoder to the private RTMPS endpoint and stream key below. Gospread will show the feed when IVS detects your signal.'}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 mt-1">
@@ -680,9 +711,11 @@ export default function LiveControlRoom({
             {/* Top Live Video HUD Overlay */}
             <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none z-20">
               <div className="flex items-center gap-2 pointer-events-auto">
-                <span className="px-3 py-1 rounded-full bg-red-600 text-white font-black text-xs flex items-center gap-1.5 shadow-lg shadow-red-600/40">
-                  <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-                  <span>LIVE FEED</span>
+                <span className={`px-3 py-1 rounded-full text-white font-black text-xs flex items-center gap-1.5 shadow-lg ${
+                  streamStatus === 'live' ? 'bg-red-600 shadow-red-600/40' : 'bg-slate-700 shadow-black/30'
+                }`}>
+                <span className={`w-2 h-2 rounded-full bg-white ${streamStatus === 'live' ? 'animate-ping' : ''}`} />
+                <span>{streamStatus === 'live' ? 'LIVE' : streamStatus === 'ended' ? 'ENDED' : 'WAITING'}</span>
                 </span>
                 <span className="px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-slate-700 text-white font-mono text-[11px]">
                   {formatElapsed(elapsedSeconds)}
@@ -848,100 +881,36 @@ export default function LiveControlRoom({
             </div>
           </div>
 
-          {/* 📡 STREAM HEALTH TELEMETRY & SPARKLINE ANALYTICS */}
+          {/* 📡 GOSPREAD LIVE STATUS & VIEWERS */}
           <div className="bg-[#141416] border border-slate-800 rounded-3xl p-4 sm:p-5 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
               <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
                 <Activity className="w-4 h-4 text-emerald-400" />
-                Stream Health & Viewer Trend
+                Gospread Live status
               </h3>
-              <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-black uppercase flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span>🟢 Excellent Connection</span>
+              <span className={`px-2.5 py-1 rounded-full border text-[10px] font-black uppercase ${
+                streamStatus === 'live'
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                  : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+              }`}>
+                {streamStatus === 'live' ? 'IVS signal detected' : streamStatus === 'ended' ? 'Broadcast ended' : streamStatus === 'unavailable' ? 'Status unavailable' : 'Waiting for encoder'}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 pt-1">
-              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Avg audience</p>
-                <p className="mt-2 text-lg font-black text-white">{analyticsSummary.averageConcurrentAudience.toLocaleString()}</p>
-                <p className="text-[10px] text-emerald-300">Across the service</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-slate-800 bg-[#101012] p-3">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Connected viewers</p>
+                <p className="mt-2 text-lg font-black text-white">{worshipperCount.toLocaleString()}</p>
               </div>
-              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Peak viewers</p>
+              <div className="rounded-2xl border border-slate-800 bg-[#101012] p-3">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Peak connected viewers</p>
                 <p className="mt-2 text-lg font-black text-white">{peakWorshippers.toLocaleString()}</p>
-                <p className="text-[10px] text-amber-300">Best moment</p>
-              </div>
-              <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 p-3">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Engagement</p>
-                <p className="mt-2 text-lg font-black text-white">{analyticsSummary.engagementRate}%</p>
-                <p className="text-[10px] text-rose-300">Live response</p>
-              </div>
-              <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-3">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Retention</p>
-                <p className="mt-2 text-lg font-black text-white">{analyticsSummary.retentionScore}%</p>
-                <p className="text-[10px] text-sky-300">Watch quality</p>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-[#101012] p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Auto-generated recap</p>
-                  <p className="mt-1 text-sm font-bold text-white">{analyticsSummary.recapHeadline}</p>
-                </div>
-                <span className="rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-1 text-[10px] font-black uppercase text-amber-300">Live summary</span>
-              </div>
-              <p className="mt-2 text-[11px] text-slate-300 leading-relaxed">{analyticsSummary.recapBody}</p>
-            </div>
-
-            {/* D3 Real-Time Viewer Sparkline */}
-            <div className="pt-1">
-              <LiveViewerTrendSparkline
-                video={{
-                  id: 'live-stream-sparkline',
-                  title: broadcastTitle,
-                  speakerOrArtist: speaker,
-                  churchOrMinistry: currentUser?.ministryName || 'Grace City Cathedral',
-                  channelAvatar: currentUser?.avatarUrl || '',
-                  subscribersCount: '12K',
-                  likesCount: '4.8K',
-                  category: 'Live Worship',
-                  isLive: true,
-                  viewersCount: worshipperCount,
-                  thumbnail: '',
-                  description: '',
-                  date: 'Today'
-                }}
-                isLive={true}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-              <div className="p-3 rounded-2xl bg-[#19191d] border border-slate-800">
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Resolution</span>
-                <span className="text-xs sm:text-sm font-mono font-bold text-white mt-0.5 block">1080p60</span>
-                <span className="text-[10px] text-emerald-400">1920x1080 Native</span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-[#19191d] border border-slate-800">
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Bitrate</span>
-                <span className="text-xs sm:text-sm font-mono font-bold text-amber-300 mt-0.5 block">{bitrate} kbps</span>
-                <span className="text-[10px] text-slate-400">Target 4500 kbps</span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-[#19191d] border border-slate-800">
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Framerate</span>
-                <span className="text-xs sm:text-sm font-mono font-bold text-white mt-0.5 block">{fps} FPS</span>
-                <span className="text-[10px] text-emerald-400">0 dropped frames</span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-[#19191d] border border-slate-800">
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Audio Ingest</span>
-                <span className="text-xs sm:text-sm font-mono font-bold text-white mt-0.5 block">{audioKbps} kbps</span>
-                <span className="text-[10px] text-slate-400">AAC 48kHz Stereo</span>
-              </div>
-            </div>
+            <p className="text-[11px] text-slate-400">
+              Resolution, bitrate, frame rate, and dropped-frame telemetry are not currently provided by the Gospread stream monitor.
+            </p>
 
             {/* Quick Stream Credentials Copy Card */}
             <div className="p-3.5 rounded-2xl bg-[#101012] border border-slate-800/80 space-y-2 text-xs">
@@ -982,7 +951,7 @@ export default function LiveControlRoom({
                 </div>
               </div>
               <p className="font-mono text-slate-300 text-[11px] bg-black/50 p-2 rounded-xl border border-slate-800 truncate">
-                {showStreamKeySecret ? (streamKey || 'live_key_992184918239') : '••••••••••••••••••••••••'}
+                {showStreamKeySecret ? (streamKey || 'No stream key available') : '••••••••••••••••••••••••'}
               </p>
             </div>
           </div>

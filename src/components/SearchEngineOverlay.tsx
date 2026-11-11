@@ -26,7 +26,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream, AudioTrack, LIVE_VIDEO_STREAMS, AUDIO_TRACKS, SUBSCRIPTION_CHANNELS } from '../data/gospelData';
-import { youtubeApi } from '../services/youtubeApi';
 import { djangoApi } from '../services/djangoApi';
 
 interface SearchEngineOverlayProps {
@@ -64,27 +63,34 @@ export const SearchEngineOverlay: React.FC<SearchEngineOverlayProps> = ({
   const [sortBy, setSortBy] = useState<SearchSortBy>('relevance');
   const [durationFilter, setDurationFilter] = useState<SearchDuration>('any');
   const [liveOnly, setLiveOnly] = useState(false);
-  const [ytVideos, setYtVideos] = useState<VideoStream[]>(LIVE_VIDEO_STREAMS);
+  const [videoResults, setVideoResults] = useState<VideoStream[]>([]);
   const [audioResults, setAudioResults] = useState<AudioTrack[]>(AUDIO_TRACKS);
 
   useEffect(() => {
+    if (!isOpen) return;
+
     let active = true;
     const fetchMedia = async () => {
-      const queryTerm = searchQuery.trim() || 'Gospel Live Worship Sermon';
-      const videoRes = await youtubeApi.searchGospelVideos(queryTerm, liveOnly);
-      if (active && videoRes.videos && videoRes.videos.length > 0) {
-        setYtVideos(videoRes.videos);
-      }
-
-      const audioTracks = await djangoApi.getAudioTracks();
-      if (!active) return;
-      if (audioTracks.length > 0) {
-        setAudioResults(audioTracks);
-      } else {
-        setAudioResults(AUDIO_TRACKS);
+      try {
+        const [videos, audioTracks] = await Promise.all([
+          djangoApi.getVideos(
+            undefined,
+            liveOnly ? true : undefined,
+            searchQuery.trim(),
+            false,
+            'explore',
+          ),
+          djangoApi.getAudioTracks(),
+        ]);
+        if (!active) return;
+        setVideoResults(videos);
+        setAudioResults(audioTracks.length > 0 ? audioTracks : AUDIO_TRACKS);
+      } catch (error) {
+        console.warn('[Search] Failed to load Gospread media:', error);
+        if (active) setVideoResults([]);
       }
     };
-    fetchMedia();
+    void fetchMedia();
     return () => { active = false; };
   }, [searchQuery, liveOnly, isOpen]);
 
@@ -244,7 +250,7 @@ export const SearchEngineOverlay: React.FC<SearchEngineOverlayProps> = ({
   };
 
   // Filter video results
-  const matchingVideos = ytVideos.filter(v => {
+  const matchingVideos = videoResults.filter(v => {
     if (liveOnly && !v.isLive) return false;
 
     // Duration filter calculation

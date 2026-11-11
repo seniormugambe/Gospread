@@ -811,16 +811,16 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
             <div className="space-y-4">
               <div className="p-4 rounded-2xl bg-slate-900/70 border border-slate-800 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-red-600/20 text-red-400 flex items-center justify-center font-bold text-xs">
-                    📺
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs">
+                    GS
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-white">YouTube Data API v3</h4>
-                    <p className="text-[11px] text-slate-400">Live worship sermon queries & real-time metadata synchronizer</p>
+                    <h4 className="text-xs font-bold text-white">Gospread Media Catalog</h4>
+                    <p className="text-[11px] text-slate-400">Videos, sermons, audio, and live streams from Gospread services</p>
                   </div>
                 </div>
                 <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
-                  Connected
+                  Platform
                 </span>
               </div>
             </div>
