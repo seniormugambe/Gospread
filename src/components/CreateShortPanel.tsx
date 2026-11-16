@@ -121,9 +121,10 @@ interface CreateShortPanelProps {
   onPublished: (stream: VideoStream) => void;
   onRequireAuth?: () => void;
   isSignedIn: boolean;
+  username: string;
 }
 
-export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, isSignedIn }: CreateShortPanelProps) {
+export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, isSignedIn, username }: CreateShortPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -176,17 +177,21 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
   const handlePost = async () => {
     if (!file || !info) return;
     if (!isSignedIn) return onRequireAuth?.();
+    if (!username.trim()) {
+      setError('Your profile username is unavailable. Refresh your profile and try again.');
+      return;
+    }
     setError(null);
     setProgress(0);
     try {
       const thumbnail = info.frame ? await cropFrameToBlob(info.frame, cropX, cropY).catch(() => null) : null;
       const created = await djangoApi.createShort(
-        { caption, duration_seconds: info.duration, crop_x: cropX, crop_y: cropY, video_file: file, thumbnail_file: thumbnail },
+        { caption, speaker: username, duration_seconds: info.duration, crop_x: cropX, crop_y: cropY, video_file: file, thumbnail_file: thumbnail },
         setProgress,
       );
       const shorts = await djangoApi.getShorts().catch(() => [] as VideoStream[]);
       const mapped = shorts.find((s) => s.id === `short-${created.id}`);
-      if (mapped) onPublished(mapped);
+      if (mapped) onPublished({ ...mapped, speakerOrArtist: username });
       setDone(true);
     } catch (err: any) {
       setError(err?.message || 'Could not post your Gospel Nugget. Please try again.');
@@ -263,6 +268,17 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
               {Math.ceil(info.duration)}s / {SHORT_MAX_SECONDS}s · {info.width}×{info.height}
             </p>
           )}
+          <label className="block space-y-1.5">
+            <span className="text-xs font-bold text-slate-300">Profile username</span>
+            <input
+              type="text"
+              value={username ? `@${username.replace(/^@/, '')}` : 'Unavailable'}
+              readOnly
+              disabled={uploading}
+              title="This profile username is credited on your Gospel Nugget"
+              className="w-full rounded-xl bg-slate-900 border border-slate-700 outline-none p-3 text-sm text-white opacity-80"
+            />
+          </label>
           <label className="block space-y-1.5">
             <span className="text-xs font-bold text-slate-300">Caption</span>
             <textarea

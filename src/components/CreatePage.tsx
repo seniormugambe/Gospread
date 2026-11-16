@@ -387,6 +387,7 @@ export default function CreatePage({
   // Active Ministry / Account Details
   const ministryName = currentUser?.ministryName || currentUser?.churchName || 'Your Ministry';
   const ownerName = currentUser?.fullName || currentUser?.username || 'Account Owner';
+  const ownerUsername = currentUser?.username || ownerName;
   const avatarUrl = currentUser?.avatarUrl || currentUser?.avatar || '';
   const [avatarFailed, setAvatarFailed] = useState(false);
 
@@ -422,7 +423,7 @@ export default function CreatePage({
   // Video Details form state (Step 4)
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadDescription, setUploadDescription] = useState('');
-  const [uploadSpeaker, setUploadSpeaker] = useState(ownerName);
+  const [uploadSpeaker, setUploadSpeaker] = useState(ownerUsername);
   const [uploadMinistry, setUploadMinistry] = useState(ministryName);
   const [uploadCategory, setUploadCategory] = useState<'Sermons' | 'Worship & Praise' | 'Bible Study' | 'Gospel Music' | 'Youth & Family' | 'Healing & Miracles'>('Sermons');
   const [tagsInput, setTagsInput] = useState('');
@@ -436,7 +437,7 @@ export default function CreatePage({
   const [selectedFrameIndex, setSelectedFrameIndex] = useState(0);
   const [selectedAiPresetId, setSelectedAiPresetId] = useState('cathedral_gold');
   const [aiOverlayTitle, setAiOverlayTitle] = useState('');
-  const [aiOverlaySpeaker, setAiOverlaySpeaker] = useState(ownerName);
+  const [aiOverlaySpeaker, setAiOverlaySpeaker] = useState(ownerUsername);
   const [aiOverlayMinistry, setAiOverlayMinistry] = useState(ministryName);
   const [aiOverlayVerse, setAiOverlayVerse] = useState('');
   const [isAiGenerating, setIsAiGenerating] = useState(false);
@@ -569,13 +570,13 @@ export default function CreatePage({
 
   // Keep state synchronized with logged in user session
   useEffect(() => {
-    setUploadSpeaker(ownerName);
+    setUploadSpeaker(ownerUsername);
     setLiveSpeaker(ownerName);
     setScheduleSpeaker(ownerName);
     setUploadMinistry(ministryName);
-    setAiOverlaySpeaker(ownerName);
+    setAiOverlaySpeaker(ownerUsername);
     setAiOverlayMinistry(ministryName);
-  }, [ownerName, ministryName]);
+  }, [ownerName, ownerUsername, ministryName]);
 
   // Upload runs once after publish — POST /sermons/ with full metadata + media file
   useEffect(() => {
@@ -604,7 +605,7 @@ export default function CreatePage({
     djangoApi.createSermon(
       {
         title: uploadTitle || selectedFile?.name?.replace(/\.[^/.]+$/, '') || 'Untitled Sermon',
-        speaker: ownerName,
+        speaker: ownerUsername,
         description: uploadDescription,
         category: mappedApiCategory,
         kind: 'video',
@@ -645,7 +646,7 @@ export default function CreatePage({
         const newVideo = djangoApi.mapSermonToVideoStream(sermon, {
           bibleVerse: uploadScripture || undefined,
           channelAvatar: avatarUrl,
-          speaker: ownerName,
+          speaker: ownerUsername,
           ministry: ministryName,
           category: mappedCategory,
           viewsText: isScheduled
@@ -2163,6 +2164,7 @@ export default function CreatePage({
       {!isSubmitted && studioAction === 'short' && (
         <CreateShortPanel
           isSignedIn={Boolean(currentUser?.isLoggedIn || djangoApi.getAccessToken())}
+          username={currentUser?.username || ''}
           onRequireAuth={onRequireAuth}
           onBack={() => setStudioAction('choose')}
           onPublished={onPublishSuccess}
@@ -2685,6 +2687,18 @@ export default function CreatePage({
                       onChange={(e) => setUploadDescription(e.target.value)}
                       placeholder="Join us for today's worship service..."
                       className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none resize-none"
+                    />
+                  </div>
+
+                  {/* Profile username */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">Profile username</label>
+                    <input
+                      type="text"
+                      value={uploadSpeaker ? `@${uploadSpeaker.replace(/^@/, '')}` : ''}
+                      readOnly
+                      title="This profile username is credited on your upload"
+                      className="w-full cursor-not-allowed opacity-80 bg-[#0f0f0f] border border-slate-700 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
                     />
                   </div>
 

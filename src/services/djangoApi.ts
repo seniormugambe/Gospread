@@ -1343,12 +1343,13 @@ class DjangoApiClient {
   }
 
   public async createShort(
-    payload: { caption: string; duration_seconds: number; crop_x?: number; crop_y?: number; video_file: File; thumbnail_file?: Blob | null },
+    payload: { caption: string; speaker: string; duration_seconds: number; crop_x?: number; crop_y?: number; video_file: File; thumbnail_file?: Blob | null },
     onProgress?: (percent: number) => void,
   ): Promise<{ id: number }> {
     const formData = new FormData();
     const title = payload.caption.trim().slice(0, 140) || payload.video_file.name.replace(/\.[^/.]+$/, '');
     formData.append('title', title);
+    formData.append('speaker', payload.speaker);
     formData.append('caption', payload.caption.trim().slice(0, 280));
     formData.append('duration_seconds', String(Math.max(1, Math.ceil(payload.duration_seconds))));
     formData.append('crop_x', String(payload.crop_x ?? 0.5));
