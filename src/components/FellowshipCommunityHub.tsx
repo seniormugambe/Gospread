@@ -112,6 +112,7 @@ interface FellowshipCommunityHubProps {
   onAwardXp?: (amount: number, reason: string) => void;
   onOpenGiving?: () => void;
   onRequireAuth: () => void;
+  onOpenUserProfile: (username: string) => void;
   selectedPostId?: string | null;
 }
 
@@ -122,6 +123,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
   onAwardXp,
   onOpenGiving,
   onRequireAuth,
+  onOpenUserProfile,
   selectedPostId,
 }) => {
   const mapComment = (comment: CommunityCommentApi): CommunityComment => ({
@@ -750,11 +752,17 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
                   <div className="p-4 sm:p-5 pb-3 flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <div className="relative">
-                        <img
-                          src={post.authorAvatar}
-                          alt={post.authorName}
-                          className="w-11 h-11 rounded-2xl object-cover ring-2 ring-amber-400/80 shadow-md"
-                        />
+                        {post.authorAvatar ? (
+                          <img
+                            src={post.authorAvatar}
+                            alt={post.authorName}
+                            className="w-11 h-11 rounded-2xl object-cover ring-2 ring-amber-400/80 shadow-md"
+                          />
+                        ) : (
+                          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-800 text-slate-300 ring-2 ring-amber-400/80">
+                            <User className="h-5 w-5" aria-hidden="true" />
+                          </span>
+                        )}
                         {post.category === 'testimony' && (
                           <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-amber-500 border-2 border-slate-900 flex items-center justify-center text-[10px]">
                             🙌
@@ -769,8 +777,14 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
 
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="text-sm font-bold text-white">{post.authorName}</h4>
-                          <span className="text-[11px] text-amber-400 font-mono">@{post.authorHandle}</span>
+                          {post.isAnonymous ? (
+                            <h4 className="text-sm font-bold text-white">{post.authorName}</h4>
+                          ) : (
+                            <button type="button" onClick={() => onOpenUserProfile(post.authorHandle)} className="text-sm font-bold text-white hover:text-amber-300">
+                              {post.authorName}
+                            </button>
+                          )}
+                          {!post.isAnonymous && <span className="text-[11px] text-amber-400 font-mono">@{post.authorHandle}</span>}
                           <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 font-medium">
                             {post.authorRole}
                           </span>
@@ -1096,7 +1110,9 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
                                       alt={comment.authorName}
                                       className="w-6 h-6 rounded-lg object-cover"
                                     />
-                                    <span className="text-xs font-bold text-white">{comment.authorName}</span>
+                                    <button type="button" onClick={() => onOpenUserProfile(comment.authorHandle)} className="text-xs font-bold text-white hover:text-amber-300">
+                                      {comment.authorName}
+                                    </button>
                                     <span className="text-[10px] text-amber-400/90 font-mono">@{comment.authorHandle}</span>
                                   </div>
                                   <span className="text-[10px] text-slate-500">{comment.createdAt}</span>

@@ -346,6 +346,29 @@ class CommunityComment(models.Model):
         ordering = ["-created_at"]
 
 
+class FeedbackSubmission(models.Model):
+    class Category(models.TextChoices):
+        BUG = "bug", "Bug report"
+        SUGGESTION = "suggestion", "Suggestion"
+        OTHER = "other", "Other"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="feedback_submissions",
+        null=True,
+        blank=True,
+    )
+    category = models.CharField(max_length=12, choices=Category.choices)
+    message = models.TextField(max_length=3000)
+    contact_email = models.EmailField(blank=True)
+    page_path = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
 class GivingFund(models.Model):
     church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="giving_funds")
     name = models.CharField(max_length=120)

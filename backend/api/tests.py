@@ -19,9 +19,111 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from .models import (
-    AudioSpace, AudioSpaceParticipant, Church, ChurchEvent, Donation, GivingFund, LiveStream,
+    AudioSpace, AudioSpaceParticipant, Church, ChurchEvent, CommunityPost, Donation, FeedbackSubmission, GivingFund, LiveStream,
     DiscoveryImpression, PaymentGatewayCheckout, PlaybackEvent, PlaybackSession, Scripture, Sermon, SermonShort, User,
 )
+
+
+class PublicProfileTests(APITestCase):
+    def test_public_profile_contains_only_public_fields(self):
+        user = User.objects.create_user(
+            username="mary.kamau", email="mary-private@example.com", password="StrongPass123!",
+            first_name="Mary", last_name="Kamau", bio="Sharing music", role=User.Role.ARTISTE,
+            avatar_url="https://example.com/avatar.jpg",
+        )
+
+        response = self.client.get("/api/v1/profiles/mary.kamau/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, {
+            "username": user.username,
+            "name": "Mary Kamau",
+            "avatar_url": user.avatar_url,
+            "bio": user.bio,
+            "role": user.role,
+        })
+
+    def test_missing_and_inactive_profiles_are_not_available(self):
+        User.objects.create_user(
+            username="inactive", email="inactive@example.com", password="StrongPass123!", is_active=False,
+        )
+
+        for username in ("missing", "inactive"):
+            response = self.client.get(f"/api/v1/profiles/{username}/")
+            self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_anonymous_post_does_not_expose_a_profile_handle_or_avatar(self):
+        user = User.objects.create_user(
+            username="private-person", email="private@example.com", password="StrongPass123!",
+            avatar_url="https://example.com/private.jpg",
+        )
+        church = Church.objects.create(name="Private Church", slug="private-church", owner=user)
+        post = CommunityPost.objects.create(
+            author=user, church=church, category=CommunityPost.Category.PRAYER,
+            content="A prayer", is_anonymous=True,
+        )
+
+        response = self.client.get(f"/api/v1/community/posts/{post.pk}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["author_name"], "Kingdom Intercessor")
+        self.assertEqual(response.data["author_handle"], "")
+        self.assertEqual(response.data["author_avatar"], "")
+        self.assertEqual(response.data["author_role"], "Anonymous")
+        self.assertEqual(response.data["author_church"], "Global Fellowship")
+
+    def test_directory_entry_uses_actual_username_for_profile_link(self):
+        user = User.objects.create_user(
+            username="mary.kamau", email="directory@example.com", password="StrongPass123!",
+            first_name="Mary", last_name="Kamau", role=User.Role.ARTISTE,
+        )
+
+        response = self.client.get("/api/v1/directory/?category=artistes")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], f"user-{user.id}")
+        self.assertEqual(response.data[0]["handle"], "@mary.kamau")
+
+
+class FeedbackSubmissionTests(APITestCase):
+    def test_guest_can_submit_feedback(self):
+        response = self.client.post("/api/v1/feedback/", {
+            "category": "suggestion",
+            "message": "Please add a way to filter sermons by language.",
+            "contact_email": "listener@example.com",
+            "page_path": "/sermons",
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        submission = FeedbackSubmission.objects.get()
+        self.assertIsNone(submission.user)
+        self.assertEqual(submission.category, "suggestion")
+        self.assertEqual(submission.contact_email, "listener@example.com")
+        self.assertEqual(submission.page_path, "/sermons")
+
+    def test_authenticated_submission_is_associated_with_user(self):
+        user = User.objects.create_user(
+            username="feedback-user", email="feedback@example.com", password="StrongPass123!",
+        )
+        self.client.force_authenticate(user)
+
+        response = self.client.post("/api/v1/feedback/", {
+            "category": "bug",
+            "message": "The player stopped after opening the transcript.",
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(FeedbackSubmission.objects.get().user, user)
+
+    def test_feedback_requires_valid_category_and_message(self):
+        response = self.client.post("/api/v1/feedback/", {
+            "category": "complaint",
+            "message": "",
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(FeedbackSubmission.objects.exists())
 
 
 class AuthenticationTests(APITestCase):

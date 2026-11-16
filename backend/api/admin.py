@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import (
     AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost,
-    Donation, GivingFund, LiveStream, LiveStreamChatMessage, LiveStreamViewer,
+    Donation, FeedbackSubmission, GivingFund, LiveStream, LiveStreamChatMessage, LiveStreamViewer,
     PrayerComment, PrayerRequest, PaymentGatewayCheckout, SavedSermon, Scripture, Sermon,
     SermonShort, User, WatchProgress, WorshipSlide, WorshipSong,
 )
@@ -124,6 +124,19 @@ class GivingFundAdmin(admin.ModelAdmin):
     list_filter = ("is_active", "created_at")
     search_fields = ("name", "description", "church__name")
     autocomplete_fields = ("church",)
+
+
+@admin.register(FeedbackSubmission)
+class FeedbackSubmissionAdmin(admin.ModelAdmin):
+    list_display = ("category", "short_message", "contact_email", "user", "created_at")
+    list_filter = ("category", "created_at")
+    search_fields = ("message", "contact_email", "user__email")
+    autocomplete_fields = ("user",)
+    readonly_fields = ("created_at",)
+
+    @admin.display(description="Message")
+    def short_message(self, obj):
+        return obj.message[:120]
 
 
 @admin.register(Donation)

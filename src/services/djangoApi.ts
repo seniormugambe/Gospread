@@ -18,6 +18,14 @@ export interface DirectoryEntryApi {
   handle: string;
 }
 
+export interface PublicUserProfile {
+  username: string;
+  name: string;
+  avatar_url: string;
+  bio: string;
+  role: 'believer' | 'creator' | 'pastor' | 'artiste';
+}
+
 export interface ChurchCampusLocation {
   id?: string;
   campusName: string;
@@ -505,7 +513,9 @@ class DjangoApiClient {
     const token = this.getAccessToken();
     const csrfToken = this.getCsrfToken();
     const method = options.method?.toUpperCase() || 'GET';
-    const isPublicRead = PUBLIC_READ_ENDPOINTS.has(endpointPath) && ['GET', 'HEAD', 'OPTIONS'].includes(method);
+    const isPublicRead = (
+      PUBLIC_READ_ENDPOINTS.has(endpointPath) || endpointPath.startsWith('/profiles/')
+    ) && ['GET', 'HEAD', 'OPTIONS'].includes(method);
     const isPublicAuth = PUBLIC_AUTH_ENDPOINTS.has(cleanEndpoint);
 
     const headers: Record<string, string> = {
@@ -1664,6 +1674,10 @@ class DjangoApiClient {
     return Array.isArray(res) ? res : [];
   }
 
+  public async getPublicUserProfile(username: string): Promise<PublicUserProfile> {
+    return this.request<PublicUserProfile>(`/profiles/${encodeURIComponent(username)}/`);
+  }
+
   // === 8. FELLOWSHIP & VOICES COMMUNITY ===
   public async getCommunityPosts(category?: string, search?: string): Promise<CommunityPostApi[]> {
     const params = new URLSearchParams();
@@ -1712,6 +1726,18 @@ class DjangoApiClient {
     return await this.request<CommunityCommentApi>(`/community/posts/${postId}/comment/`, {
       method: 'POST',
       body: JSON.stringify({ content }),
+    });
+  }
+
+  public async submitFeedback(payload: {
+    category: 'bug' | 'suggestion' | 'other';
+    message: string;
+    contact_email?: string;
+    page_path?: string;
+  }): Promise<void> {
+    await this.request('/feedback/', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
   }
 

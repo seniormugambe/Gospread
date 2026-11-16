@@ -80,6 +80,7 @@ export const INITIAL_LEADERBOARD_DATA: LeaderboardEntity[] = [];
 
 interface SpiritualMomentumRankingsProps {
   onSelectChannelModal?: (channelName: string) => void;
+  onOpenUserProfile?: (username: string) => void;
   joinedChurches?: string[];
   onToggleJoinChurch?: (churchName: string) => void;
   streakDays?: number;
@@ -88,6 +89,7 @@ interface SpiritualMomentumRankingsProps {
 
 export default function SpiritualMomentumRankings({
   onSelectChannelModal,
+  onOpenUserProfile,
   joinedChurches = [],
   onToggleJoinChurch,
   streakDays = 7,
@@ -111,10 +113,12 @@ export default function SpiritualMomentumRankings({
       try {
         const posts = await djangoApi.getCommunityPosts();
         if (isMounted && posts && posts.length > 0) {
-          const userMap = new Map<string, { author: string; avatar: string; church?: string; count: number; prayers: number }>();
+          const userMap = new Map<string, { author: string; handle: string; avatar: string; church?: string; count: number; prayers: number }>();
           posts.forEach(p => {
-            const current = userMap.get(p.author_name) || {
+            if (p.is_anonymous || !p.author_handle) return;
+            const current = userMap.get(p.author_handle) || {
               author: p.author_name,
+              handle: p.author_handle,
               avatar: p.author_avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=240&q=80',
               church: p.author_church,
               count: 0,
@@ -122,7 +126,7 @@ export default function SpiritualMomentumRankings({
             };
             current.count += 1;
             current.prayers += (p.prayers_count || 0) + (p.amens_count || 0);
-            userMap.set(p.author_name, current);
+            userMap.set(p.author_handle, current);
           });
 
           const dynamicUsers: LeaderboardEntity[] = Array.from(userMap.values()).map((u, idx) => {
@@ -162,7 +166,7 @@ export default function SpiritualMomentumRankings({
               userBadges: badges,
               rank: idx + 1,
               rankChange: 'same',
-              locationOrHandle: `@${u.author.toLowerCase().replace(/\s+/g, '_')}`
+              locationOrHandle: `@${u.handle}`
             };
           });
 
@@ -178,6 +182,14 @@ export default function SpiritualMomentumRankings({
     fetchRankings();
     return () => { isMounted = false; };
   }, []);
+
+  const openEntity = (entity: LeaderboardEntity) => {
+    if (entity.category === 'users') {
+      onOpenUserProfile?.(entity.locationOrHandle.replace(/^@/, ''));
+    } else {
+      onSelectChannelModal?.(entity.name);
+    }
+  };
 
   // Filter leaderboard items
   const categoryItems = leaderboardItems.filter(item => {
@@ -652,7 +664,7 @@ export default function SpiritualMomentumRankings({
                                   </button>
                                 )}
                                 <button
-                                  onClick={() => onSelectChannelModal && onSelectChannelModal(entity.name)}
+                                  onClick={() => openEntity(entity)}
                                   className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
                                   title="View Details"
                                 >
@@ -760,7 +772,7 @@ export default function SpiritualMomentumRankings({
                             </button>
                           )}
                           <button
-                            onClick={() => onSelectChannelModal && onSelectChannelModal(entity.name)}
+                            onClick={() => openEntity(entity)}
                             className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-200 text-xs font-bold"
                           >
                             Details
@@ -830,7 +842,7 @@ export default function SpiritualMomentumRankings({
                         </span>
                       ) : (
                         <button
-                          onClick={() => onSelectChannelModal && onSelectChannelModal(entity.name)}
+                          onClick={() => openEntity(entity)}
                           className="font-bold text-sm sm:text-base text-white hover:text-amber-300 transition truncate text-left"
                         >
                           {entity.name}
@@ -950,7 +962,7 @@ export default function SpiritualMomentumRankings({
                         )}
 
                         <button
-                          onClick={() => onSelectChannelModal && onSelectChannelModal(entity.name)}
+                          onClick={() => openEntity(entity)}
                           className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
                           title="View Details"
                         >

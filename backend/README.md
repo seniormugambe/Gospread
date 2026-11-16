@@ -34,6 +34,7 @@ Public read endpoints include the health check, random scripture, published mini
 ## Resources
 
 - `/api/churches/`
+- `GET /api/profiles/{username}/` — public name, username, avatar, bio, and role for an active account; no private account fields
 - `/api/sermons/`
 - `/api/sermons/discover/?surface=home|explore|sermons|following`
 - `/api/discovery/config/` — public pilot feature-flag state

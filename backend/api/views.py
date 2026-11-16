@@ -21,6 +21,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateformat import format as date_format
 from rest_framework import generics, permissions, serializers, status, viewsets
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.decorators import action
 from rest_framework.exceptions import APIException, NotFound, ValidationError
 from rest_framework.response import Response
@@ -28,25 +29,37 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from livekit import api as livekit_api
 from .models import (
-    AudioSpace, AudioSpaceParticipant, Church, ChurchEvent, CommunityComment, CommunityPost, DiscoveryImpression, Donation, GivingFund,
+    AudioSpace, AudioSpaceParticipant, Church, ChurchEvent, CommunityComment, CommunityPost, DiscoveryImpression, Donation, FeedbackSubmission, GivingFund,
     LiveStream, LiveStreamChatMessage, LiveStreamViewer, PaymentGatewayCheckout, PayoutAccount, PrayerComment,
     OnboardingProfile, PlaybackEvent, PlaybackSession, PrayerRequest, Scripture, SavedSermon, Sermon, SermonShort, SermonUploadSession,
-    WatchProgress, WorshipSong,
+    User, WatchProgress, WorshipSong,
 )
 from . import discovery
 from . import onboarding
 from .permissions import IsPastorOwnerOrReadOnly
 from .serializers import (
     AudioSpaceSerializer, ChurchEventSerializer, ChurchSerializer, CommunityCommentSerializer, CommunityPostSerializer, DonationCheckoutSerializer, DonationSerializer,
-    GivingFundSerializer, LiveStreamChatMessageSerializer, LiveStreamSerializer, PaymentGatewayCheckoutSerializer, PayoutAccountSerializer,
+    FeedbackSubmissionSerializer, GivingFundSerializer, LiveStreamChatMessageSerializer, LiveStreamSerializer, PaymentGatewayCheckoutSerializer, PayoutAccountSerializer,
     OnboardingSerializer, PrayerCommentSerializer, PrayerRequestSerializer, SavedSermonSerializer, ChangePasswordSerializer,
     GospreadTokenSerializer, PasswordResetConfirmSerializer, PasswordResetRequestSerializer,
-    PlaybackHeartbeatSerializer, ScriptureSerializer, SermonSerializer, SermonShortSerializer,
+    PlaybackHeartbeatSerializer, PublicUserProfileSerializer, ScriptureSerializer, SermonSerializer, SermonShortSerializer,
     SermonUploadInitSerializer,
     GospreadTokenRefreshSerializer, SignupSerializer, UserSerializer, WatchProgressSerializer, WorshipSongSerializer,
 )
 
 logger = logging.getLogger(__name__)
+
+
+class FeedbackSubmissionView(generics.CreateAPIView):
+    queryset = FeedbackSubmission.objects.all()
+    serializer_class = FeedbackSubmissionSerializer
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "feedback"
+
+    def perform_create(self, serializer):
+        user = self.request.user if self.request.user.is_authenticated else None
+        serializer.save(user=user)
 
 
 def _run_livekit_room_call(method_name, request):
@@ -366,6 +379,13 @@ class MeView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+
+class PublicUserProfileView(generics.RetrieveAPIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = PublicUserProfileSerializer
+    queryset = User.objects.filter(is_active=True)
+    lookup_field = "username"
 
 
 class OnboardingQuestionsView(generics.GenericAPIView):

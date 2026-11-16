@@ -55,6 +55,7 @@ import {
   Download,
   Settings,
   MessageSquareHeart,
+  MessageSquarePlus,
   RadioTower
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -64,8 +65,10 @@ import CreatePage, { StudioAction } from './components/CreatePage';
 import CreateModalDropdown from './components/CreateModalDropdown';
 import DiscoverMinistriesHub from './components/DiscoverMinistriesHub';
 import UserProfilePage from './components/UserProfilePage';
+import PublicUserProfile from './components/PublicUserProfile';
 import FellowshipCommunityHub from './components/FellowshipCommunityHub';
 import AccountSettingsModal from './components/AccountSettingsModal';
+import FeedbackModal from './components/FeedbackModal';
 import UserAccountMenuDropdown from './components/UserAccountMenuDropdown';
 import ChannelProfileModal from './components/ChannelProfileModal';
 import GivingModal, { GivingTarget } from './components/GivingModal';
@@ -137,11 +140,12 @@ export default function App() {
     }
   }, [theme]);
 
-  const [activeTab, setActiveTab] = useState<'platform' | 'generated' | 'create' | 'profile' | 'history' | 'discover' | 'community' | 'auth'>(() => {
+  const [activeTab, setActiveTab] = useState<'platform' | 'generated' | 'create' | 'profile' | 'public-profile' | 'history' | 'discover' | 'community' | 'auth'>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.has('password_reset_uid') && params.has('password_reset_token') ? 'auth' : 'platform';
   });
   const [routePath, setRoutePath] = useState(() => window.location.pathname);
+  const currentRoute = parseAppRoute(routePath);
   const [selectedCommunityPostId, setSelectedCommunityPostId] = useState<string | null>(null);
   const [inviteReferrer, setInviteReferrer] = useState<Referrer | null>(() => captureReferrerFromLocation());
   const [homeNavigationKey, setHomeNavigationKey] = useState(0);
@@ -528,7 +532,18 @@ export default function App() {
 
   const openChannelProfile = (channelName: string) => {
     setSelectedChannelModal(channelName);
-    navigateTo(profilePath(channelName));
+    const church = churches.find(item => item.name.toLowerCase() === channelName.toLowerCase());
+    if (church) navigateTo(ministryPath(church.slug || church.id));
+  };
+
+  const openUserProfile = (username: string) => {
+    const handle = username.replace(/^@/, '');
+    if (!handle) return;
+    setSelectedChannelModal(null);
+    setActiveVideo(null);
+    setIsPipDocked(false);
+    setActiveTab(userSession.isLoggedIn && userSession.username === handle ? 'profile' : 'public-profile');
+    navigateTo(profilePath(handle));
   };
 
   const openMinistry = (ministryId: string) => {
@@ -649,6 +664,7 @@ export default function App() {
   const [selectedShortId, setSelectedShortId] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showUserAccountDropdown, setShowUserAccountDropdown] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [downloadingVideo, setDownloadingVideo] = useState<VideoStream | null>(null);
@@ -970,7 +986,7 @@ export default function App() {
     }
 
     if (route.kind === 'profile') {
-      if (userSession.username && route.name.toLowerCase() === userSession.username.toLowerCase()) {
+      if (userSession.isLoggedIn && userSession.username === route.name) {
         setActiveTab('profile');
         setSelectedChannelModal(null);
         setSelectedCommunityPostId(null);
@@ -982,15 +998,11 @@ export default function App() {
         });
         return;
       }
-      setActiveTab('platform');
+      setActiveTab('public-profile');
+      setActiveVideo(null);
+      setIsPipDocked(false);
       setSelectedCommunityPostId(null);
-      setSelectedChannelModal(route.name);
-      updatePageMetadata({
-        title: `${route.name} | Gospread`,
-        description: `Explore ${route.name} on Gospread.`,
-        path: profilePath(route.name),
-        image: getChannelAvatar(route.name),
-      });
+      setSelectedChannelModal(null);
       return;
     }
 
@@ -1191,6 +1203,15 @@ export default function App() {
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
           <div>
             <div className="flex items-center gap-2 sm:gap-2.5">
+          <button
+            type="button"
+            onClick={() => setShowFeedbackModal(true)}
+            className="rounded-full border border-slate-700 bg-slate-900 p-2 text-slate-300 shadow-sm transition hover:bg-slate-800 hover:text-amber-400"
+            title="Send feedback"
+            aria-label="Send feedback"
+          >
+            <MessageSquarePlus className="h-3.5 w-3.5" />
+          </button>
           {/* Theme Toggle Button */}
           <button
             onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
@@ -1696,6 +1717,11 @@ export default function App() {
                 }}
               />
             </div>
+          ) : activeTab === 'public-profile' && currentRoute.kind === 'profile' ? (
+            <PublicUserProfile
+              username={currentRoute.name}
+              onBack={handleNavigateHome}
+            />
           ) : activeTab === 'profile' ? (
             <div className="p-4 lg:p-6 max-w-7xl w-full mx-auto">
               <UserProfilePage
@@ -1752,6 +1778,7 @@ export default function App() {
                 onOpenGiving={handleOpenGiving}
                 onRequireAuth={() => handleOpenAuthPage('signin')}
                 selectedPostId={selectedCommunityPostId}
+                onOpenUserProfile={openUserProfile}
               />
             </div>
           ) : activeTab === 'history' ? (
@@ -1780,6 +1807,7 @@ export default function App() {
               onChangeBellSetting={handleBellChange}
               onSelectChannelModal={openChannelProfile}
               onOpenMinistry={openMinistry}
+              onOpenUserProfile={openUserProfile}
               onOpenGivingModal={handleOpenGiving}
               onSelectVideo={handleSelectVideo}
               onPlayAudioTrack={handlePlayAudioTrack}
@@ -2709,6 +2737,13 @@ export default function App() {
       </AnimatePresence>
 
       {/* 💳 Kingdom Giving & Payment Modal */}
+      <FeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+        defaultEmail={userSession.isLoggedIn ? userSession.email : ''}
+        theme={theme}
+      />
+
       {showGivingModal && (
         <GivingModal
           target={givingModalTarget}

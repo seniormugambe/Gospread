@@ -94,6 +94,7 @@ interface DiscoverMinistriesHubProps {
   onChangeBellSetting: (channelName: string, setting: 'all' | 'personalized' | 'none') => void;
   onSelectChannelModal: (channelName: string) => void;
   onOpenMinistry: (ministryId: string) => void;
+  onOpenUserProfile: (username: string) => void;
   onOpenGivingModal: (target: GivingTarget) => void;
   onSelectVideo: (video: VideoStream) => void;
   onPlayAudioTrack: (track: AudioTrack) => void;
@@ -113,6 +114,7 @@ export default function DiscoverMinistriesHub({
   onChangeBellSetting,
   onSelectChannelModal,
   onOpenMinistry,
+  onOpenUserProfile,
   onOpenGivingModal,
   onSelectVideo,
   onPlayAudioTrack,
@@ -185,7 +187,7 @@ export default function DiscoverMinistriesHub({
 
   const openEntry = (ministry: MinistryItem) => {
     if (ministry.category === 'churches') onOpenMinistry(ministry.id);
-    else onSelectChannelModal(ministry.name);
+    else if (ministry.socialHandle) onOpenUserProfile(ministry.socialHandle);
   };
 
   const handleMediaPlay = (ministry: MinistryItem) => {
@@ -204,8 +206,7 @@ export default function DiscoverMinistriesHub({
         }
       }
     }
-    // Fallback: open modal
-    onSelectChannelModal(ministry.name);
+    openEntry(ministry);
   };
 
   const getCategoryBadge = (cat: 'churches' | 'artistes' | 'creators') => {
@@ -309,6 +310,7 @@ export default function DiscoverMinistriesHub({
       {activeHubView === 'rankings' ? (
         <SpiritualMomentumRankings
           onSelectChannelModal={onSelectChannelModal}
+          onOpenUserProfile={onOpenUserProfile}
           joinedChurches={joinedChurches}
           onToggleJoinChurch={onToggleJoinChurch}
           streakDays={streakDays}

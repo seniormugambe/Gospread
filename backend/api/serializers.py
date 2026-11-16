@@ -17,7 +17,7 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from . import onboarding
 from .models import (
-    AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, GivingFund,
+    AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, FeedbackSubmission, GivingFund,
     LiveStream, LiveStreamChatMessage, PayoutAccount, PrayerComment, PrayerRequest, PaymentGatewayCheckout,
     SavedSermon, Scripture, Sermon, SermonShort, User, WatchProgress, WorshipSlide,
     WorshipSong,
@@ -83,6 +83,18 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_creator_type(self, user):
         return {User.Role.PASTOR: "church", User.Role.ARTISTE: "artiste", User.Role.CREATOR: "creator"}.get(user.role)
+
+
+class PublicUserProfileSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ("username", "name", "avatar_url", "bio", "role")
+        read_only_fields = fields
+
+    def get_name(self, user):
+        return user.get_full_name() or user.username
 
 
 class OnboardingSerializer(serializers.Serializer):
@@ -597,11 +609,18 @@ class CommunityCommentSerializer(serializers.ModelSerializer):
         return user.is_authenticated and obj.amen_by.filter(id=user.id).exists()
 
 
+class FeedbackSubmissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FeedbackSubmission
+        fields = ("id", "category", "message", "contact_email", "page_path", "created_at")
+        read_only_fields = ("id", "created_at")
+
+
 class CommunityPostSerializer(serializers.ModelSerializer):
     author_name = serializers.SerializerMethodField()
-    author_handle = serializers.CharField(source="author.username", read_only=True)
-    author_avatar = serializers.CharField(source="author.avatar_url", read_only=True)
-    author_role = serializers.CharField(source="author.get_role_display", read_only=True)
+    author_handle = serializers.SerializerMethodField()
+    author_avatar = serializers.SerializerMethodField()
+    author_role = serializers.SerializerMethodField()
     author_church = serializers.SerializerMethodField()
     amens_count = serializers.IntegerField(source="amen_by.count", read_only=True)
     prayers_count = serializers.IntegerField(source="prayed_by.count", read_only=True)
@@ -642,8 +661,17 @@ class CommunityPostSerializer(serializers.ModelSerializer):
     def get_author_name(self, obj):
         return "Kingdom Intercessor" if obj.is_anonymous else (obj.author.get_full_name() or obj.author.username)
 
+    def get_author_handle(self, obj):
+        return "" if obj.is_anonymous else obj.author.username
+
+    def get_author_avatar(self, obj):
+        return "" if obj.is_anonymous else obj.author.avatar_url
+
+    def get_author_role(self, obj):
+        return "Anonymous" if obj.is_anonymous else obj.author.get_role_display()
+
     def get_author_church(self, obj):
-        return obj.church.name if obj.church else "Global Fellowship"
+        return obj.church.name if not obj.is_anonymous and obj.church else "Global Fellowship"
 
     def _has(self, relation, obj):
         user = self.context["request"].user
