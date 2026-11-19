@@ -27,8 +27,7 @@ import { VideoStream } from '../data/gospelData';
 import { GivingTarget } from './GivingModal';
 import MediaEngine, { MediaEngineHandle, PlayerStatus } from './MediaEngine';
 import { formatMediaTime, resolvePlaybackSource } from '../utils/videoPlayback';
-import { videoPath } from '../lib/routes';
-import { shareWithInvite } from '../lib/invites';
+import VideoShareDialog from './VideoShareDialog';
 
 interface VideoPlayerProps {
   video: VideoStream;
@@ -89,7 +88,7 @@ export default function VideoPlayer({
   const [audioOnly, setAudioOnly] = useState(false);
   const [controlsActive, setControlsActive] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [shareState, setShareState] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [isShareOpen, setIsShareOpen] = useState(false);
   const [fileShareState, setFileShareState] = useState<'idle' | 'copied' | 'error'>('idle');
 
   const isLiveStream = video.isLive || (hasSource && status !== 'loading' && durationSec === 0);
@@ -224,21 +223,6 @@ export default function VideoPlayer({
       else await el.requestFullscreen();
     } catch {
       onOpenFullscreen?.();
-    }
-  };
-
-  const handleShare = async () => {
-    const result = await shareWithInvite({
-      title: video.title,
-      text: `Watch "${video.title}" by ${video.speakerOrArtist} on Gospread`,
-      path: videoPath(video.id),
-    });
-    if (result === 'copied') {
-      setShareState('copied');
-      window.setTimeout(() => setShareState('idle'), 2200);
-    } else if (result === 'failed') {
-      setShareState('error');
-      window.setTimeout(() => setShareState('idle'), 3500);
     }
   };
 
@@ -586,8 +570,8 @@ export default function VideoPlayer({
                   >
                     <DollarSign className="h-3 w-3" /> Sow Seed
                   </button>
-                  <IconButton label={shareState === 'copied' ? 'Link copied' : shareState === 'error' ? 'Could not copy link' : 'Share'} onClick={handleShare}>
-                    {shareState === 'copied' ? <Check className="h-4 w-4 text-emerald-400" /> : shareState === 'error' ? <AlertTriangle className="h-4 w-4 text-red-400" /> : <Share2 className="h-4 w-4" />}
+                  <IconButton label="Share video" onClick={() => setIsShareOpen(true)}>
+                    <Share2 className="h-4 w-4" />
                   </IconButton>
                   {playback.kind === 'direct' && (
                     <IconButton label={fileShareState === 'copied' ? 'Video file copied' : fileShareState === 'error' ? 'Could not copy video file' : 'Share video file'} onClick={handleShareVideoFile}>
@@ -613,6 +597,7 @@ export default function VideoPlayer({
           </motion.div>
         )}
       </AnimatePresence>
+      <VideoShareDialog video={isShareOpen ? video : null} onClose={() => setIsShareOpen(false)} />
     </div>
   );
 }

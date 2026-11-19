@@ -15,7 +15,9 @@ const decodeSegment = (segment: string) => {
 
 export const parseAppRoute = (pathname: string): AppRoute => {
   const segments = pathname.split('/').filter(Boolean).map(decodeSegment);
-  if (segments[0] === 'videos' && segments[1]) return { kind: 'video', id: segments[1] };
+  if (segments[0] === 'videos' && segments[1]) {
+    return { kind: 'video', id: segments[2] || segments[1] };
+  }
   if (segments[0] === 'profiles' && segments[1]) return { kind: 'profile', name: segments[1] };
   if (segments[0] === 'community' && segments[1] === 'posts' && segments[2]) {
     return { kind: 'communityPost', id: segments[2] };
@@ -24,7 +26,19 @@ export const parseAppRoute = (pathname: string): AppRoute => {
   return { kind: 'home' };
 };
 
-export const videoPath = (id: string) => `/videos/${encodeURIComponent(id)}`;
+export const videoPath = (id: string, title?: string) => {
+  const slug = title
+    ?.normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80);
+
+  return slug
+    ? `/videos/${slug}/${encodeURIComponent(id)}`
+    : `/videos/${encodeURIComponent(id)}`;
+};
 export const profilePath = (name: string) => `/profiles/${encodeURIComponent(name)}`;
 export const communityPostPath = (id: string) => `/community/posts/${encodeURIComponent(id)}`;
 export const ministryPath = (id: string) => `/ministries/${encodeURIComponent(id)}`;

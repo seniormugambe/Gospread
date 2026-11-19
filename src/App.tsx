@@ -4,7 +4,6 @@ import {
   Pause, 
   Maximize2, 
   Copy, 
-  Check, 
   Tv, 
   Compass, 
   Bookmark, 
@@ -80,6 +79,7 @@ import AuthPage from './components/AuthPage';
 import { djangoApi } from './services/djangoApi';
 import VideoDownloadModal from './components/VideoDownloadModal';
 import VideoPlayer from './components/VideoPlayer';
+import VideoShareDialog from './components/VideoShareDialog';
 import PictureInPictureWindow from './components/PictureInPictureWindow';
 import LiveViewerTrendSparkline from './components/LiveViewerTrendSparkline';
 import AudioPodcastPlayer from './components/AudioPodcastPlayer';
@@ -105,7 +105,7 @@ import {
   ReactionType,
 } from './data/gospelData';
 import { ministryPath, parseAppRoute, profilePath, updatePageMetadata, videoPath } from './lib/routes';
-import { Referrer, captureReferrerFromLocation, shareWithInvite } from './lib/invites';
+import { Referrer, captureReferrerFromLocation } from './lib/invites';
 import InviteBanner from './components/InviteBanner';
 
 const LEGACY_PROFILE_PLACEHOLDERS = new Set([
@@ -495,6 +495,7 @@ export default function App() {
   
   // Watch view state & Channel Following state
   const [activeVideo, setActiveVideo] = useState<VideoStream | null>(null);
+  const [sharingVideo, setSharingVideo] = useState<VideoStream | null>(null);
   useEffect(() => {
     if (!activeVideo) return;
 
@@ -957,7 +958,7 @@ export default function App() {
     setIsAudioPlaying(false);
     setActiveTab('platform');
     setSelectedCommunityPostId(null);
-    if (updateUrl) navigateTo(videoPath(video.id));
+    if (updateUrl) navigateTo(videoPath(video.id, video.title));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -978,7 +979,7 @@ export default function App() {
         updatePageMetadata({
           title: `${video.title} | Gospread`,
           description: `Watch ${video.title} by ${video.speakerOrArtist} on Gospread.`,
-          path: videoPath(video.id),
+          path: videoPath(video.id, video.title),
           image: video.thumbnail,
         });
       }
@@ -2129,14 +2130,8 @@ export default function App() {
                     </button>
 
                     <button
-                      onClick={async () => {
-                        const result = await shareWithInvite({
-                          title: activeVideo.title,
-                          text: `Watch "${activeVideo.title}" by ${activeVideo.speakerOrArtist} on Gospread!`,
-                          path: videoPath(activeVideo.id),
-                        });
-                        if (result === 'copied') alert('Video link with your invite copied to clipboard!');
-                        if (result === 'failed') alert('Could not copy the video link. Please allow clipboard access and try again.');
+                      onClick={() => {
+                        setSharingVideo(activeVideo);
                       }}
                       className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-800/80 text-xs text-slate-300 font-bold border border-slate-700/50 hover:bg-slate-700 transition"
                       title="Share Video"
@@ -2852,6 +2847,7 @@ export default function App() {
           setActiveTab('platform');
         }}
       />
+      <VideoShareDialog video={sharingVideo} onClose={() => setSharingVideo(null)} />
 
       {/* 📺 Picture-in-Picture Floating Window when browsing Profile, History, or when docked */}
       {activeVideo && (activeTab !== 'platform' || isPipDocked) && (

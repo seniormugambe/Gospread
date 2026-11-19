@@ -8,7 +8,6 @@ import {
   Share2, 
   Clock, 
   Tv, 
-  Check, 
   Sparkles,
   ArrowRight,
   Filter,
@@ -17,8 +16,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream } from '../data/gospelData';
-import { videoPath } from '../lib/routes';
-import { shareWithInvite } from '../lib/invites';
+import VideoShareDialog from './VideoShareDialog';
 
 export interface WatchHistoryItem {
   video: VideoStream;
@@ -48,8 +46,7 @@ export const WatchHistoryView: React.FC<WatchHistoryViewProps> = ({
 }) => {
   const [searchFilter, setSearchFilter] = useState('');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [copyErrorId, setCopyErrorId] = useState<string | null>(null);
+  const [sharingVideo, setSharingVideo] = useState<VideoStream | null>(null);
 
   // Filter history by search term
   const filteredHistory = watchHistory.filter((item) => {
@@ -111,21 +108,6 @@ export const WatchHistoryView: React.FC<WatchHistoryViewProps> = ({
   };
 
   const groupedHistory = groupItemsByTime(filteredHistory);
-
-  const handleShare = async (video: VideoStream) => {
-    const result = await shareWithInvite({
-      title: video.title,
-      text: `Watch "${video.title}" by ${video.speakerOrArtist} on Gospread!`,
-      path: videoPath(video.id),
-    });
-    if (result === 'copied') {
-      setCopiedId(video.id);
-      setTimeout(() => setCopiedId(null), 2500);
-    } else if (result === 'failed') {
-      setCopyErrorId(video.id);
-      setTimeout(() => setCopyErrorId(null), 3500);
-    }
-  };
 
   return (
     <div className="space-y-6 pb-12">
@@ -365,17 +347,11 @@ export const WatchHistoryView: React.FC<WatchHistoryViewProps> = ({
 
                           {/* Share Button */}
                           <button
-                            onClick={() => handleShare(video)}
+                            onClick={() => setSharingVideo(video)}
                             className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
-                            title={copyErrorId === video.id ? 'Could not copy video link' : 'Share Video'}
+                            title="Share video"
                           >
-                            {copiedId === video.id ? (
-                              <Check className="w-3.5 h-3.5 text-emerald-400" />
-                            ) : copyErrorId === video.id ? (
-                              <X className="w-3.5 h-3.5 text-red-400" />
-                            ) : (
-                              <Share2 className="w-3.5 h-3.5" />
-                            )}
+                            <Share2 className="w-3.5 h-3.5" />
                           </button>
 
                           {/* Download Button */}
@@ -407,6 +383,7 @@ export const WatchHistoryView: React.FC<WatchHistoryViewProps> = ({
           ))}
         </div>
       )}
+      <VideoShareDialog video={sharingVideo} onClose={() => setSharingVideo(null)} />
     </div>
   );
 };
