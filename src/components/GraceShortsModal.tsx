@@ -110,7 +110,6 @@ export default function GraceShortsModal({
                 poster={currentShort.thumbnail}
                 className="w-full h-full object-cover"
                 style={{ objectPosition: currentShort.cropPosition || '50% 50%' }}
-                autoPlay
                 loop
                 playsInline
                 muted={isMuted}

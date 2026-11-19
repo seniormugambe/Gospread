@@ -1,73 +1,16 @@
-import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Play, X, Flame } from 'lucide-react';
+import { Flame, Play } from 'lucide-react';
 import { VideoStream } from '../data/gospelData';
 
 interface UpNextRailProps {
   videos: VideoStream[];
   onSelect: (video: VideoStream) => void;
-  autoplayTarget: VideoStream | null;
-  onCancelAutoplay: () => void;
   watchedProgress?: Record<string, number>;
 }
 
-const COUNTDOWN_SECONDS = 8;
-
-export default function UpNextRail({ videos, onSelect, autoplayTarget, onCancelAutoplay, watchedProgress = {} }: UpNextRailProps) {
-  const [remaining, setRemaining] = useState(COUNTDOWN_SECONDS);
-
-  useEffect(() => {
-    if (!autoplayTarget) return;
-    setRemaining(COUNTDOWN_SECONDS);
-    const timer = window.setInterval(() => {
-      setRemaining((r) => r - 1);
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [autoplayTarget]);
-
-  useEffect(() => {
-    if (autoplayTarget && remaining <= 0) onSelect(autoplayTarget);
-  }, [autoplayTarget, remaining, onSelect]);
-
+export default function UpNextRail({ videos, onSelect, watchedProgress = {} }: UpNextRailProps) {
   return (
     <section className="space-y-3">
-      {autoplayTarget && (
-        <motion.div
-          initial={{ opacity: 0, y: 10, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/20 via-rose-500/10 to-transparent p-3"
-        >
-          <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">
-            Playing next in {Math.max(remaining, 0)}s
-          </p>
-          <div className="mt-2 flex gap-3">
-            <img src={autoplayTarget.thumbnail} alt="" className="h-14 w-24 rounded-lg object-cover" />
-            <p className="line-clamp-2 flex-1 text-xs font-bold text-white">{autoplayTarget.title}</p>
-          </div>
-          <div className="mt-3 flex gap-2">
-            <button
-              onClick={() => onSelect(autoplayTarget)}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-amber-400 py-1.5 text-xs font-black text-slate-950 transition hover:bg-amber-300"
-            >
-              <Play className="h-3.5 w-3.5 fill-slate-950" /> Play now
-            </button>
-            <button
-              onClick={onCancelAutoplay}
-              className="flex items-center gap-1 rounded-full border border-white/20 px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:bg-white/10"
-            >
-              <X className="h-3.5 w-3.5" /> Cancel
-            </button>
-          </div>
-          <motion.div
-            key={autoplayTarget.id}
-            initial={{ width: '0%' }}
-            animate={{ width: '100%' }}
-            transition={{ duration: COUNTDOWN_SECONDS, ease: 'linear' }}
-            className="absolute bottom-0 left-0 h-1 bg-amber-400"
-          />
-        </motion.div>
-      )}
-
       <h3 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-slate-400">
         <Flame className="h-3.5 w-3.5 text-amber-400" /> Keep the fire going
       </h3>

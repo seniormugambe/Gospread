@@ -620,7 +620,7 @@ export default function App() {
   const [autoJoinAudioSpace, setAutoJoinAudioSpace] = useState(false);
   
   // Video player controls state
-  const [isVideoPlaying, setIsVideoPlaying] = useState(true);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
@@ -951,12 +951,9 @@ export default function App() {
     );
   };
 
-  const [autoplayTarget, setAutoplayTarget] = useState<VideoStream | null>(null);
-
   const handleSelectVideo = (video: VideoStream, updateUrl = true) => {
-    setAutoplayTarget(null);
     setActiveVideo(video);
-    setIsVideoPlaying(true);
+    setIsVideoPlaying(false);
     setIsAudioPlaying(false);
     setActiveTab('platform');
     setSelectedCommunityPostId(null);
@@ -1070,13 +1067,17 @@ export default function App() {
       setVideoStreams(prev => [newStream, ...prev.filter(s => s.id !== newStream.id)]);
     }
     setActiveVideo(newStream.isShort ? null : newStream);
+    setIsVideoPlaying(false);
     setActiveTab('platform');
   };
 
   const handleMediaDeleted = (id: string) => {
     setVideoStreams(prev => prev.filter(v => v.id !== id));
     setShorts(prev => prev.filter(s => s.id !== id));
+    removeFromWatchHistory(id);
+    playbackSessionsRef.current.delete(id);
     setActiveVideo(prev => (prev?.id === id ? null : prev));
+    setIsVideoPlaying(false);
   };
 
   const handleLiveCreated = (newStream: VideoStream, replacedId?: string) => {
@@ -1988,11 +1989,6 @@ export default function App() {
                   onDownloadVideo={handleOpenDownloadModal}
                   onPlaybackStarted={handlePlaybackStarted}
                   onPlaybackProgress={handlePlaybackProgress}
-                  onPlaybackEnded={(ended) => {
-                    if (ended.isLive) return;
-                    const next = videoStreams.find((v) => v.id !== ended.id && !v.isLive);
-                    if (next) setAutoplayTarget(next);
-                  }}
                 />
                 </div>
 
@@ -2186,8 +2182,6 @@ export default function App() {
                 <UpNextRail
                   videos={videoStreams.filter(v => v.id !== activeVideo.id)}
                   onSelect={handleSelectVideo}
-                  autoplayTarget={autoplayTarget}
-                  onCancelAutoplay={() => setAutoplayTarget(null)}
                 />
               </div>
 
