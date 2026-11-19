@@ -30,6 +30,7 @@ export function buildShareUrl(path: string, referrer: Referrer | null = getCurre
     url.searchParams.set('ref', referrer.id);
     if (referrer.name) url.searchParams.set('rn', referrer.name);
   }
+  url.search = url.search.replace(/\+/g, '%20');
   return url.toString();
 }
 

@@ -74,6 +74,7 @@ export default function VideoPlayer({
   const hideTimerRef = useRef<number>();
   const currentSecRef = useRef(0);
   const durationSecRef = useRef(0);
+  const pendingSeekRef = useRef<number | null>(null);
   const playbackStartedRef = useRef(false);
   const lastProgressSnapshotRef = useRef<{ position: number; completed: boolean } | null>(null);
 
@@ -81,6 +82,7 @@ export default function VideoPlayer({
   const [errorMessage, setErrorMessage] = useState('');
   const [retryKey, setRetryKey] = useState(0);
   const [currentSec, setCurrentSec] = useState(0);
+  const [pendingSeekSec, setPendingSeekSec] = useState<number | null>(null);
   const [durationSec, setDurationSec] = useState(0);
   const [speed, setSpeed] = useState(1);
   const [speedMenuOpen, setSpeedMenuOpen] = useState(false);
@@ -98,11 +100,13 @@ export default function VideoPlayer({
     setStatus('loading');
     setErrorMessage('');
     setCurrentSec(0);
+    setPendingSeekSec(null);
     setDurationSec(0);
     setAudioOnly(false);
     setSpeedMenuOpen(false);
     currentSecRef.current = 0;
     durationSecRef.current = 0;
+    pendingSeekRef.current = null;
     playbackStartedRef.current = false;
     lastProgressSnapshotRef.current = null;
   }, [video.id, playback.kind, playback.youtubeId, playback.directUrl, retryKey]);
@@ -197,6 +201,17 @@ export default function VideoPlayer({
     revealControls();
   };
 
+  const commitSeek = () => {
+    const target = pendingSeekRef.current;
+    if (target === null) return;
+    pendingSeekRef.current = null;
+    engineRef.current?.seekTo(target);
+    currentSecRef.current = target;
+    setCurrentSec(target);
+    setPendingSeekSec(null);
+    revealControls();
+  };
+
   const toggleFullscreen = async () => {
     const el = containerRef.current;
     if (!el) return;
@@ -278,7 +293,8 @@ export default function VideoPlayer({
   };
 
   const controlsVisible = controlsActive || !isPlaying || speedMenuOpen || hasError || !hasSource;
-  const progressPct = durationSec > 0 ? Math.min(100, (currentSec / durationSec) * 100) : 0;
+  const displayedSec = pendingSeekSec ?? currentSec;
+  const progressPct = durationSec > 0 ? Math.min(100, (displayedSec / durationSec) * 100) : 0;
   const showCenterPlay = hasSource && !hasError && !isPlaying && status !== 'loading';
   const externalUrl = playback.kind === 'youtube'
     ? `https://www.youtube.com/watch?v=${encodeURIComponent(playback.youtubeId ?? '')}`
@@ -466,14 +482,18 @@ export default function VideoPlayer({
                   min={0}
                   max={durationSec}
                   step={0.1}
-                  value={Math.min(currentSec, durationSec)}
+                  value={Math.min(displayedSec, durationSec)}
                   aria-label="Seek"
-                  aria-valuetext={`${formatMediaTime(currentSec)} of ${formatMediaTime(durationSec)}`}
+                  aria-valuetext={`${formatMediaTime(displayedSec)} of ${formatMediaTime(durationSec)}`}
                   onChange={(e) => {
                     const next = Number(e.target.value);
-                    setCurrentSec(next);
-                    engineRef.current?.seekTo(next);
+                    pendingSeekRef.current = next;
+                    setPendingSeekSec(next);
                   }}
+                  onPointerUp={commitSeek}
+                  onPointerCancel={commitSeek}
+                  onKeyUp={commitSeek}
+                  onBlur={commitSeek}
                   className="h-1 w-full cursor-pointer appearance-none rounded-full accent-amber-500"
                   style={{
                     background: `linear-gradient(to right, #f59e0b ${progressPct}%, rgba(148,163,184,0.35) ${progressPct}%)`,
@@ -508,7 +528,7 @@ export default function VideoPlayer({
                       ? '--:--'
                       : isLiveStream
                         ? 'LIVE'
-                        : `${formatMediaTime(currentSec)} / ${formatMediaTime(durationSec)}`}
+                        : `${formatMediaTime(displayedSec)} / ${formatMediaTime(durationSec)}`}
                   </span>
 
                   {hasSource && !isLiveStream && (
