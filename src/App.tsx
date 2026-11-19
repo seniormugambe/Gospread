@@ -142,7 +142,9 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<'platform' | 'generated' | 'create' | 'profile' | 'public-profile' | 'history' | 'discover' | 'community' | 'auth'>(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.has('password_reset_uid') && params.has('password_reset_token') ? 'auth' : 'platform';
+    const hasPasswordReset = params.has('password_reset_uid') && params.has('password_reset_token');
+    const hasEmailVerification = params.has('email_verify_uid') && params.has('email_verify_token');
+    return hasPasswordReset || hasEmailVerification ? 'auth' : 'platform';
   });
   const [routePath, setRoutePath] = useState(() => window.location.pathname);
   const currentRoute = parseAppRoute(routePath);

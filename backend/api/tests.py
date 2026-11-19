@@ -4,24 +4,27 @@ import tempfile
 from unittest.mock import patch
 from uuid import uuid4
 
+from botocore.exceptions import ClientError
+from django.contrib.admin.sites import site
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import override_settings
+from django.test import RequestFactory, override_settings
 from django.urls import reverse
 from django.utils.encoding import force_bytes
-from django.utils.http import urlsafe_base64_encode
 from django.utils import timezone
-from botocore.exceptions import ClientError
+from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from .models import (
     AudioSpace, AudioSpaceParticipant, Church, ChurchEvent, CommunityPost, Donation, FeedbackSubmission, GivingFund, LiveStream,
-    DiscoveryImpression, PaymentGatewayCheckout, PlaybackEvent, PlaybackSession, Scripture, Sermon, SermonShort, User,
+    DiscoveryImpression, OnboardingProfile, PaymentGatewayCheckout, PlaybackEvent, PlaybackSession, Scripture, Sermon,
+    SermonShort, User, VerificationApplication, VerificationStatusHistory,
 )
+from .verification import email_verification_token_generator
 
 
 class PublicProfileTests(APITestCase):
@@ -41,6 +44,7 @@ class PublicProfileTests(APITestCase):
             "avatar_url": user.avatar_url,
             "bio": user.bio,
             "role": user.role,
+            "verified": False,
         })
 
     def test_missing_and_inactive_profiles_are_not_available(self):
@@ -292,6 +296,262 @@ class AuthenticationTests(APITestCase):
         response = self.client.post(reverse("token-refresh"), {"refresh": token.data["refresh"]}, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class VerificationTests(APITestCase):
+    def test_signup_sends_email_verification_link(self):
+        with override_settings(
+            EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+            FRONTEND_URL="https://gospread.example",
+        ):
+            response = self.client.post(reverse("signup"), {
+                "email": "verification@example.com",
+                "password": "StrongPass123!",
+                "name": "Verification User",
+            }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data["email_verification_sent"])
+        self.assertFalse(response.data["user"]["email_verified"])
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("email_verify_uid=", mail.outbox[0].body)
+        self.assertIn("email_verify_token=", mail.outbox[0].body)
+
+    def test_valid_email_verification_link_marks_email_verified(self):
+        user = User.objects.create_user(
+            username="verified-email", email="verified@example.com", password="StrongPass123!",
+        )
+        response = self.client.post(reverse("email-verification-confirm"), {
+            "uid": urlsafe_base64_encode(force_bytes(user.pk)),
+            "token": email_verification_token_generator.make_token(user),
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        self.assertIsNotNone(user.email_verified_at)
+
+    def test_invalid_email_verification_link_is_rejected(self):
+        user = User.objects.create_user(
+            username="invalid-verification", email="invalid-verification@example.com", password="StrongPass123!",
+        )
+        response = self.client.post(reverse("email-verification-confirm"), {
+            "uid": urlsafe_base64_encode(force_bytes(user.pk)),
+            "token": default_token_generator.make_token(user),
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        user.refresh_from_db()
+        self.assertIsNone(user.email_verified_at)
+
+    def test_application_requires_verified_email_and_onboarding(self):
+        user = User.objects.create_user(
+            username="applicant", email="applicant@example.com", password="StrongPass123!",
+        )
+        self.client.force_authenticate(user)
+
+        response = self.client.post(reverse("verification-application"), {
+            "track": "creator",
+            "official_profile_url": "https://example.com/creator",
+            "authorization_confirmed": True,
+            "privacy_notice_acknowledged": True,
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(VerificationApplication.objects.exists())
+
+    def test_onboarding_does_not_grant_badge_and_application_starts_pending(self):
+        user = User.objects.create_user(
+            username="new-artiste", email="artiste@example.com", password="StrongPass123!",
+            role=User.Role.ARTISTE, email_verified_at=timezone.now(),
+        )
+        OnboardingProfile.objects.create(
+            user=user,
+            track=OnboardingProfile.Track.ARTISTE,
+            answers={"stage_name": "New Voice"},
+        )
+        self.client.force_authenticate(user)
+
+        response = self.client.post(reverse("verification-application"), {
+            "track": "artiste",
+            "official_profile_url": "https://example.com/new-voice",
+            "evidence_urls": ["https://music.example.com/new-voice"],
+            "authorization_confirmed": True,
+            "privacy_notice_acknowledged": True,
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["status"], VerificationApplication.Status.PENDING)
+        self.assertEqual(len(response.data["status_history"]), 1)
+        directory = self.client.get("/api/v1/directory/?category=artistes")
+        self.assertFalse(directory.data[0]["verified"])
+
+    def test_rejected_application_can_be_resubmitted_after_corrections(self):
+        user = User.objects.create_user(
+            username="returning-applicant", email="returning@example.com", password="StrongPass123!",
+            email_verified_at=timezone.now(),
+        )
+        OnboardingProfile.objects.create(user=user, track=OnboardingProfile.Track.CREATOR, answers={})
+        application = VerificationApplication.objects.create(
+            user=user,
+            track=VerificationApplication.Track.CREATOR,
+            status=VerificationApplication.Status.REJECTED,
+            decision_reason="Provide an official creator channel.",
+            authorization_confirmed=True,
+        )
+        VerificationStatusHistory.objects.create(
+            application=application,
+            status=VerificationApplication.Status.REJECTED,
+            reason=application.decision_reason,
+        )
+        self.client.force_authenticate(user)
+
+        response = self.client.post(reverse("verification-application"), {
+            "track": "creator",
+            "official_profile_url": "https://example.com/creator-channel",
+            "authorization_confirmed": True,
+            "privacy_notice_acknowledged": True,
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["status"], VerificationApplication.Status.PENDING)
+        self.assertEqual(
+            [item["status"] for item in response.data["status_history"]],
+            [VerificationApplication.Status.REJECTED, VerificationApplication.Status.PENDING],
+        )
+
+    def test_rejected_application_can_be_appealed_with_new_evidence(self):
+        user = User.objects.create_user(
+            username="appealing-applicant", email="appealing@example.com", password="StrongPass123!",
+            email_verified_at=timezone.now(),
+        )
+        OnboardingProfile.objects.create(user=user, track=OnboardingProfile.Track.CREATOR, answers={})
+        application = VerificationApplication.objects.create(
+            user=user,
+            track=VerificationApplication.Track.CREATOR,
+            status=VerificationApplication.Status.REJECTED,
+            decision_reason="The submitted channel could not be confirmed.",
+            authorization_confirmed=True,
+            evidence_purged_at=timezone.now(),
+        )
+        VerificationStatusHistory.objects.create(
+            application=application,
+            status=VerificationApplication.Status.REJECTED,
+            reason=application.decision_reason,
+        )
+        self.client.force_authenticate(user)
+
+        missing_evidence = self.client.post(reverse("verification-appeal"), {
+            "reason": "I have new channel evidence.",
+        }, format="json")
+        self.assertEqual(missing_evidence.status_code, status.HTTP_400_BAD_REQUEST)
+
+        response = self.client.post(reverse("verification-appeal"), {
+            "reason": "I have new channel evidence.",
+            "evidence_urls": ["https://example.com/creator"],
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["status"], VerificationApplication.Status.PENDING)
+        self.assertEqual(response.data["appeal_reason"], "I have new channel evidence.")
+        self.assertEqual(response.data["appeal_evidence_urls"], ["https://example.com/creator"])
+        self.assertEqual(response.data["status_history"][-1]["reason"], "I have new channel evidence.")
+
+    def test_only_approved_application_adds_directory_badge(self):
+        owner = User.objects.create_user(
+            username="approved-artiste", email="approved@example.com", password="StrongPass123!",
+            role=User.Role.ARTISTE, email_verified_at=timezone.now(),
+        )
+        OnboardingProfile.objects.create(
+            user=owner,
+            track=OnboardingProfile.Track.ARTISTE,
+            answers={},
+        )
+        application = VerificationApplication.objects.create(
+            user=owner,
+            track=VerificationApplication.Track.ARTISTE,
+            authorization_confirmed=True,
+        )
+        application.status = VerificationApplication.Status.VERIFIED
+        application.save(update_fields=["status"])
+
+        response = self.client.get("/api/v1/directory/?category=artistes")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data[0]["verified"])
+        public_profile = self.client.get(f"/api/v1/profiles/{owner.username}/")
+        self.assertTrue(public_profile.data["verified"])
+
+    def test_staff_approval_records_reviewer_and_evidence_expiry(self):
+        owner = User.objects.create_user(
+            username="reviewed-artiste", email="reviewed@example.com", password="StrongPass123!",
+            role=User.Role.ARTISTE, email_verified_at=timezone.now(),
+        )
+        OnboardingProfile.objects.create(user=owner, track=OnboardingProfile.Track.ARTISTE, answers={})
+        reviewer = User.objects.create_user(
+            username="reviewer", email="reviewer@example.com", password="StrongPass123!", is_staff=True,
+        )
+        application = VerificationApplication.objects.create(
+            user=owner,
+            track=VerificationApplication.Track.ARTISTE,
+            authorization_confirmed=True,
+        )
+        VerificationStatusHistory.objects.create(
+            application=application,
+            status=VerificationApplication.Status.PENDING,
+            changed_by=owner,
+        )
+        application.status = VerificationApplication.Status.VERIFIED
+        application.decision_reason = "Official profile confirmed."
+        request = RequestFactory().post("/admin/api/verificationapplication/")
+        request.user = reviewer
+
+        site._registry[VerificationApplication].save_model(request, application, None, change=True)
+        application.refresh_from_db()
+
+        self.assertEqual(application.reviewer, reviewer)
+        self.assertIsNotNone(application.evidence_expires_at)
+        self.assertEqual(application.status_history.count(), 2)
+
+    def test_featured_church_is_not_automatically_verified(self):
+        owner = User.objects.create_user(
+            username="featured-owner", email="featured@example.com", password="StrongPass123!",
+        )
+        Church.objects.create(name="Featured Church", slug="featured-church", owner=owner, is_featured=True)
+
+        response = self.client.get("/api/v1/directory/?category=churches")
+        church_list = self.client.get("/api/v1/churches/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data[0]["verified"])
+        self.assertFalse(church_list.data["results"][0]["verified"])
+
+    @override_settings(VERIFICATION_EVIDENCE_RETENTION_DAYS=5)
+    def test_retention_command_purges_evidence_but_keeps_decision(self):
+        user = User.objects.create_user(
+            username="evidence-retention", email="retention@example.com", password="StrongPass123!",
+            email_verified_at=timezone.now(),
+        )
+        application = VerificationApplication.objects.create(
+            user=user,
+            track=VerificationApplication.Track.CREATOR,
+            status=VerificationApplication.Status.REJECTED,
+            official_profile_url="https://example.com/profile",
+            evidence_urls=["https://example.com/evidence"],
+            evidence_notes="Evidence notes",
+            reviewer_notes="Reviewer notes",
+            authorization_confirmed=True,
+            evidence_expires_at=timezone.now() - timedelta(seconds=1),
+        )
+
+        call_command("purge_verification_evidence", stdout=StringIO())
+        application.refresh_from_db()
+
+        self.assertEqual(application.status, VerificationApplication.Status.REJECTED)
+        self.assertEqual(application.official_profile_url, "")
+        self.assertEqual(application.evidence_urls, [])
+        self.assertEqual(application.evidence_notes, "")
+        self.assertEqual(application.reviewer_notes, "")
+        self.assertIsNotNone(application.evidence_purged_at)
 
 
 class ScriptureTests(APITestCase):

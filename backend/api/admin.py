@@ -1,10 +1,14 @@
+from datetime import timedelta
+
+from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.utils import timezone
 from .models import (
     AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost,
     Donation, FeedbackSubmission, GivingFund, LiveStream, LiveStreamChatMessage, LiveStreamViewer,
     PrayerComment, PrayerRequest, PaymentGatewayCheckout, SavedSermon, Scripture, Sermon,
-    SermonShort, User, WatchProgress, WorshipSlide, WorshipSong,
+    SermonShort, User, VerificationApplication, VerificationStatusHistory, WatchProgress, WorshipSlide, WorshipSong,
 )
 
 
@@ -15,12 +19,13 @@ class GospreadUserAdmin(UserAdmin):
     list_display = ("email", "username", "first_name", "last_name", "role", "is_staff", "is_active", "date_joined")
     list_filter = ("role", "is_staff", "is_active", "is_superuser")
     search_fields = ("email", "username", "first_name", "last_name")
-    readonly_fields = ("date_joined", "last_login")
+    readonly_fields = ("date_joined", "last_login", "email_verified_at", "email_verification_sent_at")
 
     # Replace the default fieldsets so email appears at the top and is editable
     fieldsets = (
         (None, {"fields": ("email", "username", "password")}),
         ("Personal info", {"fields": ("first_name", "last_name", "avatar_url", "bio")}),
+        ("Email verification", {"fields": ("email_verified_at", "email_verification_sent_at")}),
         ("Gospread", {"fields": ("role", "praise_xp", "streak_days", "last_checkin_date", "total_study_minutes")}),
         ("Permissions", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
         ("Important dates", {"fields": ("last_login", "date_joined")}),
@@ -42,6 +47,71 @@ class ChurchAdmin(admin.ModelAdmin):
     search_fields = ("name", "description", "location", "ministry_focus", "owner__email")
     prepopulated_fields = {"slug": ("name",)}
     filter_horizontal = ("followers",)
+
+
+class VerificationStatusHistoryInline(admin.TabularInline):
+    model = VerificationStatusHistory
+    extra = 0
+    can_delete = False
+    fields = ("status", "reason", "changed_by", "created_at")
+    readonly_fields = fields
+
+
+@admin.register(VerificationApplication)
+class VerificationApplicationAdmin(admin.ModelAdmin):
+    list_display = ("user", "track", "status", "submitted_at", "reviewer", "reviewed_at")
+    list_filter = ("status", "track", "submitted_at")
+    search_fields = ("user__email", "user__username", "user__first_name", "user__last_name")
+    readonly_fields = (
+        "reviewer", "submitted_at", "updated_at", "reviewed_at",
+        "privacy_notice_acknowledged_at", "evidence_expires_at", "evidence_purged_at",
+        "appeal_reason", "appeal_evidence_urls", "appealed_at",
+    )
+    fields = (
+        "user", "track", "status", "official_profile_url", "evidence_urls", "evidence_notes",
+        "authorization_confirmed", "privacy_notice_acknowledged_at", "decision_reason",
+        "reviewer_notes", "appeal_reason", "appeal_evidence_urls", "appealed_at", "reviewer",
+        "submitted_at", "updated_at", "reviewed_at",
+        "evidence_expires_at", "evidence_purged_at",
+    )
+    inlines = (VerificationStatusHistoryInline,)
+
+    def save_model(self, request, obj, form, change):
+        previous_status = None
+        if change:
+            previous_status = VerificationApplication.objects.filter(pk=obj.pk).values_list("status", flat=True).first()
+        if previous_status != obj.status:
+            now = timezone.now()
+            obj.reviewer = request.user
+            obj.reviewed_at = now
+            if obj.status in (
+                VerificationApplication.Status.PENDING,
+                VerificationApplication.Status.UNDER_REVIEW,
+            ):
+                obj.decision_reason = ""
+                obj.evidence_expires_at = None
+                if obj.status == VerificationApplication.Status.PENDING:
+                    obj.reviewer = None
+                    obj.reviewed_at = None
+            elif obj.status in (
+                VerificationApplication.Status.VERIFIED,
+                VerificationApplication.Status.REJECTED,
+                VerificationApplication.Status.SUSPENDED,
+            ):
+                obj.evidence_expires_at = now + timedelta(
+                    days=settings.VERIFICATION_EVIDENCE_RETENTION_DAYS,
+                )
+                obj.evidence_purged_at = None
+            else:
+                obj.evidence_expires_at = None
+        super().save_model(request, obj, form, change)
+        if previous_status != obj.status:
+            VerificationStatusHistory.objects.create(
+                application=obj,
+                status=obj.status,
+                reason=obj.decision_reason,
+                changed_by=request.user,
+            )
 
 
 @admin.register(Sermon)

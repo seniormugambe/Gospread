@@ -218,7 +218,9 @@ export default function SimpleAuthCard({
           console.error(e);
         }
 
-        setSuccessMessage('Account created successfully!');
+        setSuccessMessage(res.email_verification_sent
+          ? 'Account created. Check your email to verify it.'
+          : 'Account created, but the verification email could not be sent. Resend it from Account Settings > Verification.');
         setTimeout(() => {
           onLoginSuccess(newUser);
           if (onClose) onClose();

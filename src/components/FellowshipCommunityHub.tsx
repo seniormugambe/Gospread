@@ -370,7 +370,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
       authorName: userSession.fullName || userSession.username || 'Believer',
       authorHandle: userSession.username || 'believer',
       authorAvatar: userSession.avatarUrl || '',
-      authorRole: 'Verified Believer',
+      authorRole: userSession.role || 'Believer',
       content: text.trim(),
       createdAt: 'Just now',
       amensCount: 0,
@@ -430,7 +430,7 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
       authorAvatar: isAnonymous
         ? 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?auto=format&fit=crop&w=120&q=80'
         : (userSession.avatarUrl || ''),
-      authorRole: isAnonymous ? 'Anonymous Altar Member' : 'Verified Believer',
+      authorRole: isAnonymous ? 'Anonymous Altar Member' : (userSession.role || 'Believer'),
       authorChurch: userSession.churchName || 'Faith Community',
       category: postCategory,
       title: postTitle.trim() || undefined,

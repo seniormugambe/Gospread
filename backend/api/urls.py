@@ -1,12 +1,14 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from .views import (
-    ChangePasswordView, ChurchEventViewSet, ChurchViewSet, CommunityPostViewSet, DonationViewSet, FeedbackSubmissionView, GivingFundViewSet,
+    ChangePasswordView, ChurchEventViewSet, ChurchViewSet, CommunityPostViewSet, DonationViewSet, EmailVerificationConfirmView,
+    EmailVerificationRequestView, FeedbackSubmissionView, GivingFundViewSet,
     AudioSpaceEndView, AudioSpaceListView, AudioSpaceParticipantsView, AudioSpaceTokenView, GospreadTokenRefreshView, GospreadTokenView, DirectoryView, HealthCheckView, LiveStreamViewSet, LogoutView, MeView,
     PasswordResetConfirmView, PayoutAccountViewSet, PasswordResetRequestView, PublicUserProfileView,
     PrayerRequestViewSet, RandomScriptureView, SavedSermonViewSet, SermonShortViewSet,
     DiscoveryConfigView, DiscoveryFairnessReportView, SermonHeartbeatView, SermonUploadChunkView, SermonUploadCompleteView, SermonUploadSessionView, SermonViewSet,
-    OnboardingQuestionsView, OnboardingView, SignupView, StreakCheckinView, WatchProgressViewSet, WorshipSongViewSet,
+    OnboardingQuestionsView, OnboardingView, SignupView, StreakCheckinView, VerificationApplicationView,
+    VerificationAppealView, WatchProgressViewSet, WorshipSongViewSet,
 )
 
 router = DefaultRouter()
@@ -44,9 +46,13 @@ urlpatterns = [
     path("auth/change-password/", ChangePasswordView.as_view(), name="change-password"),
     path("auth/password-reset/", PasswordResetRequestView.as_view(), name="password-reset"),
     path("auth/password-reset/confirm/", PasswordResetConfirmView.as_view(), name="password-reset-confirm"),
+    path("auth/email/verification/", EmailVerificationRequestView.as_view(), name="email-verification-request"),
+    path("auth/email/verify/", EmailVerificationConfirmView.as_view(), name="email-verification-confirm"),
     path("auth/me/", MeView.as_view(), name="me"),
     path("onboarding/questions/", OnboardingQuestionsView.as_view(), name="onboarding-questions"),
     path("onboarding/", OnboardingView.as_view(), name="onboarding"),
+    path("verification/application/", VerificationApplicationView.as_view(), name="verification-application"),
+    path("verification/application/appeal/", VerificationAppealView.as_view(), name="verification-appeal"),
     path("auth/streak/checkin/", StreakCheckinView.as_view(), name="streak-checkin"),
 
     # Alias endpoints to match frontend djangoApi.ts expectations

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { User } from 'lucide-react';
+import { ShieldCheck, User } from 'lucide-react';
 import { djangoApi, PublicUserProfile as PublicUserProfileData } from '../services/djangoApi';
 import { profilePath, updatePageMetadata } from '../lib/routes';
 
@@ -70,7 +70,14 @@ export default function PublicUserProfile({ username, onBack }: PublicUserProfil
                 <User className="h-9 w-9" aria-hidden="true" />
               )}
             </div>
-            <h1 className="mt-4 text-2xl font-bold text-white">{profile.name}</h1>
+            <h1 className="mt-4 flex flex-wrap items-center gap-2 text-2xl font-bold text-white">
+              {profile.name}
+              {profile.verified && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-300" aria-label="Verified profile">
+                  <ShieldCheck className="h-4 w-4" /> Verified
+                </span>
+              )}
+            </h1>
             <p className="mt-1 text-sm text-amber-400">@{profile.username}</p>
             <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-400">{roleLabels[profile.role]}</p>
             {profile.bio && <p className="mt-5 whitespace-pre-wrap text-sm leading-relaxed text-slate-300">{profile.bio}</p>}

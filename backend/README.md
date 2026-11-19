@@ -22,6 +22,8 @@ The API runs at `http://127.0.0.1:8000/api/` and the admin at `http://127.0.0.1:
 - `POST /api/auth/token/` — obtain access and refresh JWTs using `email` and `password`
 - `POST /api/auth/token/refresh/` — refresh an access token
 - `POST /api/auth/logout/` — revoke a refresh token
+- `POST /api/auth/email/verification/` — resend the signed-in user's email verification link (one-minute cooldown)
+- `POST /api/auth/email/verify/` — confirm an email using the one-time link token
 - `GET/PATCH /api/auth/me/` — current profile
 - `POST /api/auth/change-password/` — securely change the signed-in user's password
 - `GET /api/scriptures/random/` — a random active scripture for the login hero
@@ -30,6 +32,19 @@ Authenticated requests use `Authorization: Bearer <access-token>`.
 Refresh tokens rotate automatically and are blacklisted after use. The React client restores sessions, refreshes expired access tokens, protects role-specific routes, and revokes the refresh token during sign-out.
 
 Public read endpoints include the health check, random scripture, published ministry content, and church discovery. Account changes, community interactions, prayer actions, saved sermons, watch progress, ministry management, and donation checkout require an authenticated user.
+
+## Profile verification
+
+- `GET/POST /api/verification/application/` — view or submit a Ministry, Artiste, or Creator verification application
+- `POST /api/verification/application/appeal/` — appeal a rejected application with a reason and optional new evidence links
+- Email verification is required before applying. Phone OTP is not enabled.
+- Applications accept public evidence links and notes only; do not submit identity documents. Uploaded evidence is disabled until private object storage is configured.
+- Staff with verification-application permissions review applications in Django Admin. Decision reasons are shown to applicants and status changes are audited.
+- Appeals have no time limit until an appeal period is approved. After a rejection, applicants may also reapply with updated evidence.
+- Public verified indicators are derived only from an approved application for the user's current onboarding category; `is_featured` and completed onboarding are not verification.
+- `VERIFICATION_EVIDENCE_RETENTION_DAYS` defaults to 5. Schedule `python manage.py purge_verification_evidence` to run daily in the deployment environment; the command clears evidence links and notes after the configured period while preserving the decision and status history. No scheduled job is created automatically by the current Render web-service configuration.
+
+Email verification uses the configured Django email backend and `FRONTEND_URL`. In production, configure the SMTP environment variables so sign-up verification links can be delivered.
 
 ## Resources
 

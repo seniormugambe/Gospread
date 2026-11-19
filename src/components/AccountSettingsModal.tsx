@@ -37,6 +37,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { UserSession } from './AuthModal';
 import { djangoApi } from '../services/djangoApi';
+import UserVerificationSettings from './UserVerificationSettings';
 
 export interface UserAccountSettings {
   // Profile
@@ -146,7 +147,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   theme = 'light',
   onToggleTheme,
 }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'playback' | 'notifications' | 'privacy' | 'integrations'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'playback' | 'notifications' | 'privacy' | 'verification' | 'integrations'>('profile');
   
   // Settings Form State
   const [settings, setSettings] = useState<UserAccountSettings>(() => {
@@ -293,9 +294,6 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
                 Account & Spiritual Preferences
-                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase tracking-wider">
-                  Verified Believer
-                </span>
               </h2>
               <p className="text-xs text-slate-400">
                 Personalize your gospel streaming, spiritual discipline, and privacy controls
@@ -319,6 +317,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
             { id: 'playback', label: 'Streaming & Audio', icon: Tv },
             { id: 'notifications', label: 'Faith Alerts', icon: Bell },
             { id: 'privacy', label: 'Privacy & Security', icon: ShieldCheck },
+            { id: 'verification', label: 'Verification', icon: ShieldCheck },
             { id: 'integrations', label: 'Integrations', icon: Database },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -361,9 +360,6 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                         <User className="w-7 h-7 text-amber-300" />
                       </div>
                     )}
-                    <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center text-[9px] text-white">
-                      ✓
-                    </span>
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-white">{settings.fullName}</h4>
@@ -806,6 +802,10 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
             </div>
           )}
 
+          {activeTab === 'verification' && (
+            <UserVerificationSettings email={userSession.email} />
+          )}
+
           {/* TAB 5: INTEGRATIONS & CONNECTED SERVICES */}
           {activeTab === 'integrations' && (
             <div className="space-y-4">
@@ -846,14 +846,16 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
             >
               Close
             </button>
-            <button
-              type="button"
-              onClick={() => handleSaveSettings()}
-              className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-md shadow-amber-500/20 transition flex items-center gap-1.5"
-            >
-              <Save className="w-4 h-4" />
-              <span>Save Preferences</span>
-            </button>
+            {activeTab !== 'verification' && (
+              <button
+                type="button"
+                onClick={() => handleSaveSettings()}
+                className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-md shadow-amber-500/20 transition flex items-center gap-1.5"
+              >
+                <Save className="w-4 h-4" />
+                <span>Save Preferences</span>
+              </button>
+            )}
           </div>
         </div>
       </motion.div>

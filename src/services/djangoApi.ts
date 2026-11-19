@@ -24,6 +24,7 @@ export interface PublicUserProfile {
   avatar_url: string;
   bio: string;
   role: 'believer' | 'creator' | 'pastor' | 'artiste';
+  verified: boolean;
 }
 
 export interface ChurchCampusLocation {
@@ -94,6 +95,42 @@ export interface OnboardingState {
   user?: UserProfileData;
 }
 
+export type VerificationStatus =
+  | 'pending'
+  | 'under_review'
+  | 'verified'
+  | 'action_required'
+  | 'rejected'
+  | 'suspended';
+
+export interface VerificationStatusHistoryEntry {
+  status: VerificationStatus;
+  reason: string;
+  created_at: string;
+}
+
+export interface VerificationApplication {
+  track: OnboardingTrack;
+  status: VerificationStatus;
+  official_profile_url: string;
+  evidence_urls: string[];
+  evidence_notes: string;
+  decision_reason: string;
+  appeal_reason: string;
+  appeal_evidence_urls: string[];
+  appealed_at: string | null;
+  submitted_at: string;
+  updated_at: string;
+  reviewed_at: string | null;
+  status_history: VerificationStatusHistoryEntry[];
+}
+
+export interface VerificationState {
+  email_verified: boolean;
+  track: OnboardingTrack | null;
+  application: VerificationApplication | null;
+}
+
 interface PendingPlaybackEvent {
   sermonId: number;
   sessionId: string;
@@ -125,6 +162,7 @@ export interface UserProfileData {
   role?: 'believer' | 'creator' | 'pastor' | 'artiste';
   onboarding_completed?: boolean;
   onboarding_track?: OnboardingTrack | null;
+  email_verified?: boolean;
   badges?: FaithBadgeAward[];
 }
 
@@ -208,6 +246,7 @@ const PUBLIC_AUTH_ENDPOINTS = new Set([
   '/auth/logout/',
   '/auth/password-reset/',
   '/auth/password-reset/confirm/',
+  '/auth/email/verify/',
 ]);
 
 export interface DjangoApiError {
@@ -220,6 +259,7 @@ export interface DjangoAuthResponse {
   access: string;
   refresh: string;
   user: UserProfileData;
+  email_verification_sent?: boolean;
 }
 
 export interface CommunityCommentApi {
@@ -722,6 +762,20 @@ class DjangoApiClient {
     });
   }
 
+  public async requestEmailVerification(): Promise<{ email_verified: boolean; detail: string }> {
+    return this.request<{ email_verified: boolean; detail: string }>('/auth/email/verification/', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  }
+
+  public async confirmEmailVerification(uid: string, token: string): Promise<{ email_verified: boolean; detail: string }> {
+    return this.request<{ email_verified: boolean; detail: string }>('/auth/email/verify/', {
+      method: 'POST',
+      body: JSON.stringify({ uid, token }),
+    });
+  }
+
   public async getMe(): Promise<UserProfileData> {
     return await this.request<UserProfileData>('/auth/me/');
   }
@@ -733,6 +787,34 @@ class DjangoApiClient {
 
   public async getOnboarding(): Promise<OnboardingState> {
     return this.request<OnboardingState>('/onboarding/');
+  }
+
+  public async getVerificationState(): Promise<VerificationState> {
+    return this.request<VerificationState>('/verification/application/');
+  }
+
+  public async submitVerificationApplication(payload: {
+    track: OnboardingTrack;
+    official_profile_url: string;
+    evidence_urls: string[];
+    evidence_notes: string;
+    authorization_confirmed: boolean;
+    privacy_notice_acknowledged: boolean;
+  }): Promise<VerificationApplication> {
+    return this.request<VerificationApplication>('/verification/application/', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  public async submitVerificationAppeal(payload: {
+    reason: string;
+    evidence_urls: string[];
+  }): Promise<VerificationApplication> {
+    return this.request<VerificationApplication>('/verification/application/appeal/', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
   }
 
   public async submitOnboarding(track: OnboardingTrack, answers: OnboardingAnswers): Promise<OnboardingState> {
@@ -1511,7 +1593,7 @@ class DjangoApiClient {
         email: c.email || '',
         website: c.website || '',
         googleMapsUrl: c.location ? `https://maps.google.com/?q=${encodeURIComponent(c.location)}` : undefined,
-        verified: c.is_featured || true,
+        verified: Boolean(c.verified),
         avatar: c.logo_url || 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=120&q=80',
         coverImage: c.cover_image_url || 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
         category: c.denomination || c.ministry_focus || 'Sanctuary Worship Center',
@@ -1539,7 +1621,7 @@ class DjangoApiClient {
           email: loc.email,
           website: 'https://gracecitycathedral.org',
           googleMapsUrl: loc.googleMapsUrl,
-          verified: true,
+          verified: false,
           avatar: loc.pastorAvatar || 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
           coverImage: loc.image,
           category: 'Cathedral Sanctuary',

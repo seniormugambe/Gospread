@@ -4,6 +4,7 @@ import logging
 import math
 from pathlib import Path
 import re
+import smtplib
 from datetime import timedelta
 from urllib.parse import urlsplit
 
@@ -18,6 +19,8 @@ from django.db import IntegrityError, transaction
 from django.db.models import Count, DecimalField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 from django.utils import timezone
 from django.utils.dateformat import format as date_format
 from rest_framework import generics, permissions, serializers, status, viewsets
@@ -32,11 +35,12 @@ from .models import (
     AudioSpace, AudioSpaceParticipant, Church, ChurchEvent, CommunityComment, CommunityPost, DiscoveryImpression, Donation, FeedbackSubmission, GivingFund,
     LiveStream, LiveStreamChatMessage, LiveStreamViewer, PaymentGatewayCheckout, PayoutAccount, PrayerComment,
     OnboardingProfile, PlaybackEvent, PlaybackSession, PrayerRequest, Scripture, SavedSermon, Sermon, SermonShort, SermonUploadSession,
-    User, WatchProgress, WorshipSong,
+    User, VerificationApplication, VerificationStatusHistory, WatchProgress, WorshipSong,
 )
 from . import discovery
 from . import onboarding
 from .permissions import IsPastorOwnerOrReadOnly
+from .verification import email_verification_token_generator, send_email_verification
 from .serializers import (
     AudioSpaceSerializer, ChurchEventSerializer, ChurchSerializer, CommunityCommentSerializer, CommunityPostSerializer, DonationCheckoutSerializer, DonationSerializer,
     FeedbackSubmissionSerializer, GivingFundSerializer, LiveStreamChatMessageSerializer, LiveStreamSerializer, PaymentGatewayCheckoutSerializer, PayoutAccountSerializer,
@@ -44,7 +48,9 @@ from .serializers import (
     GospreadTokenSerializer, PasswordResetConfirmSerializer, PasswordResetRequestSerializer,
     PlaybackHeartbeatSerializer, PublicUserProfileSerializer, ScriptureSerializer, SermonSerializer, SermonShortSerializer,
     SermonUploadInitSerializer,
-    GospreadTokenRefreshSerializer, SignupSerializer, UserSerializer, WatchProgressSerializer, WorshipSongSerializer,
+    GospreadTokenRefreshSerializer, SignupSerializer, UserSerializer, VerificationApplicationSerializer,
+    VerificationAppealSerializer,
+    WatchProgressSerializer, WorshipSongSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -289,12 +295,174 @@ class SignupView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        try:
+            email_verification_sent = bool(send_email_verification(user))
+        except (OSError, smtplib.SMTPException):
+            logger.exception("Could not send signup email verification to user %s", user.pk)
+            email_verification_sent = False
+        if email_verification_sent:
+            user.email_verification_sent_at = timezone.now()
+            user.save(update_fields=["email_verification_sent_at"])
+        else:
+            logger.error("Email verification was not sent to newly registered user %s", user.pk)
         refresh = RefreshToken.for_user(user)
         return Response({
             "refresh": str(refresh),
             "access": str(refresh.access_token),
             "user": UserSerializer(user).data,
+            "email_verification_sent": email_verification_sent,
         }, status=status.HTTP_201_CREATED)
+
+
+class EmailVerificationRequestView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request):
+        user = User.objects.select_for_update().get(pk=request.user.pk)
+        if user.email_verified_at:
+            return Response({"email_verified": True, "detail": "This email address is already verified."})
+        now = timezone.now()
+        sent_at = user.email_verification_sent_at
+        if sent_at and now - sent_at < timedelta(minutes=1):
+            return Response(
+                {"detail": "Wait one minute before requesting another verification email."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+        try:
+            sent = bool(send_email_verification(user))
+        except (OSError, smtplib.SMTPException) as error:
+            logger.exception("Could not send email verification to user %s", user.pk)
+            raise APIException("Could not send the verification email. Please try again later.") from error
+        if not sent:
+            logger.error("Email backend did not send verification to user %s", user.pk)
+            raise APIException("Could not send the verification email. Please try again later.")
+        user.email_verification_sent_at = now
+        user.save(update_fields=["email_verification_sent_at"])
+        return Response({"email_verified": False, "detail": "A verification link has been sent."})
+
+
+class EmailVerificationConfirmView(generics.GenericAPIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        uid = request.data.get("uid")
+        token = request.data.get("token")
+        if not isinstance(uid, str) or not isinstance(token, str) or not uid or not token:
+            raise ValidationError({"detail": "A valid verification link is required."})
+        try:
+            user_id = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=user_id, is_active=True)
+        except (ValueError, UnicodeDecodeError, binascii.Error, User.DoesNotExist):
+            raise ValidationError({"detail": "This verification link is invalid or has expired."})
+        if not email_verification_token_generator.check_token(user, token):
+            raise ValidationError({"detail": "This verification link is invalid or has expired."})
+        if user.email_verified_at is None:
+            user.email_verified_at = timezone.now()
+            user.save(update_fields=["email_verified_at"])
+        return Response({"email_verified": True, "detail": "Your email address is verified."})
+
+
+class VerificationApplicationView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = VerificationApplicationSerializer
+
+    def get(self, request):
+        application = VerificationApplication.objects.filter(user=request.user).first()
+        profile = getattr(request.user, "onboarding", None)
+        return Response({
+            "email_verified": request.user.email_verified_at is not None,
+            "track": profile.track if profile else None,
+            "application": self.get_serializer(application).data if application else None,
+        })
+
+    @transaction.atomic
+    def post(self, request):
+        existing = VerificationApplication.objects.filter(user=request.user).first()
+        profile = getattr(request.user, "onboarding", None)
+        is_track_change = bool(existing and profile and existing.track != profile.track)
+        if existing and existing.status not in (
+            VerificationApplication.Status.ACTION_REQUIRED,
+            VerificationApplication.Status.REJECTED,
+        ) and not is_track_change:
+            raise ValidationError({"status": "This application cannot be changed in its current state."})
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        values = serializer.validated_data
+        values.pop("authorization_confirmed")
+        values.pop("privacy_notice_acknowledged")
+        now = timezone.now()
+        if existing:
+            for field, value in values.items():
+                setattr(existing, field, value)
+            existing.status = VerificationApplication.Status.PENDING
+            existing.authorization_confirmed = True
+            existing.privacy_notice_acknowledged_at = now
+            existing.decision_reason = ""
+            existing.reviewer_notes = ""
+            existing.appeal_reason = ""
+            existing.appeal_evidence_urls = []
+            existing.appealed_at = None
+            existing.reviewer = None
+            existing.reviewed_at = None
+            existing.submitted_at = now
+            existing.evidence_expires_at = None
+            existing.evidence_purged_at = None
+            existing.save()
+            application = existing
+            history_reason = "Applicant updated and resubmitted the application."
+        else:
+            application = VerificationApplication.objects.create(
+                user=request.user,
+                **values,
+                authorization_confirmed=True,
+                privacy_notice_acknowledged_at=now,
+            )
+            history_reason = "Application submitted."
+        VerificationStatusHistory.objects.create(
+            application=application,
+            status=VerificationApplication.Status.PENDING,
+            reason=history_reason,
+            changed_by=request.user,
+        )
+        return Response(self.get_serializer(application).data, status=status.HTTP_201_CREATED)
+
+
+class VerificationAppealView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = VerificationAppealSerializer
+
+    @transaction.atomic
+    def post(self, request):
+        application = VerificationApplication.objects.select_for_update().filter(user=request.user).first()
+        if application is None or application.status != VerificationApplication.Status.REJECTED:
+            raise ValidationError({"status": "Only rejected applications can be appealed."})
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        values = serializer.validated_data
+        if application.evidence_purged_at and not values.get("evidence_urls"):
+            raise ValidationError({"evidence_urls": "Add supporting links because the original evidence has expired."})
+        application.appeal_reason = values["reason"]
+        application.appeal_evidence_urls = values.get("evidence_urls", [])
+        application.appealed_at = timezone.now()
+        application.status = VerificationApplication.Status.PENDING
+        application.decision_reason = ""
+        application.reviewer_notes = ""
+        application.reviewer = None
+        application.reviewed_at = None
+        application.evidence_expires_at = None
+        application.evidence_purged_at = None
+        application.save()
+        VerificationStatusHistory.objects.create(
+            application=application,
+            status=VerificationApplication.Status.PENDING,
+            reason=values["reason"],
+            changed_by=request.user,
+        )
+        return Response(
+            VerificationApplicationSerializer(application, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class GospreadTokenView(TokenObtainPairView):
@@ -496,6 +664,8 @@ class DirectoryView(generics.GenericAPIView):
     @staticmethod
     def _user_profile(user, category):
         answers = getattr(getattr(user, "onboarding", None), "answers", None) or {}
+        application = getattr(user, "verification_application", None)
+        current_track = {"artistes": "artiste", "creators": "creator"}.get(category)
         if category == "artistes":
             name = answers.get("stage_name")
             focus = ", ".join(answers.get("genres") or [])
@@ -516,7 +686,11 @@ class DirectoryView(generics.GenericAPIView):
             "location": location,
             "lead": focus,
             "description": user.bio,
-            "verified": bool(getattr(user, "onboarding", None)),
+            "verified": bool(
+                application
+                and application.track == current_track
+                and application.status == VerificationApplication.Status.VERIFIED
+            ),
             "tags": tags[:6],
             "handle": f"@{user.username}",
         }
@@ -529,7 +703,10 @@ class DirectoryView(generics.GenericAPIView):
         results = []
 
         if category in ("", "churches"):
-            churches = Church.objects.select_related("owner").annotate(follower_total=Count("followers", distinct=True))
+            churches = Church.objects.select_related(
+                "owner__onboarding",
+                "owner__verification_application",
+            ).annotate(follower_total=Count("followers", distinct=True))
             if search:
                 churches = churches.filter(Q(name__icontains=search) | Q(location__icontains=search) | Q(denomination__icontains=search))
             for church in churches:
@@ -543,7 +720,13 @@ class DirectoryView(generics.GenericAPIView):
                     "location": church.location,
                     "lead": church.owner.get_full_name() or church.owner.username,
                     "description": church.description,
-                    "verified": church.is_featured,
+                    "verified": bool(
+                        getattr(church.owner, "verification_application", None)
+                        and getattr(getattr(church.owner, "onboarding", None), "track", None)
+                        == VerificationApplication.Track.MINISTRY
+                        and church.owner.verification_application.track == VerificationApplication.Track.MINISTRY
+                        and church.owner.verification_application.status == VerificationApplication.Status.VERIFIED
+                    ),
                     "tags": [t for t in (church.denomination, church.ministry_focus) if t],
                     "handle": f"@{church.slug}",
                 })
@@ -551,7 +734,10 @@ class DirectoryView(generics.GenericAPIView):
         for role, key, track in ((User.Role.ARTISTE, "artistes", "artiste"), (User.Role.CREATOR, "creators", "creator")):
             if category not in ("", key):
                 continue
-            users = User.objects.filter(Q(role=role) | Q(onboarding__track=track), is_active=True).select_related("onboarding")
+            users = User.objects.filter(Q(role=role) | Q(onboarding__track=track), is_active=True).select_related(
+                "onboarding",
+                "verification_application",
+            )
             if search:
                 users = users.filter(Q(username__icontains=search) | Q(first_name__icontains=search) | Q(last_name__icontains=search) | Q(bio__icontains=search))
             results.extend(self._user_profile(user, key) for user in users.distinct())
@@ -916,7 +1102,10 @@ class AudioSpaceParticipantsView(generics.GenericAPIView):
 
 
 class ChurchViewSet(viewsets.ModelViewSet):
-    queryset = Church.objects.select_related("owner").prefetch_related("followers")
+    queryset = Church.objects.select_related(
+        "owner__onboarding",
+        "owner__verification_application",
+    ).prefetch_related("followers")
     serializer_class = ChurchSerializer
     permission_classes = [IsPastorOwnerOrReadOnly]
     search_fields = ("name", "description", "location", "denomination", "ministry_focus", "owner__first_name", "owner__last_name")

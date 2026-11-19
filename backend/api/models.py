@@ -2,6 +2,7 @@ import uuid
 
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
@@ -15,6 +16,8 @@ class User(AbstractUser):
         ARTISTE = "artiste", "Gospel Artiste / Psalmist"
 
     email = models.EmailField(unique=True)
+    email_verified_at = models.DateTimeField(null=True, blank=True)
+    email_verification_sent_at = models.DateTimeField(null=True, blank=True)
     avatar_url = models.URLField(blank=True)
     bio = models.TextField(blank=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.BELIEVER)
@@ -40,6 +43,97 @@ class OnboardingProfile(models.Model):
 
     def __str__(self):
         return f"{self.user_id}:{self.track}"
+
+
+class VerificationApplication(models.Model):
+    class Track(models.TextChoices):
+        MINISTRY = "ministry", "Ministry"
+        ARTISTE = "artiste", "Artiste"
+        CREATOR = "creator", "Creator"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        UNDER_REVIEW = "under_review", "Under review"
+        VERIFIED = "verified", "Verified"
+        ACTION_REQUIRED = "action_required", "Action required"
+        REJECTED = "rejected", "Rejected"
+        SUSPENDED = "suspended", "Suspended"
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="verification_application",
+    )
+    track = models.CharField(max_length=16, choices=Track.choices)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    official_profile_url = models.URLField(blank=True)
+    evidence_urls = models.JSONField(default=list, blank=True)
+    evidence_notes = models.TextField(blank=True, max_length=2000)
+    authorization_confirmed = models.BooleanField(default=False)
+    privacy_notice_acknowledged_at = models.DateTimeField(null=True, blank=True)
+    decision_reason = models.TextField(blank=True, max_length=2000)
+    reviewer_notes = models.TextField(blank=True, max_length=4000)
+    appeal_reason = models.TextField(blank=True, max_length=2000)
+    appeal_evidence_urls = models.JSONField(default=list, blank=True)
+    appealed_at = models.DateTimeField(null=True, blank=True)
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_verification_applications",
+    )
+    submitted_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    evidence_expires_at = models.DateTimeField(null=True, blank=True)
+    evidence_purged_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-submitted_at",)
+
+    def clean(self):
+        if self.status in (
+            self.Status.ACTION_REQUIRED,
+            self.Status.REJECTED,
+            self.Status.SUSPENDED,
+        ) and not self.decision_reason.strip():
+            raise ValidationError({"decision_reason": "Give the applicant a clear reason for this decision."})
+        if self.status == self.Status.VERIFIED:
+            if self.user_id and self.user.email_verified_at is None:
+                raise ValidationError({"status": "The applicant must have a verified email address."})
+            if not self.authorization_confirmed:
+                raise ValidationError({"status": "The applicant's authority must be confirmed."})
+            profile = getattr(self.user, "onboarding", None) if self.user_id else None
+            if profile is None or profile.track != self.track:
+                raise ValidationError({"status": "The application category must match the applicant's current profile."})
+
+    def __str__(self):
+        return f"{self.user.email} — {self.get_track_display()} ({self.get_status_display()})"
+
+
+class VerificationStatusHistory(models.Model):
+    application = models.ForeignKey(
+        VerificationApplication,
+        on_delete=models.CASCADE,
+        related_name="status_history",
+    )
+    status = models.CharField(max_length=20, choices=VerificationApplication.Status.choices)
+    reason = models.TextField(blank=True, max_length=2000)
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="verification_status_changes",
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ("created_at", "pk")
+
+    def __str__(self):
+        return f"{self.application_id}: {self.get_status_display()}"
 
 
 class Scripture(models.Model):

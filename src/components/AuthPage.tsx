@@ -32,10 +32,25 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [signupIntent, setSignupIntent] = useState(initialMode === 'signup');
   const [collected, setCollected] = useState<{ track: OnboardingTrack; answers: OnboardingAnswers } | null>(null);
   const [signupTrack, setSignupTrack] = useState<OnboardingTrack | undefined>();
+  const [emailVerificationLink] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const uid = params.get('email_verify_uid');
+    const token = params.get('email_verify_token');
+    return uid && token ? { uid, token } : null;
+  });
+  const [emailVerificationState, setEmailVerificationState] = useState<'ready' | 'loading' | 'verified' | 'error'>('ready');
+  const [emailVerificationMessage, setEmailVerificationMessage] = useState('');
   // The auth card navigates home itself after login; hold that back until the onboarding check finishes.
   const holdNavigation = useRef(false);
+  const clearEmailVerificationParams = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('email_verify_uid');
+    url.searchParams.delete('email_verify_token');
+    window.history.replaceState({}, '', url);
+  };
   const goHome = () => {
     holdNavigation.current = false;
+    if (emailVerificationLink) clearEmailVerificationParams();
     onNavigateHome?.();
   };
 
@@ -69,6 +84,24 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       // Fall through to home; onboarding is offered again on the next login.
     }
     goHome();
+  };
+
+  const confirmEmail = async () => {
+    if (!emailVerificationLink || emailVerificationState === 'loading') return;
+    setEmailVerificationState('loading');
+    setEmailVerificationMessage('');
+    try {
+      const result = await djangoApi.confirmEmailVerification(
+        emailVerificationLink.uid,
+        emailVerificationLink.token,
+      );
+      setEmailVerificationState('verified');
+      setEmailVerificationMessage(result.detail);
+      clearEmailVerificationParams();
+    } catch (error) {
+      setEmailVerificationState('error');
+      setEmailVerificationMessage(error instanceof Error ? error.message : 'This verification link could not be confirmed.');
+    }
   };
 
   const benefits = [
@@ -129,7 +162,29 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         </div>
 
         <div className="flex flex-1 items-center justify-center py-8">
-          {!needsOnboarding && stage === 'questions' ? (
+          {emailVerificationLink ? (
+            <section aria-label="Email verification" className="w-full max-w-xl rounded-3xl border border-white/70 bg-white/85 p-6 shadow-xl dark:border-white/10 dark:bg-zinc-900/80 sm:p-8">
+              <p className="text-xs font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400">Account security</p>
+              <h1 className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">Confirm your email address</h1>
+              <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-300">
+                Confirm that you control this address before applying for a verified profile badge.
+              </p>
+              {emailVerificationMessage && (
+                <p role={emailVerificationState === 'error' ? 'alert' : 'status'} className={`mt-4 text-sm ${emailVerificationState === 'error' ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-300'}`}>
+                  {emailVerificationMessage}
+                </p>
+              )}
+              {emailVerificationState !== 'verified' && (
+                <button type="button" onClick={confirmEmail} disabled={emailVerificationState === 'loading'}
+                  className="mt-6 w-full rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-slate-950 disabled:opacity-60">
+                  {emailVerificationState === 'loading' ? 'Confirming…' : 'Confirm email'}
+                </button>
+              )}
+              <button type="button" onClick={goHome} className="mt-4 w-full text-sm font-semibold text-zinc-600 underline dark:text-zinc-300">
+                Return to Gospread
+              </button>
+            </section>
+          ) : !needsOnboarding && stage === 'questions' ? (
             <OnboardingFlow
               onSkip={() => { setSignupIntent(true); setStage('account'); }}
               onComplete={() => undefined}

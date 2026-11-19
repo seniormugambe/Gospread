@@ -8,6 +8,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.core.validators import URLValidator
 from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
@@ -20,7 +21,7 @@ from .models import (
     AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost, Donation, FeedbackSubmission, GivingFund,
     LiveStream, LiveStreamChatMessage, PayoutAccount, PrayerComment, PrayerRequest, PaymentGatewayCheckout,
     SavedSermon, Scripture, Sermon, SermonShort, User, WatchProgress, WorshipSlide,
-    WorshipSong,
+    VerificationApplication, VerificationStatusHistory, WorshipSong,
 )
 
 
@@ -51,6 +52,7 @@ class UserSerializer(serializers.ModelSerializer):
     creator_type = serializers.SerializerMethodField()
     onboarding_completed = serializers.SerializerMethodField()
     onboarding_track = serializers.SerializerMethodField()
+    email_verified = serializers.SerializerMethodField()
     avatar = serializers.FileField(write_only=True, required=False, allow_empty_file=False)
 
     class Meta:
@@ -59,6 +61,7 @@ class UserSerializer(serializers.ModelSerializer):
             "id", "email", "username", "first_name", "last_name", "avatar_url", "avatar",
             "bio", "role", "creator_type", "praise_xp", "streak_days", "last_checkin_date",
             "total_study_minutes", "church_name", "onboarding_completed", "onboarding_track",
+            "email_verified",
         )
         read_only_fields = ("id", "email", "praise_xp", "streak_days", "last_checkin_date", "total_study_minutes")
 
@@ -81,21 +84,111 @@ class UserSerializer(serializers.ModelSerializer):
     def get_onboarding_track(self, user):
         return user.onboarding.track if hasattr(user, "onboarding") else None
 
+    def get_email_verified(self, user):
+        return user.email_verified_at is not None
+
     def get_creator_type(self, user):
         return {User.Role.PASTOR: "church", User.Role.ARTISTE: "artiste", User.Role.CREATOR: "creator"}.get(user.role)
 
 
 class PublicUserProfileSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
+    verified = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ("username", "name", "avatar_url", "bio", "role")
+        fields = ("username", "name", "avatar_url", "bio", "role", "verified")
         read_only_fields = fields
 
     def get_name(self, user):
         return user.get_full_name() or user.username
 
+    def get_verified(self, user):
+        application = getattr(user, "verification_application", None)
+        profile = getattr(user, "onboarding", None)
+        return bool(
+            application
+            and profile
+            and application.track == profile.track
+            and application.status == VerificationApplication.Status.VERIFIED
+        )
+
+
+class VerificationStatusHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VerificationStatusHistory
+        fields = ("status", "reason", "created_at")
+        read_only_fields = fields
+
+
+class VerificationApplicationSerializer(serializers.ModelSerializer):
+    official_profile_url = serializers.URLField(
+        required=False,
+        allow_blank=True,
+        validators=[URLValidator(schemes=("http", "https"))],
+    )
+    evidence_urls = serializers.ListField(
+        child=serializers.URLField(validators=[URLValidator(schemes=("http", "https"))]),
+        required=False,
+        allow_empty=True,
+        max_length=5,
+    )
+    evidence_notes = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+    authorization_confirmed = serializers.BooleanField(write_only=True)
+    privacy_notice_acknowledged = serializers.BooleanField(write_only=True)
+    status_history = VerificationStatusHistorySerializer(many=True, read_only=True)
+
+    class Meta:
+        model = VerificationApplication
+        fields = (
+            "track", "status", "official_profile_url", "evidence_urls", "evidence_notes",
+            "authorization_confirmed", "privacy_notice_acknowledged", "decision_reason",
+            "appeal_reason", "appeal_evidence_urls", "appealed_at", "submitted_at",
+            "updated_at", "reviewed_at", "status_history",
+        )
+        read_only_fields = (
+            "status", "decision_reason", "appeal_reason", "appeal_evidence_urls", "appealed_at",
+            "submitted_at", "updated_at", "reviewed_at", "status_history",
+        )
+
+    def validate(self, attrs):
+        request = self.context["request"]
+        user = request.user
+        track = attrs.get("track", getattr(self.instance, "track", None))
+        profile = getattr(user, "onboarding", None)
+        errors = {}
+        if user.email_verified_at is None:
+            errors["email"] = "Verify your email address before applying."
+        if profile is None or profile.track != track:
+            errors["track"] = "Complete onboarding for this account category before applying."
+        if not attrs.get("authorization_confirmed"):
+            errors["authorization_confirmed"] = "Confirm that you control or are authorized to represent this profile."
+        if not attrs.get("privacy_notice_acknowledged"):
+            errors["privacy_notice_acknowledged"] = "Acknowledge the verification evidence privacy notice."
+
+        official_url = attrs.get("official_profile_url", getattr(self.instance, "official_profile_url", ""))
+        evidence_urls = attrs.get("evidence_urls", getattr(self.instance, "evidence_urls", []))
+        evidence_notes = attrs.get("evidence_notes", getattr(self.instance, "evidence_notes", ""))
+        if not official_url and not evidence_urls and not evidence_notes.strip():
+            errors["evidence_notes"] = "Provide an official profile link, supporting link, or evidence note."
+        if errors:
+            raise serializers.ValidationError(errors)
+        return attrs
+
+
+class VerificationAppealSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=2000, trim_whitespace=True)
+    evidence_urls = serializers.ListField(
+        child=serializers.URLField(validators=[URLValidator(schemes=("http", "https"))]),
+        required=False,
+        allow_empty=True,
+        max_length=5,
+    )
+
+    def validate_reason(self, value):
+        if not value:
+            raise serializers.ValidationError("Explain why you are appealing this decision.")
+        return value
 
 class OnboardingSerializer(serializers.Serializer):
     track = serializers.ChoiceField(choices=list(onboarding.QUESTIONS))
@@ -250,6 +343,7 @@ class SignupSerializer(serializers.ModelSerializer):
 
 class ChurchSerializer(serializers.ModelSerializer):
     slug = serializers.SlugField(required=False, allow_blank=True)
+    verified = serializers.SerializerMethodField()
     follower_count = serializers.IntegerField(source="followers.count", read_only=True)
     owner_name = serializers.CharField(source="owner.get_full_name", read_only=True)
     sermon_count = serializers.IntegerField(source="sermons.count", read_only=True)
@@ -262,7 +356,7 @@ class ChurchSerializer(serializers.ModelSerializer):
         model = Church
         fields = (
             "id", "name", "slug", "description", "location", "logo_url", "cover_image_url",
-            "denomination", "ministry_focus", "phone", "email", "website", "is_featured",
+            "denomination", "ministry_focus", "phone", "email", "website", "is_featured", "verified",
             "owner", "owner_name", "follower_count", "sermon_count", "head_pastor",
             "top_stars", "media", "schedule", "created_at",
         )
@@ -288,6 +382,17 @@ class ChurchSerializer(serializers.ModelSerializer):
             "title": "Head Pastor",
             "avatar_url": owner.avatar_url,
         }
+
+    def get_verified(self, church):
+        application = getattr(church.owner, "verification_application", None)
+        profile = getattr(church.owner, "onboarding", None)
+        return bool(
+            application
+            and profile
+            and profile.track == VerificationApplication.Track.MINISTRY
+            and application.track == VerificationApplication.Track.MINISTRY
+            and application.status == VerificationApplication.Status.VERIFIED
+        )
 
     def get_top_stars(self, church):
         stars = [self.get_head_pastor(church)]
