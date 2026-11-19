@@ -842,11 +842,18 @@ class DjangoApiClient {
     }
   }
 
-  public async updateMe(payload: { avatar?: File | null; first_name?: string; last_name?: string; bio?: string }): Promise<UserProfileData> {
+  public async updateMe(payload: {
+    avatar?: File | null;
+    avatar_url?: string;
+    username?: string;
+    first_name?: string;
+    last_name?: string;
+    bio?: string;
+  }): Promise<UserProfileData> {
     const form = new FormData();
     Object.entries(payload).forEach(([key, value]) => {
       if (value === undefined || value === null) return;
-      form.append(key, value as string | Blob);
+      form.append(key, value);
     });
     return await this.request<UserProfileData>('/auth/me/', { method: 'PATCH', body: form });
   }

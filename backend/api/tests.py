@@ -259,6 +259,30 @@ class AuthenticationTests(APITestCase):
         response = self.client.get(reverse("me"))
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_profile_update_persists_uploaded_avatar_and_profile_fields(self):
+        user = User.objects.create_user(
+            username="profile-member", email="profile@example.com", password="StrongPass123!",
+        )
+        self.client.force_authenticate(user)
+
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            response = self.client.patch(reverse("me"), {
+                "username": "updated-member",
+                "first_name": "Updated",
+                "last_name": "Member",
+                "bio": "A new profile bio",
+                "avatar": SimpleUploadedFile("avatar.png", b"image data", content_type="image/png"),
+            }, format="multipart")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        self.assertEqual(user.username, "updated-member")
+        self.assertEqual(user.first_name, "Updated")
+        self.assertEqual(user.last_name, "Member")
+        self.assertEqual(user.bio, "A new profile bio")
+        self.assertIn("/uploads/avatars/", user.avatar_url)
+        self.assertEqual(response.data["avatar_url"], user.avatar_url)
+
     def test_logout_blacklists_refresh_token(self):
         User.objects.create_user(username="member", email="logout@example.com", password="StrongPass123!")
         token = self.client.post(reverse("token"), {"email": "LOGOUT@example.com", "password": "StrongPass123!"}, format="json")

@@ -1747,15 +1747,37 @@ export default function App() {
                 onOpenDiscover={() => setActiveTab('discover')}
                 onOpenAuthPage={handleOpenAuthPage}
                 currentUser={userSession}
-                onUpdateProfile={(profile) => {
+                onUpdateProfile={async (profile) => {
+                  const { avatarFile, ...profileFields } = profile;
+                  let persistedProfile: Partial<UserSession> = profileFields;
+                  if (userSession.isLoggedIn) {
+                    const nameParts = (profile.fullName || '').trim().split(/\s+/).filter(Boolean);
+                    const updated = await djangoApi.updateMe({
+                      username: profile.username,
+                      first_name: nameParts.slice(0, -1).join(' ') || nameParts[0] || '',
+                      last_name: nameParts.length > 1 ? nameParts[nameParts.length - 1] : '',
+                      bio: profile.bio,
+                      avatar: avatarFile,
+                      avatar_url: avatarFile ? undefined : profile.avatarUrl,
+                    });
+                    persistedProfile = {
+                      ...profileFields,
+                      username: updated.username,
+                      fullName: [updated.first_name, updated.last_name].filter(Boolean).join(' ') || updated.username,
+                      email: updated.email,
+                      bio: updated.bio,
+                      avatarUrl: updated.avatar_url,
+                      avatar: updated.avatar_url,
+                    };
+                  }
                   setUserSession((previous) => {
-                    const updated = { ...previous, ...profile };
+                    const next = { ...previous, ...persistedProfile };
                     try {
-                      localStorage.setItem('gospread_user_session', JSON.stringify(updated));
+                      localStorage.setItem('gospread_user_session', JSON.stringify(next));
                     } catch (error) {
-                      console.error(error);
+                      console.error('Could not persist updated user session:', error);
                     }
-                    return updated;
+                    return next;
                   });
                 }}
               />

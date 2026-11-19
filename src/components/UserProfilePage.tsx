@@ -65,7 +65,7 @@ interface UserProfilePageProps {
   onOpenDiscover?: () => void;
   onOpenAuthPage?: (mode?: 'signin' | 'signup') => void;
   currentUser?: UserSession;
-  onUpdateProfile?: (profile: Partial<UserSession>) => void;
+  onUpdateProfile?: (profile: Partial<UserSession> & { avatarFile?: File | null }) => void | Promise<void>;
 }
 
 export default function UserProfilePage({
@@ -130,8 +130,11 @@ export default function UserProfilePage({
 
   const [userEmail, setUserEmail] = useState(currentUser?.email || '');
   const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatarUrl || currentUser?.avatar || '');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [profileIcon, setProfileIcon] = useState<UserSession['profileIcon']>(currentUser?.profileIcon || 'user');
   const [showSavedToast, setShowSavedToast] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileSaveError, setProfileSaveError] = useState('');
   const [profileLinkCopied, setProfileLinkCopied] = useState(false);
   const [profileLinkError, setProfileLinkError] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
@@ -263,27 +266,40 @@ export default function UserProfilePage({
     return () => { active = false; };
   }, [currentUser?.isLoggedIn]);
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingProfile) return;
+    setIsSavingProfile(true);
+    setProfileSaveError('');
     try {
-      localStorage.setItem('gospread_custom_name', userName);
-      localStorage.setItem('gospread_custom_handle', userHandle);
-      localStorage.setItem('gospread_custom_bio', userBio);
-      localStorage.setItem('gospread_custom_church', homeChurch);
-    } catch {}
-    onUpdateProfile?.({
-      fullName: userName.trim(),
-      username: userHandle.replace(/^@/, '').trim(),
-      email: userEmail.trim(),
-      churchName: homeChurch.trim(),
-      bio: userBio.trim(),
-      avatarUrl,
-      avatar: avatarUrl,
-      profileIcon,
-    });
-    setIsEditing(false);
-    setShowSavedToast(true);
-    setTimeout(() => setShowSavedToast(false), 3000);
+      await onUpdateProfile?.({
+        fullName: userName.trim(),
+        username: userHandle.replace(/^@/, '').trim(),
+        email: userEmail.trim(),
+        churchName: homeChurch.trim(),
+        bio: userBio.trim(),
+        avatarUrl,
+        avatar: avatarUrl,
+        avatarFile,
+        profileIcon,
+      });
+      try {
+        localStorage.setItem('gospread_custom_name', userName);
+        localStorage.setItem('gospread_custom_handle', userHandle);
+        localStorage.setItem('gospread_custom_bio', userBio);
+        localStorage.setItem('gospread_custom_church', homeChurch);
+      } catch (error) {
+        console.error('Could not persist custom profile details:', error);
+      }
+      setIsEditing(false);
+      setShowSavedToast(true);
+      setTimeout(() => setShowSavedToast(false), 3000);
+    } catch (error) {
+      console.error('Failed saving profile details:', error);
+      setProfileSaveError(error instanceof Error ? error.message : 'Unable to save profile changes.');
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const profileIcons = [
@@ -298,13 +314,19 @@ export default function UserProfilePage({
 
   const handleAvatarUpload = (file?: File) => {
     if (!file) return;
-    if (!file.type.startsWith('image/')) return;
-    if (file.size > 2 * 1024 * 1024) {
-      alert('Please choose an image smaller than 2 MB.');
+    if (!file.type.startsWith('image/')) {
+      setProfileSaveError('Choose an image file.');
       return;
     }
+    if (file.size > 2 * 1024 * 1024) {
+      setProfileSaveError('Please choose an image smaller than 2 MB.');
+      return;
+    }
+    setProfileSaveError('');
+    setAvatarFile(file);
     const reader = new FileReader();
     reader.onload = () => setAvatarUrl(typeof reader.result === 'string' ? reader.result : '');
+    reader.onerror = () => setProfileSaveError('Could not read the selected image. Please try another file.');
     reader.readAsDataURL(file);
   };
 
@@ -546,17 +568,17 @@ export default function UserProfilePage({
                       <ImagePlus className="w-3.5 h-3.5 text-amber-400" /> Upload image
                       <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => handleAvatarUpload(event.target.files?.[0])} className="sr-only" />
                     </label>
-                    {avatarUrl && <button type="button" onClick={() => setAvatarUrl('')} className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">Use icon instead</button>}
+                    {avatarUrl && <button type="button" onClick={() => { setAvatarUrl(''); setAvatarFile(null); }} className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">Use icon instead</button>}
                   </div>
                 </div>
               </div>
               <label className="block text-slate-400 font-bold mt-3 mb-1">Or image URL</label>
-              <input type="url" value={avatarUrl.startsWith('data:') ? '' : avatarUrl} onChange={(event) => setAvatarUrl(event.target.value)} placeholder="https://example.com/profile-photo.jpg" className="w-full bg-slate-950 text-white p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500" />
+              <input type="url" value={avatarUrl.startsWith('data:') ? '' : avatarUrl} onChange={(event) => { setAvatarUrl(event.target.value); setAvatarFile(null); }} placeholder="https://example.com/profile-photo.jpg" className="w-full bg-slate-950 text-white p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500" />
               <div className="mt-3">
                 <span className="block text-slate-400 font-bold mb-2">Profile icon</span>
                 <div className="flex flex-wrap gap-2">
                   {profileIcons.map(({ id, label, Icon }) => (
-                    <button key={id} type="button" onClick={() => { setProfileIcon(id); setAvatarUrl(''); }} title={label} className={`w-9 h-9 rounded-lg border flex items-center justify-center transition ${profileIcon === id && !avatarUrl ? 'bg-amber-500 text-slate-950 border-amber-400' : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-amber-500/60'}`}>
+                    <button key={id} type="button" onClick={() => { setProfileIcon(id); setAvatarUrl(''); setAvatarFile(null); }} title={label} className={`w-9 h-9 rounded-lg border flex items-center justify-center transition ${profileIcon === id && !avatarUrl ? 'bg-amber-500 text-slate-950 border-amber-400' : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-amber-500/60'}`}>
                       <Icon className="w-4 h-4" />
                     </button>
                   ))}
@@ -619,6 +641,10 @@ export default function UserProfilePage({
             </div>
           </div>
 
+          {profileSaveError && (
+            <p role="alert" className="text-xs text-red-300">{profileSaveError}</p>
+          )}
+
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
@@ -629,9 +655,10 @@ export default function UserProfilePage({
             </button>
             <button
               type="submit"
+              disabled={isSavingProfile}
               className="px-5 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 transition"
             >
-              Save Profile
+              {isSavingProfile ? 'Saving...' : 'Save Profile'}
             </button>
           </div>
         </motion.form>
