@@ -91,13 +91,30 @@ class UserSerializer(serializers.ModelSerializer):
         return {User.Role.PASTOR: "church", User.Role.ARTISTE: "artiste", User.Role.CREATOR: "creator"}.get(user.role)
 
 
+class PublicProfileMediaSerializer(serializers.ModelSerializer):
+    church_name = serializers.CharField(source="church.name", read_only=True)
+    channel_avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Sermon
+        fields = (
+            "id", "title", "speaker", "church_name", "channel_avatar", "description", "category",
+            "kind", "media_url", "thumbnail_url", "duration_seconds", "view_count", "published_at",
+        )
+        read_only_fields = fields
+
+    def get_channel_avatar(self, sermon):
+        return sermon.church.owner.avatar_url or sermon.church.logo_url
+
+
 class PublicUserProfileSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
     verified = serializers.SerializerMethodField()
+    media = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ("username", "name", "avatar_url", "bio", "role", "verified")
+        fields = ("username", "name", "avatar_url", "bio", "role", "verified", "media")
         read_only_fields = fields
 
     def get_name(self, user):
@@ -112,6 +129,15 @@ class PublicUserProfileSerializer(serializers.ModelSerializer):
             and application.track == profile.track
             and application.status == VerificationApplication.Status.VERIFIED
         )
+
+    def get_media(self, user):
+        sermons = Sermon.objects.filter(
+            church__owner=user,
+            is_published=True,
+            visibility="public",
+            kind__in=(Sermon.Kind.VIDEO, Sermon.Kind.AUDIO),
+        ).exclude(media_url="").select_related("church").order_by("-published_at", "-created_at")
+        return PublicProfileMediaSerializer(sermons, many=True, context=self.context).data
 
 
 class VerificationStatusHistorySerializer(serializers.ModelSerializer):

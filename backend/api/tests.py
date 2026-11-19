@@ -45,7 +45,57 @@ class PublicProfileTests(APITestCase):
             "bio": user.bio,
             "role": user.role,
             "verified": False,
+            "media": [],
         })
+
+    def test_public_profile_includes_only_owners_published_public_audio_and_video(self):
+        owner = User.objects.create_user(
+            username="media-owner", email="media-owner@example.com", password="StrongPass123!",
+        )
+        other_user = User.objects.create_user(
+            username="other-owner", email="other-owner@example.com", password="StrongPass123!",
+        )
+        church = Church.objects.create(name="Owner Ministry", slug="owner-ministry", owner=owner)
+        other_church = Church.objects.create(name="Other Ministry", slug="other-ministry", owner=other_user)
+        public_video = Sermon.objects.create(
+            church=church, title="Public video", speaker="Owner", kind=Sermon.Kind.VIDEO,
+            media_url="https://media.example.com/public-video.mp4", is_published=True,
+            visibility="public", published_at=timezone.now(),
+        )
+        public_audio = Sermon.objects.create(
+            church=church, title="Public audio", speaker="Owner", kind=Sermon.Kind.AUDIO,
+            media_url="https://media.example.com/public-audio.mp3", is_published=True,
+            visibility="public", published_at=timezone.now(),
+        )
+        hidden_sermons = [
+            Sermon.objects.create(
+                church=church, title="Private", speaker="Owner", kind=Sermon.Kind.VIDEO,
+                media_url="https://media.example.com/private.mp4", is_published=True, visibility="private",
+            ),
+            Sermon.objects.create(
+                church=church, title="Unlisted", speaker="Owner", kind=Sermon.Kind.AUDIO,
+                media_url="https://media.example.com/unlisted.mp3", is_published=True, visibility="unlisted",
+            ),
+            Sermon.objects.create(
+                church=church, title="Draft", speaker="Owner", kind=Sermon.Kind.VIDEO,
+                media_url="https://media.example.com/draft.mp4", is_published=False, visibility="public",
+            ),
+            Sermon.objects.create(
+                church=other_church, title="Other user's video", speaker="Other", kind=Sermon.Kind.VIDEO,
+                media_url="https://media.example.com/other.mp4", is_published=True, visibility="public",
+            ),
+        ]
+
+        response = self.client.get(f"/api/v1/profiles/{owner.username}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        media_ids = {item["id"] for item in response.data["media"]}
+        self.assertEqual(
+            media_ids,
+            {public_video.id, public_audio.id},
+        )
+        self.assertFalse(media_ids & {sermon.id for sermon in hidden_sermons})
+        self.assertTrue(all(item["kind"] in {"video", "audio"} for item in response.data["media"]))
 
     def test_missing_and_inactive_profiles_are_not_available(self):
         User.objects.create_user(

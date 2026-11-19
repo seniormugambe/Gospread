@@ -25,6 +25,23 @@ export interface PublicUserProfile {
   bio: string;
   role: 'believer' | 'creator' | 'pastor' | 'artiste';
   verified: boolean;
+  media?: PublicUserMedia[];
+}
+
+export interface PublicUserMedia {
+  id: number;
+  title: string;
+  speaker: string;
+  church_name: string;
+  channel_avatar: string;
+  description: string;
+  category: string;
+  kind: 'video' | 'audio';
+  media_url: string;
+  thumbnail_url: string;
+  duration_seconds: number;
+  view_count: number;
+  published_at: string | null;
 }
 
 export interface ChurchCampusLocation {
