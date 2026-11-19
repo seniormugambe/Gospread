@@ -1530,6 +1530,14 @@ export const FellowshipCommunityHub: React.FC<FellowshipCommunityHubProps> = ({
                       {postTitle && <h4 className="text-sm font-bold text-white">{postTitle}</h4>}
                       <p className="text-xs text-slate-300 leading-relaxed">{postContent || '(No content entered yet)'}</p>
 
+                      {(postImagePreview || postImageUrl) && (
+                        <img
+                          src={postImagePreview || postImageUrl}
+                          alt="Attached post image"
+                          className="w-full max-h-56 rounded-xl border border-slate-700/80 object-cover"
+                        />
+                      )}
+
                       {postScripture && (
                         <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 space-y-1">
                           <div className="text-xs font-bold text-amber-400">{postScripture}</div>

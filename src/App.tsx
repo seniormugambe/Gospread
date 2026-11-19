@@ -504,7 +504,8 @@ export default function App() {
     if (
       refreshedVideo &&
       (refreshedVideo.videoUrl !== activeVideo.videoUrl ||
-        refreshedVideo.streamUrl !== activeVideo.streamUrl)
+        refreshedVideo.streamUrl !== activeVideo.streamUrl ||
+        refreshedVideo.channelAvatar !== activeVideo.channelAvatar)
     ) {
       setActiveVideo(refreshedVideo);
     }
@@ -1769,6 +1770,16 @@ export default function App() {
                       avatarUrl: updated.avatar_url,
                       avatar: updated.avatar_url,
                     };
+                    const refreshedAvatar = updated.avatar_url || '';
+                    setVideoStreams((previous) => previous.map((video) =>
+                      video.isOwner ? { ...video, channelAvatar: refreshedAvatar } : video
+                    ));
+                    setShorts((previous) => previous.map((video) =>
+                      video.isOwner ? { ...video, channelAvatar: refreshedAvatar } : video
+                    ));
+                    setActiveVideo((previous) => previous?.isOwner
+                      ? { ...previous, channelAvatar: refreshedAvatar }
+                      : previous);
                   }
                   setUserSession((previous) => {
                     const next = { ...previous, ...persistedProfile };

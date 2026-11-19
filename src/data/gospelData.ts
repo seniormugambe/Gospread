@@ -10,6 +10,7 @@ export interface VideoStream {
   isLive: boolean;
   /** True when this stream is a short-form clip (≤ 3 min), sourced from /shorts/ */
   isShort?: boolean;
+  isOwner?: boolean;
   viewersCount?: number;
   viewsText?: string;
   duration?: string;

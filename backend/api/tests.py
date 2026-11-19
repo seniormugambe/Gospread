@@ -756,8 +756,10 @@ class AudioSpaceCollaborationTests(APITestCase):
 class SermonShortTests(APITestCase):
     def test_published_shorts_are_public(self):
         pastor = User.objects.create_user(username="shorts-pastor", email="shorts@example.com", password="StrongPass123!")
+        pastor.avatar_url = "https://example.com/shorts-owner-avatar.jpg"
+        pastor.save(update_fields=["avatar_url"])
         church = Church.objects.create(name="Shorts Church", slug="shorts-church", owner=pastor)
-        SermonShort.objects.create(
+        short = SermonShort.objects.create(
             church=church,
             title="Grace for today",
             speaker="Pastor Mary",
@@ -772,6 +774,8 @@ class SermonShortTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(response.data["results"][0]["title"], "Grace for today")
+        self.assertEqual(response.data["results"][0]["channel_avatar"], pastor.avatar_url)
+        self.assertEqual(response.data["results"][0]["thumbnail_url"], short.thumbnail_url)
 
     def test_pastor_can_upload_a_sermon_file_directly(self):
         pastor = User.objects.create_user(username="upload-pastor", email="upload@example.com", password="StrongPass123!")
@@ -792,6 +796,30 @@ class SermonShortTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(response.data["media_url"].startswith("http"))
         self.assertTrue(Sermon.objects.get(id=response.data["id"]).media_url)
+
+
+class LiveStreamAvatarTests(APITestCase):
+    def test_live_stream_channel_avatar_comes_from_host_profile(self):
+        host = User.objects.create_user(
+            username="live-avatar-host",
+            email="live-avatar@example.com",
+            password="StrongPass123!",
+            avatar_url="https://example.com/live-host-avatar.jpg",
+        )
+        church = Church.objects.create(name="Live Avatar Church", slug="live-avatar-church", owner=host)
+        LiveStream.objects.create(
+            church=church,
+            created_by=host,
+            title="Live avatar test",
+            thumbnail_url="https://example.com/live-thumbnail.jpg",
+            scheduled_for=timezone.now(),
+        )
+
+        response = self.client.get("/api/v1/streams/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["results"][0]["channel_avatar"], host.avatar_url)
+        self.assertEqual(response.data["results"][0]["thumbnail_url"], "https://example.com/live-thumbnail.jpg")
 
 
 class GospelNuggetCreateTests(APITestCase):
@@ -1114,6 +1142,19 @@ class DiscoveryAlgorithmTests(APITestCase):
             is_published=True,
             published_at=published_at or timezone.now(),
         )
+
+    @override_settings(DISCOVERY_ALGORITHM_ENABLED=False)
+    def test_discovery_uses_owner_avatar_separately_from_video_thumbnail(self):
+        self.owner.avatar_url = "https://example.com/profile-avatar.jpg"
+        self.owner.save(update_fields=["avatar_url"])
+        sermon = self.create_sermon("Avatar mapping sermon")
+
+        response = self.client.get("/api/v1/sermons/discover/?surface=home")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        item = next(entry for entry in response.data["results"] if entry["id"] == sermon.id)
+        self.assertEqual(item["channel_avatar"], self.owner.avatar_url)
+        self.assertEqual(item["thumbnail_url"], sermon.thumbnail_url)
 
     @override_settings(DISCOVERY_ALGORITHM_ENABLED=False)
     def test_discovery_endpoint_preserves_chronological_behavior_when_flag_is_disabled(self):

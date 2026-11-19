@@ -406,6 +406,7 @@ export default function CreatePage({
     type: string;
   } | null>(null);
   const [selectedMediaFile, setSelectedMediaFile] = useState<File | null>(null);
+  const [selectedMediaPreviewUrl, setSelectedMediaPreviewUrl] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -419,6 +420,17 @@ export default function CreatePage({
   const [extractedFrames, setExtractedFrames] = useState<VideoExtractedFrame[]>([]);
   const [isExtractingFrames, setIsExtractingFrames] = useState(false);
   const [frameExtractError, setFrameExtractError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedMediaFile) {
+      setSelectedMediaPreviewUrl('');
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(selectedMediaFile);
+    setSelectedMediaPreviewUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [selectedMediaFile]);
 
   // Video Details form state (Step 4)
   const [uploadTitle, setUploadTitle] = useState('');
@@ -2854,6 +2866,9 @@ export default function CreatePage({
                     onClick={() => {
                       setUploadStep('select');
                       setSelectedFile(null);
+                      setSelectedMediaFile(null);
+                      setExtractedFrames([]);
+                      setUploadThumbnail('');
                     }}
                     className="px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
                   >
@@ -2907,40 +2922,19 @@ export default function CreatePage({
                     Video Preview & Active Thumbnail Card
                   </label>
                   <div className="relative aspect-video max-w-xl mx-auto rounded-3xl overflow-hidden border-2 border-amber-500/40 shadow-2xl bg-black group">
-                    <img
-                      src={uploadThumbnail}
-                      alt="Thumbnail Preview"
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    <video
+                      src={selectedMediaPreviewUrl || undefined}
+                      poster={uploadThumbnail || undefined}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      aria-label={`Preview: ${uploadTitle || selectedFile?.name || 'uploaded video'}`}
+                      className="h-full w-full object-contain"
                     />
-                    {/* Live Play Button Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-between p-4 sm:p-5">
-                      <div className="flex items-center justify-between">
-                        <span className="px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md text-amber-300 text-[10px] font-mono font-bold border border-amber-500/30 flex items-center gap-1.5">
-                          <Sparkles className="w-3 h-3 text-amber-400" />
-                          <span>{aiOverlayVerse || uploadScripture}</span>
-                        </span>
-                        <span className="px-2.5 py-1 rounded-full bg-black/80 text-white text-[10px] font-mono font-bold">
-                          48:30 HD
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-center">
-                        <div className="w-14 h-14 rounded-full bg-amber-500/90 text-slate-950 flex items-center justify-center shadow-2xl ring-4 ring-white/20 group-hover:scale-110 transition-transform">
-                          <Play className="w-6 h-6 fill-current ml-1" />
-                        </div>
-                      </div>
-
-                      <div>
-                        <h4 className="text-white font-black text-sm sm:text-base leading-tight drop-shadow-md">
-                          {uploadTitle || 'Sunday Worship Service'}
-                        </h4>
-                        <p className="text-xs text-slate-300 drop-shadow">
-                          {uploadSpeaker || ownerName} • {uploadMinistry || ministryName}
-                        </p>
-                      </div>
-                    </div>
                   </div>
+                  <p className="max-w-xl mx-auto text-[11px] text-slate-400">
+                    The selected thumbnail appears before playback. Use the player controls to preview your video.
+                  </p>
                 </div>
 
                 {/* 2. Thumbnail Selector Tabs */}

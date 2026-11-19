@@ -472,6 +472,7 @@ class ChurchSerializer(serializers.ModelSerializer):
 
 class SermonSerializer(serializers.ModelSerializer):
     church_name = serializers.CharField(source="church.name", read_only=True)
+    channel_avatar = serializers.SerializerMethodField()
     is_saved = serializers.SerializerMethodField()
     is_owner = serializers.SerializerMethodField()
     media_file = serializers.FileField(write_only=True, required=False, allow_empty_file=False)
@@ -480,7 +481,7 @@ class SermonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Sermon
         fields = (
-            "id", "church", "church_name", "speaker", "title", "description", "category",
+            "id", "church", "church_name", "channel_avatar", "speaker", "title", "description", "category",
             "kind", "media_url", "thumbnail_url", "tags", "scripture_reference", "key_takeaways",
             "visibility", "audience", "duration_seconds", "view_count",
             "is_featured", "published_at", "scheduled_for", "is_published", "created_at", "is_saved", "is_owner",
@@ -539,6 +540,9 @@ class SermonSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         return bool(request and request.user.is_authenticated and obj.church.owner_id == request.user.id)
 
+    def get_channel_avatar(self, obj):
+        return obj.church.owner.avatar_url or obj.church.logo_url
+
 
 class SermonUploadInitSerializer(serializers.Serializer):
     upload_id = serializers.UUIDField()
@@ -549,6 +553,7 @@ class SermonUploadInitSerializer(serializers.Serializer):
 
 class SermonShortSerializer(serializers.ModelSerializer):
     church_name = serializers.CharField(source="church.name", read_only=True)
+    channel_avatar = serializers.SerializerMethodField()
     is_owner = serializers.SerializerMethodField()
     video_file = serializers.FileField(write_only=True, required=False, allow_empty_file=False)
     thumbnail_file = serializers.FileField(write_only=True, required=False, allow_empty_file=False)
@@ -557,10 +562,13 @@ class SermonShortSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         return bool(request and request.user.is_authenticated and obj.church.owner_id == request.user.id)
 
+    def get_channel_avatar(self, obj):
+        return obj.church.owner.avatar_url or obj.church.logo_url
+
     class Meta:
         model = SermonShort
         fields = (
-            "id", "church", "church_name", "sermon", "title", "speaker", "caption",
+            "id", "church", "church_name", "channel_avatar", "sermon", "title", "speaker", "caption",
             "video_url", "thumbnail_url", "duration_seconds", "crop_x", "crop_y", "like_count", "comment_count",
             "view_count", "is_published", "created_at", "is_owner", "video_file", "thumbnail_file",
         )
@@ -613,12 +621,14 @@ class SermonShortSerializer(serializers.ModelSerializer):
 
 class LiveStreamSerializer(serializers.ModelSerializer):
     church_name = serializers.CharField(source="church.name", read_only=True)
+    channel_avatar = serializers.SerializerMethodField()
     host_name = serializers.SerializerMethodField()
+    is_owner = serializers.SerializerMethodField()
 
     class Meta:
         model = LiveStream
         fields = (
-            "id", "church", "church_name", "created_by", "host_name", "title", "description",
+            "id", "church", "church_name", "channel_avatar", "created_by", "host_name", "is_owner", "title", "description",
             "stream_type", "playback_url", "thumbnail_url", "recording_url", "auto_save_to_library",
             "quality_label", "is_featured", "status", "scheduled_for", "started_at", "ended_at",
             "viewer_count", "created_at",
@@ -630,6 +640,18 @@ class LiveStreamSerializer(serializers.ModelSerializer):
         if obj.created_by:
             return obj.created_by.get_full_name() or obj.created_by.username
         return obj.church.owner.get_full_name() or obj.church.owner.username if obj.church else "Gospread Creator"
+
+    def get_is_owner(self, obj):
+        request = self.context.get("request")
+        owner_id = obj.created_by_id or (obj.church.owner_id if obj.church else None)
+        return bool(request and request.user.is_authenticated and owner_id == request.user.id)
+
+    def get_channel_avatar(self, obj):
+        if obj.created_by and obj.created_by.avatar_url:
+            return obj.created_by.avatar_url
+        if obj.church:
+            return obj.church.owner.avatar_url or obj.church.logo_url
+        return ""
 
 
 class LiveStreamChatMessageSerializer(serializers.ModelSerializer):

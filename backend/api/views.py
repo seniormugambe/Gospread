@@ -1157,7 +1157,7 @@ class SermonViewSet(viewsets.ModelViewSet):
             scheduled_for__isnull=False,
             scheduled_for__lte=timezone.now(),
         ).update(is_published=True, published_at=F("scheduled_for"))
-        queryset = Sermon.objects.select_related("church").prefetch_related("saved_by")
+        queryset = Sermon.objects.select_related("church__owner").prefetch_related("saved_by")
         category = self.request.query_params.get("category")
         if category and category.lower() != "all":
             queryset = queryset.filter(category__iexact=category)
@@ -1187,7 +1187,7 @@ class SermonViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        queryset = Sermon.objects.select_related("church").filter(is_published=True, visibility="public")
+        queryset = Sermon.objects.select_related("church__owner").filter(is_published=True, visibility="public")
         if surface == "following":
             queryset = queryset.filter(church__followers=request.user).distinct()
         elif settings.DISCOVERY_ALGORITHM_ENABLED:
@@ -1359,7 +1359,7 @@ class SermonShortViewSet(viewsets.ModelViewSet):
     ordering_fields = ("created_at", "duration_seconds", "view_count", "like_count")
 
     def get_queryset(self):
-        queryset = SermonShort.objects.select_related("church", "sermon")
+        queryset = SermonShort.objects.select_related("church__owner", "sermon")
         if self.request.user.is_authenticated:
             return queryset.filter(Q(is_published=True) | Q(church__owner=self.request.user)).distinct()
         return queryset.filter(is_published=True)
@@ -1381,7 +1381,7 @@ class SermonShortViewSet(viewsets.ModelViewSet):
 
 
 class LiveStreamViewSet(viewsets.ModelViewSet):
-    queryset = LiveStream.objects.select_related("church")
+    queryset = LiveStream.objects.select_related("church__owner", "created_by")
     serializer_class = LiveStreamSerializer
     permission_classes = [IsPastorOwnerOrReadOnly]
     search_fields = ("title", "description", "church__name")
@@ -1877,7 +1877,9 @@ class SavedSermonViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return SavedSermon.objects.filter(user=self.request.user).select_related("sermon", "sermon__church")
+        return SavedSermon.objects.filter(user=self.request.user).select_related(
+            "sermon", "sermon__church__owner"
+        )
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

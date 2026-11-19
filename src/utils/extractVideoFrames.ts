@@ -68,10 +68,13 @@ export async function extractVideoFrames(file: File, count = 4): Promise<VideoEx
   video.preload = 'auto';
   video.muted = true;
   video.playsInline = true;
-  video.src = objectUrl;
 
   try {
     await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        cleanup();
+        reject(new Error('Timed out while loading video metadata'));
+      }, 15_000);
       const onMetadata = () => {
         cleanup();
         resolve();
@@ -81,11 +84,18 @@ export async function extractVideoFrames(file: File, count = 4): Promise<VideoEx
         reject(new Error('Could not load video for frame extraction'));
       };
       const cleanup = () => {
+        window.clearTimeout(timeout);
         video.removeEventListener('loadedmetadata', onMetadata);
         video.removeEventListener('error', onError);
       };
       video.addEventListener('loadedmetadata', onMetadata, { once: true });
       video.addEventListener('error', onError, { once: true });
+      if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+        onMetadata();
+        return;
+      }
+      video.src = objectUrl;
+      video.load();
     });
 
     const duration = video.duration;
