@@ -141,12 +141,15 @@ export default function UserProfilePage({
 
   // Sync with currentUser changes
   useEffect(() => {
-    if (currentUser?.fullName) setUserName(currentUser.fullName);
-    if (currentUser?.username) setUserHandle(`@${currentUser.username}`);
-    if (currentUser?.email) setUserEmail(currentUser.email);
-    if (currentUser?.churchName) setHomeChurch(currentUser.churchName);
-    if (currentUser?.avatarUrl || currentUser?.avatar) setAvatarUrl(currentUser.avatarUrl || currentUser.avatar || '');
-    if (currentUser?.profileIcon) setProfileIcon(currentUser.profileIcon);
+    if (!currentUser?.isLoggedIn) return;
+    setUserName(currentUser.fullName || currentUser.username || '');
+    setUserHandle(currentUser.username ? `@${currentUser.username}` : '');
+    setUserBio(currentUser.bio || '');
+    setUserEmail(currentUser.email || '');
+    setHomeChurch(currentUser.churchName || '');
+    setAvatarUrl(currentUser.avatarUrl || currentUser.avatar || '');
+    setAvatarFile(null);
+    setProfileIcon(currentUser.profileIcon || 'user');
   }, [currentUser]);
 
   // Giving History Log
