@@ -617,6 +617,14 @@ export default function CreatePage({
     setAiOverlayMinistry(ministryName);
   }, [ownerName, ownerUsername, ministryName]);
 
+  useEffect(() => {
+    setContactEmail(currentUser?.email || '');
+  }, [currentUser?.email]);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatarUrl]);
+
   // Upload runs once after publish — POST /sermons/ with full metadata + media file
   useEffect(() => {
     if (uploadStep !== 'uploading' || isRealUploadInProgress || !selectedMediaFile) return;

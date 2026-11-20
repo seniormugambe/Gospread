@@ -121,6 +121,10 @@ export default function KingdomStudioSections({
 
   useEffect(() => {
     let active = true;
+    setSampleVideos([]);
+    setSampleShorts([]);
+    setSampleScheduled([]);
+    setSampleComments([]);
     const loadStudioContent = async () => {
       const [videos, shorts, streams, posts] = await Promise.all([
         djangoApi.getVideos(undefined, false),
@@ -132,6 +136,11 @@ export default function KingdomStudioSections({
 
       setSampleVideos(videos.map(video => ({
         ...video,
+        ...(video.isOwner ? {
+          speakerOrArtist: currentUser?.fullName || currentUser?.username || '',
+          churchOrMinistry: currentUser?.ministryName || currentUser?.churchName || '',
+          channelAvatar: currentUser?.avatarUrl || currentUser?.avatar || '',
+        } : {}),
         visibility: 'Public',
         views: video.viewsText || '0',
         likes: video.likesCount || '0',
@@ -140,13 +149,25 @@ export default function KingdomStudioSections({
       })));
       setSampleShorts(shorts.map(short => ({
         ...short,
+        ...(short.isOwner ? {
+          speakerOrArtist: currentUser?.fullName || currentUser?.username || '',
+          churchOrMinistry: currentUser?.ministryName || currentUser?.churchName || '',
+          channelAvatar: currentUser?.avatarUrl || currentUser?.avatar || '',
+        } : {}),
         views: short.viewsText || '0',
         likes: short.likesCount || '0',
         shares: '0',
       })));
       setSampleScheduled(streams.filter(stream => stream.isLive === false && stream.date !== 'Recent').map(stream => ({
         ...stream,
-        preacher: stream.speakerOrArtist,
+        ...(stream.isOwner ? {
+          speakerOrArtist: currentUser?.fullName || currentUser?.username || '',
+          churchOrMinistry: currentUser?.ministryName || currentUser?.churchName || '',
+          channelAvatar: currentUser?.avatarUrl || currentUser?.avatar || '',
+        } : {}),
+        preacher: stream.isOwner
+          ? currentUser?.fullName || currentUser?.username || ''
+          : stream.speakerOrArtist,
         status: 'Scheduled',
       })));
       setSampleComments(posts.flatMap(post => post.comments.map(comment => ({
@@ -170,7 +191,17 @@ export default function KingdomStudioSections({
       }
     });
     return () => { active = false; };
-  }, []);
+  }, [
+    currentUser?.id,
+    currentUser?.isLoggedIn,
+    currentUser?.token,
+    currentUser?.username,
+    currentUser?.fullName,
+    currentUser?.churchName,
+    currentUser?.ministryName,
+    currentUser?.avatarUrl,
+    currentUser?.avatar,
+  ]);
 
   // Comments state
   const [commentReplyInput, setCommentReplyInput] = useState<{ [id: string]: string }>({});
