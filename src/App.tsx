@@ -394,7 +394,7 @@ export default function App() {
   }, []);
 
   // 🕒 Watch History State & Local Persistence
-  const [storedWatchHistory, setWatchHistory] = useState<WatchHistoryItem[]>(() => {
+  const [storedWatchHistory, setStoredWatchHistory] = useState<WatchHistoryItem[]>(() => {
     try {
       const saved = localStorage.getItem('gospread_watch_history');
       if (saved) {
@@ -420,18 +420,22 @@ export default function App() {
   // catalog has loaded, show fresh metadata and hide entries the backend no longer serves.
   const watchHistory = useMemo(() => {
     const catalog = new Map<string, VideoStream>();
-    [...shorts, ...videoStreams].forEach(v => catalog.set(v.id, v));
+    [...shorts, ...videoStreams].forEach(v => catalog.set(String(v.id), v));
     if (catalog.size === 0) return storedWatchHistory;
     return storedWatchHistory.flatMap(item => {
-      const fresh = item.video && catalog.get(item.video.id);
+      if (!item?.video?.id) return [];
+      const fresh = catalog.get(String(item.video.id));
       return fresh ? [{ ...item, video: fresh }] : [];
     });
   }, [storedWatchHistory, videoStreams, shorts]);
 
   const addToWatchHistory = (video: VideoStream) => {
-    if (!video || !video.id) return;
-    setWatchHistory(prev => {
-      const filtered = prev.filter(item => Boolean(item && item.video && item.video.id !== video.id));
+    if (!video?.id) return;
+    setStoredWatchHistory((prev: WatchHistoryItem[]) => {
+      const videoId = String(video.id);
+      const filtered = prev.filter(item =>
+        Boolean(item?.video?.id && String(item.video.id) !== videoId)
+      );
       const updated = [{ video, watchedAt: Date.now() }, ...filtered].slice(0, 30);
       try {
         localStorage.setItem('gospread_watch_history', JSON.stringify(updated));
