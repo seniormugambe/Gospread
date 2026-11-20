@@ -389,7 +389,9 @@ export default function CreatePage({
   const [copiedKey, setCopiedKey] = useState(false);
 
   // Active Ministry / Account Details
-  const ministryName = currentUser?.ministryName || currentUser?.churchName || 'Your Ministry';
+  const ministryName = currentUser?.creatorType === 'creator'
+    ? currentUser.username || currentUser.fullName || 'Your Ministry'
+    : currentUser?.ministryName || currentUser?.churchName || 'Your Ministry';
   const ownerName = currentUser?.fullName || currentUser?.username || 'Account Owner';
   const ownerUsername = currentUser?.username || ownerName;
   const avatarUrl = currentUser?.avatarUrl || currentUser?.avatar || '';
