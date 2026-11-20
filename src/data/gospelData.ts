@@ -14,6 +14,7 @@ export interface VideoStream {
   viewersCount?: number;
   viewsText?: string;
   duration?: string;
+  mediaKind?: 'video' | 'audio';
   thumbnail: string;
   description: string;
   bibleVerse?: string;

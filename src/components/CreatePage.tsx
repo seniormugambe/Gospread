@@ -94,7 +94,7 @@ import KingdomStudioSections from './KingdomStudioSections';
 import AudioSpaceStudio, { ActiveAudioSpace } from './AudioSpaceStudio';
 import { extractVideoFrames, type VideoExtractedFrame } from '../utils/extractVideoFrames';
 import { renderGospelThumbnailDataUrl } from '../utils/gospelThumbnailCanvas';
-import { isVideoFile } from '../utils/mediaFiles';
+import { isAudioFile, isVideoFile } from '../utils/mediaFiles';
 
 export type CreatorCategory = 'Church' | 'Artiste' | 'Creator' | 'Radio';
 export type StudioAction = 'choose' | 'upload' | 'short' | 'live' | 'audio_space' | 'schedule' | 'live_control_room' | 'dashboard' | 'content' | 'analytics' | 'community' | 'giving' | 'settings';
@@ -407,6 +407,7 @@ export default function CreatePage({
   } | null>(null);
   const [selectedMediaFile, setSelectedMediaFile] = useState<File | null>(null);
   const [selectedMediaPreviewUrl, setSelectedMediaPreviewUrl] = useState('');
+  const isAudioUpload = selectedMediaFile ? isAudioFile(selectedMediaFile) : false;
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -620,7 +621,7 @@ export default function CreatePage({
         speaker: ownerUsername,
         description: uploadDescription,
         category: mappedApiCategory,
-        kind: 'video',
+        kind: isAudioFile(selectedMediaFile) ? 'audio' : 'video',
         is_published: !isDraft && !isScheduled,
         scheduled_for: scheduledFor,
         tags: tagsInput.split(',').map(tag => tag.trim()).filter(Boolean),
@@ -702,7 +703,12 @@ export default function CreatePage({
   }, [uploadStep]);
 
   useEffect(() => {
-    if (!selectedMediaFile || studioAction !== 'upload') return;
+    if (!selectedMediaFile || studioAction !== 'upload' || isAudioFile(selectedMediaFile)) {
+      setExtractedFrames([]);
+      setIsExtractingFrames(false);
+      setFrameExtractError(null);
+      return;
+    }
     let active = true;
     setIsExtractingFrames(true);
     setFrameExtractError(null);
@@ -908,18 +914,19 @@ export default function CreatePage({
   };
 
   // File Selector Handler
-  const MAX_VIDEO_SIZE_BYTES = 10 * 1024 * 1024 * 1024; // 10 GB
+  const MAX_MEDIA_SIZE_BYTES = 10 * 1024 * 1024 * 1024; // 10 GB
   const handleFileChosen = (file: File) => {
-    if (!isVideoFile(file)) {
-      setExternalImportError('Please select a video file (MP4, MOV, AVI, etc.).');
+    const isAudio = isAudioFile(file);
+    if (!isAudio && !isVideoFile(file)) {
+      setExternalImportError('Please select a supported audio or video file.');
       return;
     }
     if (file.size <= 0) {
-      setExternalImportError('The selected video file is empty.');
+      setExternalImportError('The selected media file is empty.');
       return;
     }
     // Validate file size
-    if (file.size > MAX_VIDEO_SIZE_BYTES) {
+    if (file.size > MAX_MEDIA_SIZE_BYTES) {
       const sizeGB = (file.size / (1024 * 1024 * 1024)).toFixed(1);
       setExternalImportError(`File is too large (${sizeGB} GB). Maximum allowed size is 10 GB.`);
       return;
@@ -927,6 +934,7 @@ export default function CreatePage({
     setExternalImportError(null);
 
     setSelectedMediaFile(file);
+    if (isAudio) setThumbnailMode('ai');
     const sizeInGB = (file.size / (1024 * 1024 * 1024)).toFixed(1);
     const sizeFormatted = file.size > 1024 * 1024 * 1024 
       ? `${sizeInGB} GB` 
@@ -936,7 +944,7 @@ export default function CreatePage({
       name: file.name,
       sizeFormatted,
       sizeBytes: file.size,
-      type: file.type || 'video/mp4'
+      type: file.type || (isAudio ? 'audio/mpeg' : 'video/mp4')
     });
     setTotalBytes(file.size);
     setUploadedBytes(0);
@@ -954,7 +962,7 @@ export default function CreatePage({
     // Only require the user to be signed in — the backend auto-provisions a
     // personal channel for any authenticated user on first upload.
     if (!currentUser?.isLoggedIn) {
-      setExternalImportError('You must be signed in to upload videos.');
+      setExternalImportError('You must be signed in to upload media.');
       onRequireAuth?.();
       return;
     }
@@ -1035,7 +1043,7 @@ export default function CreatePage({
       setAiAppliedSuccess(true);
       setTimeout(() => setAiAppliedSuccess(false), 3000);
     } catch {
-      setExternalImportError('Could not render thumbnail. Try a video frame or custom image.');
+      setExternalImportError('Could not render artwork. Try a video frame or custom image.');
     } finally {
       setIsAiGenerating(false);
     }
@@ -1046,7 +1054,7 @@ export default function CreatePage({
     setExternalImportError(null);
 
     if (!selectedMediaFile) {
-      setExternalImportError('Choose a video file before publishing.');
+      setExternalImportError('Choose an audio or video file before publishing.');
       return;
     }
 
@@ -1057,7 +1065,7 @@ export default function CreatePage({
     }
 
     if (!currentUser?.isLoggedIn) {
-      setExternalImportError('You must be signed in to upload videos.');
+      setExternalImportError('You must be signed in to upload media.');
       onRequireAuth?.();
       return;
     }
@@ -2210,7 +2218,7 @@ export default function CreatePage({
                   uploadStep === 'select' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
                   'bg-blue-500/20 text-blue-300 border border-blue-500/30'
                 }`}>
-                  {uploadStep === 'select' && <span>Step 1: Select Video</span>}
+                  {uploadStep === 'select' && <span>Step 1: Select Media</span>}
                   {uploadStep === 'uploading' && <span>Uploading to Gospread ({uploadProgressPercent}%)</span>}
                 </span>
               </div>
@@ -2273,7 +2281,7 @@ export default function CreatePage({
           </div>
 
           {/* ══════════════════════════════════════════════════════════
-              STEP 1: SELECT VIDEO / IMPORT SOURCE
+              STEP 1: SELECT MEDIA / IMPORT SOURCE
              ══════════════════════════════════════════════════════════ */}
           {uploadStep === 'select' && (
             <div className="space-y-6">
@@ -2339,7 +2347,7 @@ export default function CreatePage({
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="video/*,.3g2,.3gp,.avi,.m4v,.mkv,.mov,.mp4,.mpeg,.mpg,.ogv,.webm"
+                      accept="video/*,audio/*,.3g2,.3gp,.aac,.avi,.flac,.m4a,.m4v,.mkv,.mov,.mp3,.mp4,.mpeg,.mpg,.oga,.ogg,.ogv,.opus,.wav,.webm"
                       onChange={handleFileInputChange}
                       className="hidden"
                     />
@@ -2349,11 +2357,11 @@ export default function CreatePage({
                     </div>
 
                     <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">
-                      Upload your video
+                      Upload a video or audio file
                     </h3>
                     
                     <p className="text-xs sm:text-sm text-slate-400 mt-1.5 max-w-md">
-                      Drag & drop your video file here, or click to browse from your computer or phone
+                      Drag & drop a video or audio file here, or click to browse from your computer or phone
                     </p>
 
                     <div className="mt-6">
@@ -2366,12 +2374,12 @@ export default function CreatePage({
                         className="px-6 py-3 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-amber-500/20 transition cursor-pointer"
                       >
                         <Film className="w-4 h-4" />
-                        <span>Select Video File</span>
+                        <span>Select Media File</span>
                       </button>
                     </div>
 
                     <p className="text-[11px] font-medium text-slate-500 mt-5 flex items-center gap-2">
-                      <span>MP4</span> • <span>MOV</span> • <span>WebM</span> • <span>MKV</span> • <span>Up to 10 GB per video</span>
+                      <span>Video: MP4, MOV, WebM, MKV</span> • <span>Audio: MP3, M4A, WAV, OGG, FLAC</span> • <span>Up to 10 GB</span>
                     </p>
 
                     {/* Direct Upload Secure Architecture Notice */}
@@ -2574,7 +2582,7 @@ export default function CreatePage({
                 </div>
 
                 <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
-                  <span>Uploading video chunks to Gospread…</span>
+                  <span>Uploading media chunks to Gospread…</span>
                   <span className="font-bold text-white">{uploadProgressPercent}%</span>
                 </div>
               </div>
@@ -2880,7 +2888,7 @@ export default function CreatePage({
                     onClick={() => setUploadStep('thumbnail')}
                     className="px-8 py-3 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-amber-500/20 transition cursor-pointer"
                   >
-                    <span>Next: Video Thumbnail</span>
+                    <span>Next: {isAudioUpload ? 'Audio Cover Art' : 'Video Thumbnail'}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -2905,10 +2913,12 @@ export default function CreatePage({
                   <div>
                     <h3 className="text-base font-black text-white flex items-center gap-2">
                       <ImageIcon className="w-5 h-5 text-amber-400" />
-                      Video Thumbnail
+                      {isAudioUpload ? 'Audio Cover Art' : 'Video Thumbnail'}
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      Select or generate an engaging high-contrast thumbnail for your gospel video.
+                      {isAudioUpload
+                        ? 'Select or design cover art for your audio upload.'
+                        : 'Select or generate an engaging high-contrast thumbnail for your gospel video.'}
                     </p>
                   </div>
                   <span className="text-[11px] text-amber-400 font-bold bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 self-start sm:self-auto">
@@ -2919,21 +2929,33 @@ export default function CreatePage({
                 {/* 1. Live Video Preview Box */}
                 <div className="space-y-2">
                   <label className="block text-xs font-bold text-slate-300">
-                    Video Preview & Active Thumbnail Card
+                    {isAudioUpload ? 'Audio Preview & Cover Art' : 'Video Preview & Active Thumbnail Card'}
                   </label>
-                  <div className="relative aspect-video max-w-xl mx-auto rounded-3xl overflow-hidden border-2 border-amber-500/40 shadow-2xl bg-black group">
-                    <video
-                      src={selectedMediaPreviewUrl || undefined}
-                      poster={uploadThumbnail || undefined}
-                      controls
-                      playsInline
-                      preload="metadata"
-                      aria-label={`Preview: ${uploadTitle || selectedFile?.name || 'uploaded video'}`}
-                      className="h-full w-full object-contain"
-                    />
+                  <div className={`${isAudioUpload ? 'min-h-28' : 'aspect-video'} relative max-w-xl mx-auto rounded-3xl overflow-hidden border-2 border-amber-500/40 shadow-2xl bg-black flex items-center justify-center p-4`}>
+                    {isAudioUpload ? (
+                      <audio
+                        src={selectedMediaPreviewUrl || undefined}
+                        controls
+                        preload="metadata"
+                        aria-label={`Preview: ${uploadTitle || selectedFile?.name || 'uploaded audio'}`}
+                        className="w-full"
+                      />
+                    ) : (
+                      <video
+                        src={selectedMediaPreviewUrl || undefined}
+                        poster={uploadThumbnail || undefined}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        aria-label={`Preview: ${uploadTitle || selectedFile?.name || 'uploaded video'}`}
+                        className="h-full w-full object-contain"
+                      />
+                    )}
                   </div>
                   <p className="max-w-xl mx-auto text-[11px] text-slate-400">
-                    The selected thumbnail appears before playback. Use the player controls to preview your video.
+                    {isAudioUpload
+                      ? 'Use the player controls to preview your audio and choose its cover art.'
+                      : 'The selected thumbnail appears before playback. Use the player controls to preview your video.'}
                   </p>
                 </div>
 
@@ -2953,7 +2975,7 @@ export default function CreatePage({
                       <span>Design a Thumbnail</span>
                     </button>
 
-                    <button
+                    {!isAudioUpload && <button
                       type="button"
                       onClick={() => setThumbnailMode('frames')}
                       className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
@@ -2964,7 +2986,7 @@ export default function CreatePage({
                     >
                       <Film className="w-4 h-4" />
                       <span>🎞️ Extract from Video</span>
-                    </button>
+                    </button>}
 
                     <button
                       type="button"
@@ -3567,7 +3589,7 @@ export default function CreatePage({
                         🚀 Publish Now
                       </h4>
                       <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                        Make this video available immediately according to its visibility setting.
+                        Make this media available immediately according to its visibility setting.
                       </p>
                     </div>
 
@@ -3635,7 +3657,7 @@ export default function CreatePage({
                         💾 Save Draft
                       </h4>
                       <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                        Store video assets, scripture tags, and notes securely in your Creator Studio.
+                        Store this media, scripture tags, and notes securely in your Creator Studio.
                       </p>
                     </div>
 
@@ -3775,7 +3797,7 @@ export default function CreatePage({
                     {publishActionOption === 'publish_now' && (
                       <>
                         <UploadCloud className="w-4 h-4" />
-                        <span>Publish Video to {ministryName}</span>
+                        <span>Publish {isAudioUpload ? 'Audio' : 'Video'} to {ministryName}</span>
                       </>
                     )}
                     {publishActionOption === 'schedule' && (
@@ -4632,12 +4654,12 @@ export default function CreatePage({
                 {publishActionOption === 'save_draft'
                   ? 'Draft saved to Creator Studio'
                   : publishActionOption === 'schedule'
-                    ? `Video scheduled for ${publishScheduledDate} at ${publishScheduledTime}`
-                    : `Video published for ${ministryName}`}
+                    ? `${createdStream.mediaKind === 'audio' ? 'Audio' : 'Video'} scheduled for ${publishScheduledDate} at ${publishScheduledTime}`
+                    : `${createdStream.mediaKind === 'audio' ? 'Audio' : 'Video'} published for ${ministryName}`}
               </h2>
               <p className="text-xs text-slate-300 mt-1">
                 {publishActionOption === 'save_draft'
-                  ? 'This video is saved as an unpublished draft.'
+                  ? `This ${createdStream.mediaKind === 'audio' ? 'audio' : 'video'} is saved as an unpublished draft.`
                   : publishActionOption === 'schedule'
                     ? `Gospread will publish it when the feed is requested after its scheduled time. Visibility: ${videoVisibility}.`
                     : `Publication completed. Visibility: ${videoVisibility}.`}
@@ -4679,7 +4701,7 @@ export default function CreatePage({
                 : <ArrowLeft className="w-4 h-4" />}
               <span>
                 {publishActionOption === 'publish_now' && videoVisibility === 'public'
-                  ? 'Watch on Feed'
+                  ? createdStream.mediaKind === 'audio' ? 'Listen in Audio Hub' : 'Watch on Feed'
                   : 'Back to Creator Studio'}
               </span>
             </button>

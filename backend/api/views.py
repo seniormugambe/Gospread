@@ -1161,6 +1161,13 @@ class SermonViewSet(viewsets.ModelViewSet):
         category = self.request.query_params.get("category")
         if category and category.lower() != "all":
             queryset = queryset.filter(category__iexact=category)
+        kind = self.request.query_params.get("kind")
+        if kind:
+            if kind not in {"video", "audio", "article"}:
+                raise ValidationError({"kind": "Choose video, audio, or article."})
+            queryset = queryset.filter(kind=kind)
+        if self.request.query_params.get("public_only") == "true":
+            return queryset.filter(is_published=True, visibility="public")
         if self.request.user.is_authenticated:
             public_content = Q(is_published=True, visibility="public")
             unlisted_detail = Q(is_published=True, visibility="unlisted", pk=self.kwargs.get("pk"))
@@ -1187,7 +1194,11 @@ class SermonViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        queryset = Sermon.objects.select_related("church__owner").filter(is_published=True, visibility="public")
+        queryset = Sermon.objects.select_related("church__owner").filter(
+            is_published=True,
+            visibility="public",
+            kind="video",
+        )
         if surface == "following":
             queryset = queryset.filter(church__followers=request.user).distinct()
         elif settings.DISCOVERY_ALGORITHM_ENABLED:

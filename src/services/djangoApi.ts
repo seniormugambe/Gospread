@@ -198,6 +198,7 @@ export interface VideoStream {
   viewersCount?: number;
   viewsText?: string;
   duration?: string;
+  mediaKind?: 'video' | 'audio';
   thumbnail: string;
   description: string;
   bibleVerse?: string;
@@ -1165,6 +1166,7 @@ class DjangoApiClient {
       likesCount: String(sermon.view_count ?? 0),
       category,
       isLive: false,
+      mediaKind: sermon.kind === 'audio' ? 'audio' : 'video',
       viewersCount: Number(sermon.view_count) || 0,
       viewsText: extras?.viewsText ?? `${sermon.view_count ?? 0} views`,
       duration: durationSec
@@ -1570,23 +1572,47 @@ class DjangoApiClient {
     const params = new URLSearchParams();
     if (category && category !== 'all') params.append('category', category);
 
-    const endpoint = `/worship-songs/${params.toString() ? `?${params.toString()}` : ''}`;
-    const res = await this.request<any[] | { results: any[] }>(endpoint).catch(() => []);
-    const items = Array.isArray(res) ? res : (res?.results || []);
+    const songEndpoint = `/worship-songs/${params.toString() ? `?${params.toString()}` : ''}`;
+    const [songsResponse, sermonsResponse] = await Promise.all([
+      this.request<any[] | { results: any[] }>(songEndpoint).catch(() => []),
+      this.request<any[] | { results: any[] }>('/sermons/?kind=audio&public_only=true').catch(() => []),
+    ]);
+    const songs = Array.isArray(songsResponse) ? songsResponse : (songsResponse?.results || []);
+    const sermons = Array.isArray(sermonsResponse) ? sermonsResponse : (sermonsResponse?.results || []);
 
-    if (items.length > 0) {
-      return items.map((song: any) => ({
-        id: String(song.id),
-        title: song.title,
-        artistOrPreacher: song.author || song.church_name || 'Worship Leader',
-        albumOrSeries: song.church_name || 'Worship Collection',
-        channelAvatar: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=120&q=80',
-        category: 'Praise & Worship',
-        coverUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=800&q=80',
-        duration: '4:30',
-        lyricsOrNotes: song.slides?.map((s: any) => s.text).join('\n\n') || '',
-        publishedDate: song.created_at ? new Date(song.created_at).toLocaleDateString() : 'Recent',
-      }));
+    const songTracks: AudioTrack[] = songs.map((song: any) => ({
+      id: String(song.id),
+      title: song.title,
+      artistOrPreacher: song.author || song.church_name || 'Worship Leader',
+      albumOrSeries: song.church_name || 'Worship Collection',
+      channelAvatar: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=120&q=80',
+      category: 'Praise & Worship',
+      coverUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=800&q=80',
+      duration: '4:30',
+      lyricsOrNotes: song.slides?.map((s: any) => s.text).join('\n\n') || '',
+      publishedDate: song.created_at ? new Date(song.created_at).toLocaleDateString() : 'Recent',
+    }));
+    const sermonTracks: AudioTrack[] = sermons.map((sermon: any) => ({
+      id: `sermon-audio-${sermon.id}`,
+      title: sermon.title,
+      artistOrPreacher: sermon.speaker || sermon.church_name || 'Creator',
+      albumOrSeries: sermon.church_name || 'Audio Sermons',
+      channelAvatar: sermon.channel_avatar || '',
+      category: 'Audio Sermon',
+      coverUrl: sermon.thumbnail_url || '',
+      duration: sermon.duration_seconds
+        ? `${Math.floor(sermon.duration_seconds / 60)}:${String(sermon.duration_seconds % 60).padStart(2, '0')}`
+        : '',
+      lyricsOrNotes: sermon.description || '',
+      publishedDate: sermon.published_at ? new Date(sermon.published_at).toLocaleDateString() : 'Recent',
+      audioUrl: sermon.media_url,
+    }));
+    const availableTracks = [...sermonTracks, ...songTracks];
+    if (availableTracks.length > 0) {
+      const categoryFilter = category?.toLowerCase().trim();
+      return categoryFilter && categoryFilter !== 'all'
+        ? availableTracks.filter(track => track.category.toLowerCase().includes(categoryFilter))
+        : availableTracks;
     }
 
     const categoryFilter = category?.toLowerCase().trim();

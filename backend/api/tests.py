@@ -847,6 +847,40 @@ class SermonShortTests(APITestCase):
         self.assertTrue(response.data["media_url"].startswith("http"))
         self.assertTrue(Sermon.objects.get(id=response.data["id"]).media_url)
 
+    @override_settings(DISCOVERY_ALGORITHM_ENABLED=False)
+    def test_audio_upload_is_listed_in_public_audio_catalog_only(self):
+        pastor = User.objects.create_user(username="audio-pastor", email="audio@example.com", password="StrongPass123!")
+        church = Church.objects.create(name="Audio Church", slug="audio-church", owner=pastor)
+        token = self.client.post(reverse("token"), {"email": "audio@example.com", "password": "StrongPass123!"}, format="json")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.data['access']}")
+
+        audio_upload = SimpleUploadedFile("sermon.mp3", b"audio-bytes", content_type="audio/mpeg")
+        response = self.client.post("/api/v1/sermons/", {
+            "church": church.id,
+            "title": "Uploaded audio sermon",
+            "speaker": "Pastor Audio",
+            "kind": "audio",
+            "media_file": audio_upload,
+            "is_published": True,
+        }, format="multipart")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["kind"], "audio")
+        draft = Sermon.objects.create(
+            church=church,
+            title="Private audio draft",
+            speaker="Pastor Audio",
+            kind="audio",
+            visibility="private",
+        )
+        audio_catalog = self.client.get("/api/v1/sermons/?kind=audio&public_only=true")
+        self.assertEqual(audio_catalog.status_code, status.HTTP_200_OK)
+        catalog_ids = {item["id"] for item in audio_catalog.data["results"]}
+        self.assertIn(response.data["id"], catalog_ids)
+        self.assertNotIn(draft.id, catalog_ids)
+        video_discovery = self.client.get("/api/v1/sermons/discover/?surface=sermons")
+        self.assertNotIn(response.data["id"], {item["id"] for item in video_discovery.data["results"]})
+
 
 class LiveStreamAvatarTests(APITestCase):
     def test_live_stream_channel_avatar_comes_from_host_profile(self):

@@ -77,8 +77,13 @@ export default function AudioPodcastPlayer({
   const [isLiked, setIsLiked] = useState(false);
 
   // Time & Progress State (Simulated interactive seeker)
-  const [currentTimeSec, setCurrentTimeSec] = useState(145);
-  const totalDurationSec = currentTrack?.isLiveRadio ? 0 : 2295; // ~38:15
+  const [currentTimeSec, setCurrentTimeSec] = useState(0);
+  const [mediaDurationSec, setMediaDurationSec] = useState(0);
+  const [audioPlaybackError, setAudioPlaybackError] = useState('');
+  const audioElementRef = useRef<HTMLAudioElement>(null);
+  const totalDurationSec = currentTrack?.audioUrl
+    ? mediaDurationSec
+    : currentTrack?.isLiveRadio ? 0 : 2295;
 
   // Saved / Copied State
   const [copiedText, setCopiedText] = useState(false);
@@ -92,7 +97,7 @@ export default function AudioPodcastPlayer({
 
   // Audio Engine Synthesizer Effect (Generates peaceful ambient prayer chords when playing)
   useEffect(() => {
-    if (isPlaying && !isMuted) {
+    if (isPlaying && !isMuted && !currentTrack?.audioUrl) {
       try {
         if (!audioCtxRef.current) {
           const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -151,11 +156,34 @@ export default function AudioPodcastPlayer({
         osc2Ref.current = null;
       }
     };
-  }, [isPlaying, isMuted, volume]);
+  }, [isPlaying, isMuted, volume, currentTrack?.audioUrl]);
+
+  useEffect(() => {
+    const audio = audioElementRef.current;
+    audio?.pause();
+    if (audio) audio.currentTime = 0;
+    setCurrentTimeSec(0);
+    setMediaDurationSec(0);
+    setAudioPlaybackError('');
+  }, [currentTrack?.id, currentTrack?.audioUrl]);
+
+  useEffect(() => {
+    const audio = audioElementRef.current;
+    if (!audio || !currentTrack?.audioUrl) return;
+    audio.volume = isMuted ? 0 : volume;
+    audio.playbackRate = Number(playbackSpeed.replace('x', ''));
+    if (isPlaying) {
+      void audio.play().catch(() => {
+        setAudioPlaybackError('Audio playback failed. Check the file format and try again.');
+      });
+    } else {
+      audio.pause();
+    }
+  }, [currentTrack?.id, currentTrack?.audioUrl, isPlaying, isMuted, volume, playbackSpeed]);
 
   // Handle Playhead Progress Auto-Advance
   useEffect(() => {
-    if (!isPlaying || currentTrack.isLiveRadio) return;
+    if (!isPlaying || currentTrack?.isLiveRadio || currentTrack?.audioUrl) return;
     const interval = setInterval(() => {
       setCurrentTimeSec((prev) => {
         if (prev >= totalDurationSec) {
@@ -197,10 +225,21 @@ export default function AudioPodcastPlayer({
   };
 
   const handleSkipTime = (deltaSeconds: number) => {
+    if (currentTrack?.audioUrl && audioElementRef.current) {
+      audioElementRef.current.currentTime = Math.max(
+        0,
+        Math.min(totalDurationSec, audioElementRef.current.currentTime + deltaSeconds),
+      );
+      return;
+    }
     setCurrentTimeSec((prev) => Math.max(0, Math.min(totalDurationSec, prev + deltaSeconds)));
   };
 
   const handleChapterSeek = (chapter: AudioChapter) => {
+    if (currentTrack?.audioUrl && audioElementRef.current) {
+      audioElementRef.current.currentTime = chapter.seconds;
+      return;
+    }
     setCurrentTimeSec(chapter.seconds);
   };
 
@@ -232,6 +271,21 @@ export default function AudioPodcastPlayer({
 
   return (
     <>
+      {currentTrack.audioUrl && (
+        <audio
+          ref={audioElementRef}
+          src={currentTrack.audioUrl}
+          preload="metadata"
+          loop={isLooping}
+          onLoadedMetadata={(event) => setMediaDurationSec(event.currentTarget.duration || 0)}
+          onTimeUpdate={(event) => setCurrentTimeSec(event.currentTarget.currentTime)}
+          onEnded={() => {
+            if (!isLooping) onTogglePlay();
+          }}
+          onError={() => setAudioPlaybackError('This audio file could not be loaded. Try again later.')}
+          className="hidden"
+        />
+      )}
       {/* 🔴 1. PERSISTENT BOTTOM MINI AUDIO PLAYER BAR */}
       <div className="fixed bottom-[62px] md:bottom-0 left-0 right-0 z-30 md:z-40 bg-[#0c0d10]/98 backdrop-blur-2xl border-t border-slate-800/90 px-3 sm:px-6 py-2 flex flex-col justify-center shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.5)]">
         
@@ -281,6 +335,9 @@ export default function AudioPodcastPlayer({
               <p className="text-[10px] text-amber-400/90 truncate font-medium">
                 {decodeHtml(currentTrack.artistOrPreacher)}
               </p>
+              {audioPlaybackError && (
+                <p role="status" className="text-[10px] text-rose-300">{audioPlaybackError}</p>
+              )}
             </div>
           </div>
 
@@ -529,7 +586,13 @@ export default function AudioPodcastPlayer({
                       min={0}
                       max={totalDurationSec || 100}
                       value={currentTimeSec}
-                      onChange={(e) => setCurrentTimeSec(Number(e.target.value))}
+                      onChange={(e) => {
+                        const time = Number(e.target.value);
+                        setCurrentTimeSec(time);
+                        if (currentTrack.audioUrl && audioElementRef.current) {
+                          audioElementRef.current.currentTime = time;
+                        }
+                      }}
                       className="w-full accent-amber-500 cursor-pointer h-2 bg-slate-800 rounded-lg z-10"
                     />
 

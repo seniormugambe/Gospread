@@ -1060,6 +1060,27 @@ export default function App() {
   };
 
   const handlePublishSuccess = (newStream: VideoStream) => {
+    if (newStream.mediaKind === 'audio') {
+      setActiveVideo(null);
+      setIsVideoPlaying(false);
+      setCurrentAudio({
+        id: `sermon-audio-${newStream.id}`,
+        title: newStream.title,
+        artistOrPreacher: newStream.speakerOrArtist,
+        albumOrSeries: newStream.churchOrMinistry,
+        channelAvatar: newStream.channelAvatar,
+        category: 'Audio Sermon',
+        coverUrl: newStream.thumbnail,
+        duration: newStream.duration || '',
+        lyricsOrNotes: newStream.description,
+        audioUrl: newStream.videoUrl,
+      });
+      setIsAudioPlaying(false);
+      setSelectedCategory('Podcasts');
+      setActiveTab('platform');
+      return;
+    }
+
     if (newStream.isShort) {
       // Short-form clip — goes into the shorts reel
       setShorts(prev => [newStream, ...prev.filter(s => s.id !== newStream.id)]);
