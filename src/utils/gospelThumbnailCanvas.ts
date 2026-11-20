@@ -1,5 +1,5 @@
 const THUMB_W = 1280;
-const THUMB_H = 720;
+const VIDEO_THUMB_H = 720;
 
 export interface GospelThumbnailOptions {
   backgroundImageUrl: string;
@@ -8,6 +8,7 @@ export interface GospelThumbnailOptions {
   ministry: string;
   scripture: string;
   accentRgb?: string;
+  aspectRatio?: 'video' | 'square';
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -19,46 +20,47 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-/** Render a 1280×720 thumbnail card from a video frame or image URL plus overlay text. */
+/** Render a media cover card from a background image plus overlay text. */
 export async function renderGospelThumbnailDataUrl(options: GospelThumbnailOptions): Promise<string> {
+  const thumbH = options.aspectRatio === 'square' ? THUMB_W : VIDEO_THUMB_H;
   const canvas = document.createElement('canvas');
   canvas.width = THUMB_W;
-  canvas.height = THUMB_H;
+  canvas.height = thumbH;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas not supported');
 
   const bg = await loadImage(options.backgroundImageUrl);
-  const scale = Math.max(THUMB_W / bg.width, THUMB_H / bg.height);
+  const scale = Math.max(THUMB_W / bg.width, thumbH / bg.height);
   const drawW = bg.width * scale;
   const drawH = bg.height * scale;
   const dx = (THUMB_W - drawW) / 2;
-  const dy = (THUMB_H - drawH) / 2;
+  const dy = (thumbH - drawH) / 2;
   ctx.drawImage(bg, dx, dy, drawW, drawH);
 
-  const gradient = ctx.createLinearGradient(0, 0, 0, THUMB_H);
+  const gradient = ctx.createLinearGradient(0, 0, 0, thumbH);
   gradient.addColorStop(0, 'rgba(15, 15, 15, 0.15)');
   gradient.addColorStop(0.45, 'rgba(15, 15, 15, 0.55)');
   gradient.addColorStop(1, 'rgba(5, 5, 5, 0.92)');
   ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, THUMB_W, THUMB_H);
+  ctx.fillRect(0, 0, THUMB_W, thumbH);
 
   const accent = options.accentRgb || '251, 191, 36';
   ctx.fillStyle = `rgba(${accent}, 0.18)`;
-  ctx.fillRect(48, THUMB_H - 200, THUMB_W - 96, 4);
+  ctx.fillRect(48, thumbH - 200, THUMB_W - 96, 4);
 
   ctx.textAlign = 'left';
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 56px Georgia, "Times New Roman", serif';
   const title = (options.title || 'Sunday Worship Service').toUpperCase();
-  wrapText(ctx, title, 56, THUMB_H - 220, THUMB_W - 112, 62, 2);
+  wrapText(ctx, title, 56, thumbH - 220, THUMB_W - 112, 62, 2);
 
   ctx.font = '600 28px system-ui, sans-serif';
   ctx.fillStyle = '#e2e8f0';
-  ctx.fillText(options.speaker || 'Speaker', 56, THUMB_H - 96);
+  ctx.fillText(options.speaker || 'Speaker', 56, thumbH - 96);
 
   ctx.font = '500 22px system-ui, sans-serif';
   ctx.fillStyle = '#94a3b8';
-  ctx.fillText(options.ministry || 'Ministry', 56, THUMB_H - 58);
+  ctx.fillText(options.ministry || 'Ministry', 56, thumbH - 58);
 
   if (options.scripture?.trim()) {
     ctx.font = 'bold 20px system-ui, sans-serif';

@@ -7,6 +7,7 @@ import {
   Sparkles, 
   Plus, 
   Video, 
+  Music2,
   ChevronRight,
   Flame,
   Zap,
@@ -85,7 +86,31 @@ export default function CreateModalDropdown({
                 <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 group-hover:translate-x-0.5 transition" />
               </div>
               <p className="text-[11px] text-slate-400 leading-tight mt-0.5">
-                Upload a sermon, worship anthem, testimony, or teaching from your device.
+                Upload a sermon, worship anthem, testimony, or teaching video from your device.
+              </p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              onSelectAction('audio_upload', 'device');
+              onClose();
+            }}
+            className="w-full text-left p-3 rounded-2xl hover:bg-slate-800/80 transition flex items-start gap-3.5 group cursor-pointer border border-transparent hover:border-fuchsia-500/30"
+          >
+            <div className="w-10 h-10 rounded-2xl bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center shrink-0 group-hover:bg-fuchsia-500 group-hover:text-white transition">
+              <Music2 className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <span className="text-xs sm:text-sm font-black text-white group-hover:text-fuchsia-300 transition">
+                  Upload Audio
+                </span>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-fuchsia-400 group-hover:translate-x-0.5 transition" />
+              </div>
+              <p className="text-[11px] text-slate-400 leading-tight mt-0.5">
+                Publish a sermon, song, devotional, or podcast to the Audio Hub.
               </p>
             </div>
           </button>

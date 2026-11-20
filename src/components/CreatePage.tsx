@@ -97,7 +97,7 @@ import { renderGospelThumbnailDataUrl } from '../utils/gospelThumbnailCanvas';
 import { isAudioFile, isVideoFile } from '../utils/mediaFiles';
 
 export type CreatorCategory = 'Church' | 'Artiste' | 'Creator' | 'Radio';
-export type StudioAction = 'choose' | 'upload' | 'short' | 'live' | 'audio_space' | 'schedule' | 'live_control_room' | 'dashboard' | 'content' | 'analytics' | 'community' | 'giving' | 'settings';
+export type StudioAction = 'choose' | 'upload' | 'audio_upload' | 'short' | 'live' | 'audio_space' | 'schedule' | 'live_control_room' | 'dashboard' | 'content' | 'analytics' | 'community' | 'giving' | 'settings';
 export type UploadStep = 'select' | 'uploading' | 'details' | 'thumbnail' | 'visibility' | 'publish';
 export type UploadMode = 'device' | 'url' | 'youtube';
 export type LiveBroadcastType = 'Sunday Service' | 'Bible Study' | 'Prayer' | 'Worship' | 'Conference' | 'Other';
@@ -326,6 +326,7 @@ export default function CreatePage({
   const isLight = theme === 'light';
   // Current studio action mode: 'choose' | 'upload' | 'live' | 'schedule' | 'live_control_room' | 'dashboard' | 'content' | 'analytics' | 'community' | 'giving' | 'settings'
   const [studioAction, setStudioAction] = useState<StudioAction>(initialAction);
+  const isStandaloneAudioUpload = studioAction === 'audio_upload';
   const [uploadMode, setUploadMode] = useState<UploadMode>(initialUploadSource);
 
   // Studio Navigation Tab: 'overview' | 'dashboard' | 'content' | 'live_hub' | 'schedule_hub' | 'analytics' | 'community' | 'giving' | 'settings'
@@ -354,6 +355,9 @@ export default function CreatePage({
         setStudioAction('short');
       } else if (initialAction === 'upload') {
         setStudioAction('upload');
+      } else if (initialAction === 'audio_upload') {
+        setStudioAction('audio_upload');
+        setUploadMode('device');
       } else {
         setStudioAction('choose');
         setStudioNavTab('overview');
@@ -396,7 +400,7 @@ export default function CreatePage({
   const [phoneNumber, setPhoneNumber] = useState('');
 
   // -------------------------------------------------------------
-  // 📤 1. UPLOAD VIDEO MULTI-STEP WORKFLOW STATE
+  // 📤 Video and audio upload workflow state
   // -------------------------------------------------------------
   const [uploadStep, setUploadStep] = useState<UploadStep>('select');
   const [selectedFile, setSelectedFile] = useState<{
@@ -433,7 +437,7 @@ export default function CreatePage({
     return () => URL.revokeObjectURL(previewUrl);
   }, [selectedMediaFile]);
 
-  // Video Details form state (Step 4)
+  // Upload details form state
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadDescription, setUploadDescription] = useState('');
   const [uploadSpeaker, setUploadSpeaker] = useState(ownerUsername);
@@ -444,7 +448,7 @@ export default function CreatePage({
   const [keyTakeaways, setKeyTakeaways] = useState<string[]>([]);
   const [newTakeawayInput, setNewTakeawayInput] = useState('');
   
-  // 🖼️ Step 5: Thumbnail Studio State
+  // 🖼️ Thumbnail and audio cover-art state
   const [uploadThumbnail, setUploadThumbnail] = useState('');
   const [thumbnailMode, setThumbnailMode] = useState<'ai' | 'frames' | 'upload'>('ai');
   const [selectedFrameIndex, setSelectedFrameIndex] = useState(0);
@@ -457,6 +461,28 @@ export default function CreatePage({
   const [aiAppliedSuccess, setAiAppliedSuccess] = useState(false);
   const [customThumbnailInput, setCustomThumbnailInput] = useState('');
   const thumbnailFileInputRef = useRef<HTMLInputElement>(null);
+
+  const startUploadWorkflow = (action: 'upload' | 'audio_upload') => {
+    setStudioAction(action);
+    setUploadMode('device');
+    setUploadStep('select');
+    setSelectedFile(null);
+    setSelectedMediaFile(null);
+    setUploadThumbnail('');
+    setExtractedFrames([]);
+    setExternalImportError(null);
+  };
+
+  useEffect(() => {
+    if (initialAction !== 'upload' && initialAction !== 'audio_upload') return;
+    setUploadMode(initialAction === 'audio_upload' ? 'device' : initialUploadSource);
+    setUploadStep('select');
+    setSelectedFile(null);
+    setSelectedMediaFile(null);
+    setUploadThumbnail('');
+    setExtractedFrames([]);
+    setExternalImportError(null);
+  }, [initialAction, initialUploadSource]);
 
   // 👥 Step 6: Audience & Visibility State
   const [videoVisibility, setVideoVisibility] = useState<'public' | 'private' | 'unlisted'>('public');
@@ -917,8 +943,10 @@ export default function CreatePage({
   const MAX_MEDIA_SIZE_BYTES = 10 * 1024 * 1024 * 1024; // 10 GB
   const handleFileChosen = (file: File) => {
     const isAudio = isAudioFile(file);
-    if (!isAudio && !isVideoFile(file)) {
-      setExternalImportError('Please select a supported audio or video file.');
+    if (isStandaloneAudioUpload ? !isAudio : !isVideoFile(file)) {
+      setExternalImportError(isStandaloneAudioUpload
+        ? 'Please select a supported audio file.'
+        : 'Please select a supported video file.');
       return;
     }
     if (file.size <= 0) {
@@ -1038,12 +1066,15 @@ export default function CreatePage({
         ministry: aiOverlayMinistry || uploadMinistry || ministryName,
         scripture: aiOverlayVerse || uploadScripture,
         accentRgb: AI_PRESET_ACCENT_RGB[activePreset.id],
+        aspectRatio: isAudioUpload ? 'square' : 'video',
       });
       setUploadThumbnail(dataUrl);
       setAiAppliedSuccess(true);
       setTimeout(() => setAiAppliedSuccess(false), 3000);
     } catch {
-      setExternalImportError('Could not render artwork. Try a video frame or custom image.');
+      setExternalImportError(isAudioUpload
+        ? 'Could not render cover art. Try a different design or upload a custom image.'
+        : 'Could not render artwork. Try a video frame or custom image.');
     } finally {
       setIsAiGenerating(false);
     }
@@ -1420,13 +1451,22 @@ export default function CreatePage({
 
             <button
               onClick={() => {
-                setStudioAction('upload');
-                setUploadStep('select');
+                startUploadWorkflow('upload');
               }}
               className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition active:scale-95 cursor-pointer"
             >
               <UploadCloud className="w-3.5 h-3.5" />
               <span>Upload Video</span>
+            </button>
+
+            <button
+              onClick={() => {
+                startUploadWorkflow('audio_upload');
+              }}
+              className="px-3.5 py-2 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-black text-xs flex items-center gap-1.5 shadow-lg shadow-fuchsia-600/20 transition active:scale-95 cursor-pointer"
+            >
+              <Music2 className="w-3.5 h-3.5" />
+              <span>Upload Audio</span>
             </button>
 
             <button
@@ -1521,8 +1561,7 @@ export default function CreatePage({
                   <button
                     onClick={() => {
                       setIsCreateMenuOpen(false);
-                      setStudioAction('upload');
-                      setUploadStep('select');
+                      startUploadWorkflow('upload');
                     }}
                     className="w-full px-3 py-2 rounded-xl hover:bg-slate-800 text-left text-xs font-bold text-slate-200 hover:text-white flex items-center gap-2.5 transition cursor-pointer"
                   >
@@ -1532,6 +1571,22 @@ export default function CreatePage({
                     <div>
                       <p className="font-bold">Upload Video</p>
                       <p className="text-[10px] text-slate-400">Prerecorded sermon or podcast</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsCreateMenuOpen(false);
+                      startUploadWorkflow('audio_upload');
+                    }}
+                    className="w-full px-3 py-2 rounded-xl hover:bg-slate-800 text-left text-xs font-bold text-slate-200 hover:text-white flex items-center gap-2.5 transition cursor-pointer"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center">
+                      <Music2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="font-bold">Upload Audio</p>
+                      <p className="text-[10px] text-slate-400">Publish a sermon, song, or podcast</p>
                     </div>
                   </button>
 
@@ -1646,8 +1701,7 @@ export default function CreatePage({
             ]);
           }}
           onTriggerUpload={() => {
-            setStudioAction('upload');
-            setUploadStep('select');
+            startUploadWorkflow('upload');
           }}
           onTriggerShort={() => setStudioAction('short')}
           onTriggerGoLive={() => {
@@ -1700,15 +1754,14 @@ export default function CreatePage({
           </div>
 
           {/* Three Big Hero Action Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 sm:gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4 sm:gap-5">
             
             {/* OPTION 1: 📤 UPLOAD VIDEO */}
             <motion.button
               whileHover={{ scale: 1.015, y: -2 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => {
-                setStudioAction('upload');
-                setUploadStep('select');
+                startUploadWorkflow('upload');
               }}
               className="p-6 rounded-3xl bg-gradient-to-b from-[#1c1c1c] via-[#161616] to-[#101010] border border-slate-800 hover:border-amber-500/60 transition-all text-left group shadow-xl flex flex-col justify-between h-full relative overflow-hidden cursor-pointer"
             >
@@ -1727,7 +1780,7 @@ export default function CreatePage({
                     <span>📤 Upload Video</span>
                   </h3>
                   <p className="text-xs text-slate-400 leading-relaxed">
-                    Upload a prerecorded Sunday sermon, worship concert, testimony, or faith podcast directly from your device.
+                    Upload a prerecorded sermon, worship concert, or testimony video directly from your device.
                   </p>
                 </div>
 
@@ -1745,6 +1798,51 @@ export default function CreatePage({
 
               <div className="mt-6 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs font-bold text-amber-400 group-hover:text-amber-300">
                 <span>Start Video Upload</span>
+                <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+              </div>
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.015, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                startUploadWorkflow('audio_upload');
+              }}
+              className="p-6 rounded-3xl bg-gradient-to-b from-[#1c1c1c] via-[#161616] to-[#101010] border border-slate-800 hover:border-fuchsia-500/60 transition-all text-left group shadow-xl flex flex-col justify-between h-full relative overflow-hidden cursor-pointer"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center group-hover:bg-fuchsia-500 group-hover:text-white transition-colors shadow-lg">
+                    <Music2 className="w-6 h-6" />
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full bg-fuchsia-500/10 text-fuchsia-300 border border-fuchsia-500/20 text-[10px] font-bold uppercase tracking-wider">
+                    Audio Library
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <h3 className="text-lg font-black text-white group-hover:text-fuchsia-300 transition-colors">
+                    Upload Audio
+                  </h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Publish sermons, worship music, devotionals, and podcasts to the Audio Hub.
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
+                  <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Audio-only file selection and playback preview</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Dedicated cover art and Audio Hub publishing</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs font-bold text-fuchsia-300 group-hover:text-fuchsia-200">
+                <span>Start Audio Upload</span>
                 <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
               </div>
             </motion.button>
@@ -2191,8 +2289,8 @@ export default function CreatePage({
         />
       )}
 
-      {/* 📤 FLOW 1: REFINED UPLOAD VIDEO MULTI-STEP WORKFLOW */}
-      {!isSubmitted && studioAction === 'upload' && (
+      {/* 📤 VIDEO AND AUDIO UPLOAD WORKFLOWS */}
+      {!isSubmitted && (studioAction === 'upload' || isStandaloneAudioUpload) && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -2200,16 +2298,24 @@ export default function CreatePage({
         >
           {/* Sub-header Navigation */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-800 pb-3 gap-3">
-            <button
-              onClick={() => {
-                setStudioAction('choose');
-                setUploadStep('select');
-              }}
-              className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1.5 transition cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back to Creator Options</span>
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => {
+                  setStudioAction('choose');
+                  setUploadStep('select');
+                }}
+                className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back to Creator Options</span>
+              </button>
+              {isStandaloneAudioUpload && (
+                <div>
+                  <h2 className="text-sm font-black text-white">Audio Upload Studio</h2>
+                  <p className="text-[11px] text-slate-400">Publish audio to the Audio Hub</p>
+                </div>
+              )}
+            </div>
 
             {/* Stepper Indicator */}
             {uploadStep === 'select' || uploadStep === 'uploading' ? (
@@ -2218,7 +2324,7 @@ export default function CreatePage({
                   uploadStep === 'select' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
                   'bg-blue-500/20 text-blue-300 border border-blue-500/30'
                 }`}>
-                  {uploadStep === 'select' && <span>Step 1: Select Media</span>}
+                  {uploadStep === 'select' && <span>Step 1: Select {isStandaloneAudioUpload ? 'Audio' : 'Video'}</span>}
                   {uploadStep === 'uploading' && <span>Uploading to Gospread ({uploadProgressPercent}%)</span>}
                 </span>
               </div>
@@ -2235,7 +2341,7 @@ export default function CreatePage({
                   }`}
                 >
                   <FileText className="w-3.5 h-3.5" />
-                  <span>1. Details</span>
+                  <span>1. {isStandaloneAudioUpload ? 'Audio Details' : 'Details'}</span>
                 </button>
 
                 <button
@@ -2248,7 +2354,7 @@ export default function CreatePage({
                   }`}
                 >
                   <ImageIcon className="w-3.5 h-3.5" />
-                  <span>2. Thumbnail</span>
+                  <span>2. {isStandaloneAudioUpload ? 'Cover Art' : 'Thumbnail'}</span>
                 </button>
 
                 <button
@@ -2287,7 +2393,7 @@ export default function CreatePage({
             <div className="space-y-6">
               
               {/* Source Tabs Header */}
-              <div className="flex items-center justify-center sm:justify-start gap-2 bg-[#121212] p-1.5 rounded-2xl border border-slate-800 w-full sm:w-fit">
+              {!isStandaloneAudioUpload && <div className="flex items-center justify-center sm:justify-start gap-2 bg-[#121212] p-1.5 rounded-2xl border border-slate-800 w-full sm:w-fit">
                 <button
                   type="button"
                   onClick={() => setUploadMode('device')}
@@ -2326,7 +2432,7 @@ export default function CreatePage({
                   <Youtube className="w-4 h-4" />
                   <span>Import YouTube</span>
                 </button>
-              </div>
+              </div>}
 
               {/* TAB 1: DEVICE UPLOAD */}
               {uploadMode === 'device' && (
@@ -2347,7 +2453,9 @@ export default function CreatePage({
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="video/*,audio/*,.3g2,.3gp,.aac,.avi,.flac,.m4a,.m4v,.mkv,.mov,.mp3,.mp4,.mpeg,.mpg,.oga,.ogg,.ogv,.opus,.wav,.webm"
+                      accept={isStandaloneAudioUpload
+                        ? "audio/*,.aac,.flac,.m4a,.mp3,.oga,.ogg,.opus,.wav"
+                        : "video/*,.3g2,.3gp,.avi,.m4v,.mkv,.mov,.mp4,.mpeg,.mpg,.ogv,.webm"}
                       onChange={handleFileInputChange}
                       className="hidden"
                     />
@@ -2357,11 +2465,13 @@ export default function CreatePage({
                     </div>
 
                     <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">
-                      Upload a video or audio file
+                      {isStandaloneAudioUpload ? 'Upload an audio file' : 'Upload a video file'}
                     </h3>
                     
                     <p className="text-xs sm:text-sm text-slate-400 mt-1.5 max-w-md">
-                      Drag & drop a video or audio file here, or click to browse from your computer or phone
+                      {isStandaloneAudioUpload
+                        ? 'Drag & drop an audio file here, or click to browse from your computer or phone'
+                        : 'Drag & drop a video file here, or click to browse from your computer or phone'}
                     </p>
 
                     <div className="mt-6">
@@ -2374,12 +2484,12 @@ export default function CreatePage({
                         className="px-6 py-3 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-amber-500/20 transition cursor-pointer"
                       >
                         <Film className="w-4 h-4" />
-                        <span>Select Media File</span>
+                        <span>{isStandaloneAudioUpload ? 'Select Audio File' : 'Select Video File'}</span>
                       </button>
                     </div>
 
                     <p className="text-[11px] font-medium text-slate-500 mt-5 flex items-center gap-2">
-                      <span>Video: MP4, MOV, WebM, MKV</span> • <span>Audio: MP3, M4A, WAV, OGG, FLAC</span> • <span>Up to 10 GB</span>
+                      <span>{isStandaloneAudioUpload ? 'Audio: MP3, M4A, WAV, OGG, FLAC' : 'Video: MP4, MOV, WebM, MKV'}</span> • <span>Up to 10 GB</span>
                     </p>
 
                     {/* Direct Upload Secure Architecture Notice */}
@@ -2550,7 +2660,9 @@ export default function CreatePage({
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3.5">
                   <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
-                    <Film className="w-6 h-6 animate-pulse" />
+                    {isAudioUpload
+                      ? <Music2 className="w-6 h-6 animate-pulse" />
+                      : <Film className="w-6 h-6 animate-pulse" />}
                   </div>
                   <div>
                     <h3 className="text-base sm:text-lg font-black text-white truncate max-w-sm sm:max-w-md">
@@ -2655,7 +2767,7 @@ export default function CreatePage({
           )}
 
           {/* ══════════════════════════════════════════════════════════
-              STEP 2: VIDEO DETAILS & GOSPEL-SPECIFIC METADATA
+              STEP 2: MEDIA DETAILS & GOSPEL-SPECIFIC METADATA
              ══════════════════════════════════════════════════════════ */}
           {uploadStep === 'details' && (
             <motion.div
@@ -2665,12 +2777,12 @@ export default function CreatePage({
             >
               <div className="space-y-6">
                 
-                {/* Section 1: Tell us about your video */}
+                {/* Section 1: Tell us about the media */}
                 <div className="bg-[#181818] border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-bold text-white flex items-center gap-2">
                       <FileText className="w-4 h-4 text-amber-400" />
-                      Tell us about your video
+                      {isAudioUpload ? 'Tell us about your audio' : 'Tell us about your video'}
                     </h3>
                     <span className="text-[11px] text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
                       Step 1 of 4
@@ -2690,7 +2802,7 @@ export default function CreatePage({
                         setUploadTitle(e.target.value);
                         setAiOverlayTitle(e.target.value.toUpperCase());
                       }}
-                      placeholder="Sunday Worship Service — Walking by Faith"
+                      placeholder={isAudioUpload ? 'Sunday sermon — Walking by Faith' : 'Sunday Worship Service — Walking by Faith'}
                       className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none"
                     />
                   </div>
@@ -2705,7 +2817,7 @@ export default function CreatePage({
                       required
                       value={uploadDescription}
                       onChange={(e) => setUploadDescription(e.target.value)}
-                      placeholder="Join us for today's worship service..."
+                      placeholder={isAudioUpload ? 'Share details about this sermon, song, or podcast...' : "Join us for today's worship service..."}
                       className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none resize-none"
                     />
                   </div>
@@ -2788,7 +2900,9 @@ export default function CreatePage({
                       Scripture Anchor & Biblical Revelation
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      Help your global audience connect sermon takeaways directly to the Word of God.
+                      {isAudioUpload
+                        ? 'Add scripture and key takeaways to help listeners connect with the message.'
+                        : 'Help your global audience connect sermon takeaways directly to the Word of God.'}
                     </p>
                   </div>
 
@@ -2898,7 +3012,7 @@ export default function CreatePage({
           )}
 
           {/* ══════════════════════════════════════════════════════════
-              STEP 5: DEDICATED VIDEO THUMBNAIL STEP
+              STEP 5: MEDIA COVER ART
              ══════════════════════════════════════════════════════════ */}
           {uploadStep === 'thumbnail' && (
             <motion.div
@@ -2926,20 +3040,29 @@ export default function CreatePage({
                   </span>
                 </div>
 
-                {/* 1. Live Video Preview Box */}
+                {/* 1. Media Preview */}
                 <div className="space-y-2">
                   <label className="block text-xs font-bold text-slate-300">
                     {isAudioUpload ? 'Audio Preview & Cover Art' : 'Video Preview & Active Thumbnail Card'}
                   </label>
                   <div className={`${isAudioUpload ? 'min-h-28' : 'aspect-video'} relative max-w-xl mx-auto rounded-3xl overflow-hidden border-2 border-amber-500/40 shadow-2xl bg-black flex items-center justify-center p-4`}>
                     {isAudioUpload ? (
-                      <audio
-                        src={selectedMediaPreviewUrl || undefined}
-                        controls
-                        preload="metadata"
-                        aria-label={`Preview: ${uploadTitle || selectedFile?.name || 'uploaded audio'}`}
-                        className="w-full"
-                      />
+                      <div className="flex w-full flex-col items-center gap-3">
+                        {uploadThumbnail && (
+                          <img
+                            src={uploadThumbnail}
+                            alt={`${uploadTitle || selectedFile?.name || 'Audio'} cover art`}
+                            className="h-36 w-36 rounded-xl object-cover shadow-lg"
+                          />
+                        )}
+                        <audio
+                          src={selectedMediaPreviewUrl || undefined}
+                          controls
+                          preload="metadata"
+                          aria-label={`Preview: ${uploadTitle || selectedFile?.name || 'uploaded audio'}`}
+                          className="w-full"
+                        />
+                      </div>
                     ) : (
                       <video
                         src={selectedMediaPreviewUrl || undefined}
@@ -2972,7 +3095,7 @@ export default function CreatePage({
                       }`}
                     >
                       <Wand2 className="w-4 h-4" />
-                      <span>Design a Thumbnail</span>
+                      <span>{isAudioUpload ? 'Design Cover Art' : 'Design a Thumbnail'}</span>
                     </button>
 
                     {!isAudioUpload && <button
@@ -3013,18 +3136,18 @@ export default function CreatePage({
                         <div className="flex items-center gap-2">
                           <Sparkles className="w-4 h-4 text-amber-400" />
                           <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                            Thumbnail Design Studio
+                            {isAudioUpload ? 'Cover Art Design Studio' : 'Thumbnail Design Studio'}
                           </h4>
                         </div>
                         <span className="text-[10px] text-amber-300 font-mono">
-                          Auto-formatted 1280x720 16:9
+                          {isAudioUpload ? 'Square 1280x1280 audio cover art' : 'Auto-formatted 1280x720 16:9'}
                         </span>
                       </div>
 
                       {/* Design presets */}
                       <div className="space-y-2">
                         <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                          Choose Sermon Aesthetic Theme
+                          {isAudioUpload ? 'Choose Cover Art Theme' : 'Choose Sermon Aesthetic Theme'}
                         </label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
                           {AI_THUMBNAIL_PRESETS.map((preset) => {
@@ -3043,7 +3166,7 @@ export default function CreatePage({
                                     : 'border-slate-800 bg-[#161616] hover:border-slate-700'
                                 }`}
                               >
-                                <div className="aspect-video w-full rounded-xl overflow-hidden mb-2 relative">
+                                <div className={`${isAudioUpload ? 'aspect-square' : 'aspect-video'} w-full rounded-xl overflow-hidden mb-2 relative`}>
                                   <img
                                     src={preset.bgImage}
                                     alt={preset.name}
@@ -3117,10 +3240,12 @@ export default function CreatePage({
                           {aiAppliedSuccess ? (
                             <span className="text-emerald-400 font-bold flex items-center gap-1.5">
                               <CheckCircle2 className="w-4 h-4" />
-                              Designed thumbnail applied to video preview.
+                              {isAudioUpload ? 'Cover art applied to audio preview.' : 'Designed thumbnail applied to video preview.'}
                             </span>
                           ) : (
-                            'Custom typographic card rendered with gospel high contrast'
+                            isAudioUpload
+                              ? 'Create custom cover art for your audio upload'
+                              : 'Custom typographic card rendered with gospel high contrast'
                           )}
                         </span>
 
@@ -3138,7 +3263,7 @@ export default function CreatePage({
                           ) : (
                             <>
                               <Wand2 className="w-4 h-4" />
-                              <span>Generate Thumbnail Design</span>
+                              <span>{isAudioUpload ? 'Generate Cover Art' : 'Generate Thumbnail Design'}</span>
                             </>
                           )}
                         </button>
@@ -3346,7 +3471,9 @@ export default function CreatePage({
                         <span>🌍 Public</span>
                       </h4>
                       <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                        Anyone on Gospread worldwide can search for and watch this video.
+                        {isAudioUpload
+                          ? 'Anyone on Gospread worldwide can discover and listen to this audio.'
+                          : 'Anyone on Gospread worldwide can search for and watch this video.'}
                       </p>
                     </button>
 
@@ -3374,7 +3501,9 @@ export default function CreatePage({
                         <span>🔒 Private</span>
                       </h4>
                       <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                        Only you and authorized pastoral staff can view this video.
+                        {isAudioUpload
+                          ? 'Only you and authorized pastoral staff can access this audio.'
+                          : 'Only you and authorized pastoral staff can view this video.'}
                       </p>
                     </button>
 
@@ -3553,7 +3682,7 @@ export default function CreatePage({
                       Publish Options
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      Choose whether to broadcast immediately, schedule a future premiere, or save a draft.
+                      Choose whether to publish now, schedule a release, or save a draft.
                     </p>
                   </div>
                   <span className="text-[11px] text-amber-400 font-bold bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 self-start sm:self-auto">
@@ -3623,7 +3752,9 @@ export default function CreatePage({
                         📅 Schedule
                       </h4>
                       <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                        Gospread checks scheduled videos when the feed is requested and publishes this video once its time has arrived.
+                        {isAudioUpload
+                          ? 'Gospread checks scheduled audio when the catalog is requested and publishes it once its release time has arrived.'
+                          : 'Gospread checks scheduled videos when the feed is requested and publishes this video once its time has arrived.'}
                       </p>
                     </div>
 
@@ -3678,7 +3809,7 @@ export default function CreatePage({
                     <div className="flex items-center gap-2">
                       <CalendarDays className="w-4 h-4 text-blue-400" />
                       <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                        Set Premiere Schedule
+                        {isAudioUpload ? 'Set Audio Release Schedule' : 'Set Premiere Schedule'}
                       </h4>
                     </div>
 
@@ -3733,7 +3864,7 @@ export default function CreatePage({
                     <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center gap-2.5 text-xs text-blue-200">
                       <Bell className="w-4 h-4 text-blue-400 shrink-0" />
                       <span>
-                        <strong>                        Upcoming:</strong> {uploadTitle || 'Video'} — {publishScheduledDate} at {publishScheduledTime} ({publishScheduledTimezone})
+                        <strong>Upcoming:</strong> {uploadTitle || (isAudioUpload ? 'Audio' : 'Video')} — {publishScheduledDate} at {publishScheduledTime} ({publishScheduledTimezone})
                       </span>
                     </div>
 
@@ -3754,9 +3885,9 @@ export default function CreatePage({
                   <div className="flex items-center gap-3">
                     <img
                       src={uploadThumbnail}
-                      alt="Selected Thumbnail"
+                      alt={isAudioUpload ? 'Selected audio cover art' : 'Selected video thumbnail'}
                       referrerPolicy="no-referrer"
-                      className="w-16 h-11 rounded-lg object-cover ring-1 ring-slate-700 shrink-0"
+                      className={`${isAudioUpload ? 'w-16 h-16' : 'w-16 h-11'} rounded-lg object-cover ring-1 ring-slate-700 shrink-0`}
                     />
                     <div>
                       <h4 className="text-xs font-bold text-white line-clamp-1">{uploadTitle}</h4>
@@ -3769,7 +3900,11 @@ export default function CreatePage({
                   </div>
 
                   <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-300">
-                    {publishActionOption === 'publish_now' ? 'Instant Global Live' : publishActionOption === 'schedule' ? 'Scheduled Premiere' : 'Studio Draft'}
+                    {publishActionOption === 'publish_now'
+                      ? isAudioUpload ? 'Published Audio' : 'Published Video'
+                      : publishActionOption === 'schedule'
+                        ? isAudioUpload ? 'Scheduled Release' : 'Scheduled Premiere'
+                        : 'Studio Draft'}
                   </span>
                 </div>
 
@@ -3803,7 +3938,7 @@ export default function CreatePage({
                     {publishActionOption === 'schedule' && (
                       <>
                         <Calendar className="w-4 h-4" />
-                        <span>Schedule Premiere for {ministryName}</span>
+                        <span>{isAudioUpload ? 'Schedule Audio Release' : 'Schedule Premiere'} for {ministryName}</span>
                       </>
                     )}
                     {publishActionOption === 'save_draft' && (
