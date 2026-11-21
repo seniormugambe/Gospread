@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Check, Clock, Mic, Radio, Share2, Users } from 'lucide-react';
+import { ArrowLeft, Check, Circle, Clock, Loader2, Mic, Radio, Share2, Square, Users } from 'lucide-react';
 import { UserSession } from './AuthModal';
 import { Room, RoomEvent, RemoteTrack } from 'livekit-client';
 import { djangoApi } from '../services/djangoApi';
@@ -30,8 +30,16 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
   const [isConnected, setIsConnected] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [listenerCount, setListenerCount] = useState(0);
+  const [speakingParticipants, setSpeakingParticipants] = useState<Set<string>>(new Set());
+  const [remoteParticipants, setRemoteParticipants] = useState<{ identity: string; name: string }[]>([]);
   const [error, setError] = useState('');
   const [inviteCopied, setInviteCopied] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSavingRecording, setIsSavingRecording] = useState(false);
+  const [recordingSaved, setRecordingSaved] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
   const roomRef = useRef<Room | null>(null);
   const roomNameRef = useRef<string | null>(null);
   const audioElementsRef = useRef<HTMLAudioElement[]>([]);
@@ -39,6 +47,11 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
 
   const syncListenerCount = (room: Room) => {
     setListenerCount(room.remoteParticipants.size);
+    setSpeakingParticipants(new Set(room.activeSpeakers.map(participant => participant.identity)));
+    setRemoteParticipants(Array.from(room.remoteParticipants.values(), participant => ({
+      identity: participant.identity,
+      name: participant.name || participant.identity,
+    })));
   };
 
   const playRemoteAudio = (track: RemoteTrack) => {
@@ -49,6 +62,16 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
     document.body.appendChild(element);
     audioElementsRef.current.push(element);
     attachedAudioTrackSidsRef.current.add(track.sid);
+  };
+
+  const handleSubscribedTrack = (track: RemoteTrack) => {
+    playRemoteAudio(track);
+    if (mediaRecorderRef.current?.state === 'recording') {
+      const mediaTrack = track.mediaStreamTrack;
+      if (mediaTrack && !recordingStreamRef.current?.getTracks().includes(mediaTrack)) {
+        recordingStreamRef.current?.addTrack(mediaTrack);
+      }
+    }
   };
 
   const clearRemoteAudio = () => {
@@ -100,7 +123,8 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
         });
         room.on(RoomEvent.ParticipantConnected, () => syncListenerCount(room));
         room.on(RoomEvent.ParticipantDisconnected, () => syncListenerCount(room));
-        room.on(RoomEvent.TrackSubscribed, track => playRemoteAudio(track));
+        room.on(RoomEvent.ActiveSpeakersChanged, () => syncListenerCount(room));
+        room.on(RoomEvent.TrackSubscribed, track => handleSubscribedTrack(track));
         room.on(RoomEvent.Disconnected, () => {
           if (roomRef.current !== room) return;
           roomRef.current = null;
@@ -159,7 +183,8 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
       });
       room.on(RoomEvent.ParticipantConnected, () => syncListenerCount(room));
       room.on(RoomEvent.ParticipantDisconnected, () => syncListenerCount(room));
-      room.on(RoomEvent.TrackSubscribed, track => playRemoteAudio(track));
+      room.on(RoomEvent.ActiveSpeakersChanged, () => syncListenerCount(room));
+      room.on(RoomEvent.TrackSubscribed, track => handleSubscribedTrack(track));
       room.on(RoomEvent.Disconnected, () => {
         if (roomRef.current !== room) return;
         roomRef.current = null;
@@ -205,6 +230,9 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
     }
 
     setError('');
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      stopRecording();
+    }
     try {
       await djangoApi.endAudioSpace(roomName);
     } catch (endError) {
@@ -250,6 +278,113 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
     }
   };
 
+  const collectRoomAudioStream = () => {
+    const room = roomRef.current;
+    const stream = new MediaStream();
+    if (!room) return stream;
+
+    room.localParticipant.audioTrackPublications.forEach(publication => {
+      const track = publication.track?.mediaStreamTrack;
+      if (track) stream.addTrack(track);
+    });
+    room.remoteParticipants.forEach(participant => {
+      participant.audioTrackPublications.forEach(publication => {
+        const track = publication.track?.mediaStreamTrack;
+        if (track) stream.addTrack(track);
+      });
+    });
+    return stream;
+  };
+
+  const saveRecording = async (blob: Blob) => {
+    if (!currentUser?.isLoggedIn) {
+      setError('Sign in again before saving this recording.');
+      return;
+    }
+    if (!blob.size) {
+      setError('The recording was empty. Please try again.');
+      return;
+    }
+
+    setIsSavingRecording(true);
+    setError('');
+    try {
+      const extension = blob.type.includes('ogg') ? 'ogg' : blob.type.includes('mp4') ? 'm4a' : 'webm';
+      const file = new File([blob], `${title.trim() || 'Audio Space'} - recording.${extension}`, {
+        type: blob.type || `audio/${extension}`,
+      });
+      await djangoApi.createSermon({
+        title: `${title.trim() || 'Live Audio Space'} — Recording`,
+        speaker: currentUser.fullName || currentUser.username || 'Host',
+        description: topic.trim() || `Live Audio Space recording hosted by ${ministryName}.`,
+        category: '24/7 Gospel Radio',
+        kind: 'audio',
+        is_published: true,
+        tags: ['live-audio-space', '24/7-gospel-radio'],
+        scripture_reference: topic.trim(),
+        key_takeaways: [],
+        visibility: 'public',
+        audience: 'all_ages',
+        media_file: file,
+      });
+      setRecordingSaved(true);
+      window.setTimeout(() => setRecordingSaved(false), 4000);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Could not save the Audio Space recording.');
+    } finally {
+      setIsSavingRecording(false);
+    }
+  };
+
+  const stopRecording = () => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === 'inactive') return;
+    recorder.stop();
+  };
+
+  const startRecording = () => {
+    setError('');
+    setRecordingSaved(false);
+    if (typeof MediaRecorder === 'undefined') {
+      setError('Recording is not supported by this browser.');
+      return;
+    }
+    const stream = collectRoomAudioStream();
+    if (stream.getAudioTracks().length === 0) {
+      setError('No active audio tracks were found to record.');
+      return;
+    }
+    recordingStreamRef.current = stream;
+
+    recordingChunksRef.current = [];
+    const mimeType = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4']
+      .find(type => MediaRecorder.isTypeSupported(type));
+    let recorder: MediaRecorder;
+    try {
+      recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    } catch (recorderError) {
+      setError(recorderError instanceof Error ? recorderError.message : 'Could not start recording.');
+      return;
+    }
+
+    recorder.ondataavailable = event => {
+      if (event.data.size > 0) recordingChunksRef.current.push(event.data);
+    };
+    recorder.onstop = () => {
+      const type = recorder.mimeType || mimeType || 'audio/webm';
+      const blob = new Blob(recordingChunksRef.current, { type });
+      recordingChunksRef.current = [];
+      mediaRecorderRef.current = null;
+      recordingStreamRef.current = null;
+      setIsRecording(false);
+      void saveRecording(blob);
+    };
+    recorder.onerror = () => setError('The Audio Space recording stopped unexpectedly.');
+    mediaRecorderRef.current = recorder;
+    recorder.start(1000);
+    setIsRecording(true);
+  };
+
   const formatTime = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
   return (
@@ -289,17 +424,66 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
               <div className="flex items-center gap-1.5 text-xs font-mono text-slate-300"><Clock className="w-4 h-4" />{formatTime(elapsedSeconds)}</div>
             </div>
             <div className="mt-10 flex flex-col items-center gap-4">
-              <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-rose-400/60 bg-slate-900 text-rose-300 shadow-xl shadow-rose-500/20"><Mic className="h-10 w-10" /></div>
+              <div className={`flex h-28 w-28 items-center justify-center rounded-full border-4 bg-slate-900 transition-all duration-200 ${
+                roomRef.current?.localParticipant.isSpeaking
+                  ? 'border-emerald-400 text-emerald-300 shadow-[0_0_32px_rgba(52,211,153,0.45)] ring-4 ring-emerald-400/20'
+                  : 'border-rose-400/60 text-rose-300 shadow-xl shadow-rose-500/20'
+              }`}><Mic className="h-10 w-10" /></div>
               <p className="text-sm font-bold text-white">{activeAudioSpace?.hostName || currentUser?.fullName || 'Host'}</p>
               <span className="rounded-full bg-rose-500/15 px-3 py-1 text-[10px] font-black uppercase text-rose-300">Host</span>
             </div>
+            {remoteParticipants.length > 0 && (
+              <div className="mt-6 grid grid-cols-3 gap-3 border-t border-slate-800/70 pt-5 sm:grid-cols-4">
+                {remoteParticipants.slice(0, 12).map(participant => {
+                  const isSpeaking = speakingParticipants.has(participant.identity);
+                  return (
+                    <div key={participant.identity} className="flex min-w-0 flex-col items-center text-center">
+                      <div className={`flex h-16 w-16 items-center justify-center rounded-full border-2 text-lg font-black transition-all duration-200 sm:h-[72px] sm:w-[72px] ${
+                        isSpeaking
+                          ? 'border-emerald-400 bg-emerald-500/25 text-emerald-200 shadow-[0_0_20px_rgba(52,211,153,0.45)] ring-4 ring-emerald-400/20'
+                          : 'border-slate-600 bg-slate-800 text-slate-200'
+                      }`}>
+                        {isSpeaking ? <Mic className="h-6 w-6" /> : participant.name.slice(0, 1).toUpperCase()}
+                      </div>
+                      <p className="mt-2 w-full truncate text-xs font-bold text-white">{participant.name}</p>
+                      <p className={`mt-0.5 text-[10px] ${isSpeaking ? 'font-bold text-emerald-300' : 'text-slate-400'}`}>
+                        {isSpeaking ? 'Talking' : 'Listener'}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-1 gap-3">
             <div className="rounded-2xl border border-slate-800 bg-[#161616] p-4"><Users className="mb-2 h-5 w-5 text-sky-400" /><p className="text-2xl font-black text-white">{listenerCount}</p><p className="text-xs text-slate-400">Participants connected</p></div>
           </div>
+          {recordingSaved && (
+            <p className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-center text-xs font-bold text-emerald-300">
+              Recording saved to your profile media and 24/7 Gospel Radio.
+            </p>
+          )}
           {roomRef.current && <AudioSpaceRoomTools room={roomRef.current} roomName={roomNameRef.current || ''} canManage isHost />}
           <div className="flex justify-center gap-3">
             <button onClick={inviteListeners} className="flex items-center gap-2 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-5 py-3 text-xs font-bold text-fuchsia-200 hover:bg-fuchsia-500/25"><>{inviteCopied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}</>{inviteCopied ? 'Link copied' : 'Invite listeners'}</button>
+            <button
+              type="button"
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={isSavingRecording}
+              className={`flex items-center gap-2 rounded-full px-5 py-3 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                isRecording
+                  ? 'bg-rose-600 text-white hover:bg-rose-500 shadow-lg shadow-rose-600/25'
+                  : 'border border-rose-500/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20'
+              }`}
+            >
+              {isSavingRecording ? (
+                <><Loader2 className="h-4 w-4 animate-spin" />Saving recording…</>
+              ) : isRecording ? (
+                <><Square className="h-4 w-4 fill-current" />Stop recording</>
+              ) : (
+                <><Circle className="h-4 w-4 fill-rose-500 text-rose-500" />Record</>
+              )}
+            </button>
             <button onClick={endSpace} className="rounded-full bg-rose-600 px-5 py-3 text-xs font-black text-white hover:bg-rose-500">End Space</button>
           </div>
         </div>

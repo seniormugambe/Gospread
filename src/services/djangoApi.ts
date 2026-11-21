@@ -1598,7 +1598,9 @@ class DjangoApiClient {
       artistOrPreacher: sermon.speaker || sermon.church_name || 'Creator',
       albumOrSeries: sermon.church_name || 'Audio Sermons',
       channelAvatar: sermon.channel_avatar || '',
-      category: 'Audio Sermon',
+      category: sermon.category === '24/7 Gospel Radio'
+        ? '24/7 Gospel Radio'
+        : sermon.category || 'Audio Sermon',
       coverUrl: sermon.thumbnail_url || '',
       duration: sermon.duration_seconds
         ? `${Math.floor(sermon.duration_seconds / 60)}:${String(sermon.duration_seconds % 60).padStart(2, '0')}`

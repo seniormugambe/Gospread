@@ -20,7 +20,10 @@ import {
   Bookmark,
   Layers,
   Loader2,
-  Waves
+  Waves,
+  X,
+  MicOff,
+  Mic
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { AudioTrack, AUDIO_TRACKS } from '../data/gospelData';
@@ -29,6 +32,7 @@ import { GivingTarget } from './GivingModal';
 import { ActiveAudioSpace } from './AudioSpaceStudio';
 import { Room, RoomEvent, RemoteTrack } from 'livekit-client';
 import AudioSpaceRoomTools from './AudioSpaceRoomTools';
+import { buildShareUrl } from '../lib/invites';
 
 interface AudioPodcastHubProps {
   currentTrack?: AudioTrack | null;
@@ -64,10 +68,13 @@ export default function AudioPodcastHub({
   const [audioSource, setAudioSource] = useState<'library' | 'curated' | null>(null);
   const [downloadedIds, setDownloadedIds] = useState<string[]>([]);
   const [isJoiningAudioSpace, setIsJoiningAudioSpace] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [listenAnonymously, setListenAnonymously] = useState(false);
   const [audioSpaceError, setAudioSpaceError] = useState('');
   const [participantCount, setParticipantCount] = useState(0);
   const [localRole, setLocalRole] = useState<'host' | 'cohost' | 'speaker' | 'listener'>('listener');
-  const [remoteParticipants, setRemoteParticipants] = useState<{ identity: string; name: string }[]>([]);
+  const [remoteParticipants, setRemoteParticipants] = useState<{ identity: string; name: string; isSpeaking: boolean }[]>([]);
+  const [speakingParticipants, setSpeakingParticipants] = useState<Set<string>>(new Set());
   const listenerRoomRef = React.useRef<Room | null>(null);
   const audioElementsRef = React.useRef<HTMLAudioElement[]>([]);
   const attachedTrackSidsRef = React.useRef(new Set<string>());
@@ -86,7 +93,7 @@ export default function AudioPodcastHub({
   useEffect(() => {
     if (autoJoinAudioSpace && activeAudioSpace?.roomName) {
       onAutoJoinHandled?.();
-      void joinAudioSpace();
+      setShowJoinModal(true);
     }
     // joinAudioSpace is stable (defined below) — intentionally omitting it
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -96,9 +103,12 @@ export default function AudioPodcastHub({
 
   const syncParticipantCount = (room: Room) => {
     setParticipantCount(room.remoteParticipants.size + 1);
+    const speaking = new Set(room.activeSpeakers.map(participant => participant.identity));
+    setSpeakingParticipants(speaking);
     setRemoteParticipants(Array.from(room.remoteParticipants.values(), participant => ({
       identity: participant.identity,
       name: participant.name || participant.identity,
+      isSpeaking: speaking.has(participant.identity) || participant.isSpeaking,
     })));
   };
 
@@ -114,17 +124,37 @@ export default function AudioPodcastHub({
     setParticipantCount(0);
     setRemoteParticipants([]);
     setLocalRole('listener');
+    setShowJoinModal(false);
+  };
+
+  const shareAudioSpace = async () => {
+    if (!activeAudioSpace) return;
+    const url = new URL(buildShareUrl(window.location.pathname));
+    url.searchParams.set('audio_space', activeAudioSpace.roomName);
+    const shareData = {
+      title: activeAudioSpace.title,
+      text: activeAudioSpace.topic || 'Join this live Audio Space',
+      url: url.toString(),
+    };
+    try {
+      if (navigator.share) await navigator.share(shareData);
+      else await navigator.clipboard.writeText(url.toString());
+    } catch {
+      // The native share sheet may be dismissed; no error is needed.
+    }
   };
 
   useEffect(() => {
     if (!activeAudioSpace) {
       leaveAudioSpace();
+      setShowJoinModal(false);
       return;
     }
 
     if (listenerRoomRef.current && listenerRoomRef.current.name !== activeAudioSpace.roomName) {
       leaveAudioSpace();
     }
+    if (!isConnectedToSpace) setShowJoinModal(true);
   }, [activeAudioSpace?.roomName]);
 
   const joinAudioSpace = async () => {
@@ -158,6 +188,7 @@ export default function AudioPodcastHub({
       room.on(RoomEvent.TrackSubscribed, (track) => playTrack(track));
       room.on(RoomEvent.ParticipantConnected, () => syncParticipantCount(room));
       room.on(RoomEvent.ParticipantDisconnected, () => syncParticipantCount(room));
+      room.on(RoomEvent.ActiveSpeakersChanged, () => syncParticipantCount(room));
 
       room.on(RoomEvent.Disconnected, () => {
         if (listenerRoomRef.current === room) {
@@ -183,6 +214,7 @@ export default function AudioPodcastHub({
 
       listenerRoomRef.current = room;
       setIsConnectedToSpace(true);
+      setShowJoinModal(false);
       onJoinAudioSpace?.();
     } catch (error) {
       leaveAudioSpace();
@@ -235,10 +267,143 @@ export default function AudioPodcastHub({
   });
 
   const featuredTrack = audioList.find((t) => t.category === 'Podcast') || audioList[0];
+  const joinModal = activeAudioSpace && showJoinModal && !isConnectedToSpace ? (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/75 px-3 py-6 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${activeAudioSpace.title} Audio Space`}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) setShowJoinModal(false);
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="relative max-h-[calc(100vh-3rem)] w-full max-w-[620px] overflow-y-auto rounded-[28px] border border-slate-800 bg-[#171719] shadow-2xl"
+      >
+        <div className="flex items-center justify-between px-5 py-4 sm:px-6">
+          <button
+            type="button"
+            onClick={() => setShowJoinModal(false)}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition hover:bg-slate-800 hover:text-white"
+            aria-label="Close Audio Space"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={shareAudioSpace}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition hover:bg-slate-800 hover:text-white"
+            aria-label="Share Audio Space"
+          >
+            <Share2 className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="px-5 pb-5 sm:px-7 sm:pb-7">
+          <div className="mb-5 min-h-[44px] text-center text-sm font-black leading-snug text-sky-300 sm:text-base">
+            {activeAudioSpace.topic || activeAudioSpace.title}
+            {activeAudioSpace.ministryName && (
+              <span className="ml-1 text-slate-400">· {activeAudioSpace.ministryName}</span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4">
+            <div className="flex min-w-0 flex-col items-center text-center">
+              <div className="relative mb-2">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-slate-500 bg-slate-800 text-xl font-black text-slate-100 sm:h-[72px] sm:w-[72px]">
+                  {activeAudioSpace.hostName.slice(0, 1).toUpperCase()}
+                </div>
+                <Check className="absolute -right-1 bottom-0 h-4 w-4 rounded-full bg-sky-400 p-[2px] text-slate-950" />
+              </div>
+              <p className="w-full truncate text-xs font-black text-white">{activeAudioSpace.hostName}</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">Host</p>
+            </div>
+
+            {remoteParticipants.slice(0, 11).map((participant, index) => (
+              <div key={participant.identity} className="flex min-w-0 flex-col items-center text-center">
+                <div className="relative mb-2">
+                  <div className={`flex h-16 w-16 items-center justify-center rounded-full border-2 text-xl font-black text-white transition-all duration-200 sm:h-[72px] sm:w-[72px] ${
+                    participant.isSpeaking
+                      ? 'border-emerald-400 bg-emerald-500/25 shadow-[0_0_20px_rgba(52,211,153,0.45)] ring-4 ring-emerald-400/20'
+                      : 'border-slate-600 bg-gradient-to-br from-slate-700 to-slate-900'
+                  }`}>
+                    {participant.name.slice(0, 1).toUpperCase()}
+                  </div>
+                  {participant.isSpeaking ? (
+                    <span className="absolute -right-1 bottom-0 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400 text-slate-950 shadow-lg">
+                      <Mic className="h-3 w-3" />
+                    </span>
+                  ) : index < 2 ? (
+                    <Check className="absolute -right-1 bottom-0 h-4 w-4 rounded-full bg-sky-400 p-[2px] text-slate-950" />
+                  ) : null}
+                </div>
+                <p className="w-full truncate text-xs font-black text-white">{participant.name}</p>
+                <p className="mt-0.5 text-[11px] text-slate-400">{index < 2 ? 'Co-host' : 'Speaker'}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 border-t border-slate-800 pt-4 text-center">
+            <p className="text-sm font-black text-white">
+              {Math.max(participantCount - 1, 0)} other {participantCount - 1 === 1 ? 'listener' : 'listeners'}
+            </p>
+          </div>
+
+          <label className="mt-5 flex cursor-pointer items-center justify-between rounded-2xl px-1 py-2">
+            <div>
+              <p className="text-sm font-bold text-slate-200">Listen anonymously</p>
+              <p className="mt-0.5 text-[11px] text-slate-500">Join without displaying your profile name</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={listenAnonymously}
+              onClick={() => setListenAnonymously(value => !value)}
+              className={`relative h-7 w-12 rounded-full transition ${listenAnonymously ? 'bg-fuchsia-500' : 'bg-slate-700'}`}
+            >
+              <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${listenAnonymously ? 'left-6' : 'left-1'}`} />
+            </button>
+          </label>
+
+          <div className="mt-4 text-center text-xs text-slate-400">
+            <span className="inline-flex items-center gap-1.5">
+              <MicOff className="h-4 w-4" />
+              Your mic will be off to start
+            </span>
+          </div>
+
+          {audioSpaceError && (
+            <p className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs font-bold text-rose-300">
+              {audioSpaceError}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={joinAudioSpace}
+            disabled={isJoiningAudioSpace}
+            className="mt-4 flex w-full items-center justify-center rounded-full bg-fuchsia-600 px-5 py-3.5 text-sm font-black text-white transition hover:bg-fuchsia-500 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isJoiningAudioSpace ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Connecting…</>
+            ) : (
+              'Start listening'
+            )}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  ) : null;
 
   if (activeAudioSpace) {
     return (
-      <div className="space-y-6 pb-28">
+      <>
+        {joinModal}
+        <div className="space-y-6 pb-28">
         {isConnectedToSpace ? (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -297,12 +462,27 @@ export default function AudioPodcastHub({
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5 pt-1">
-                <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-full text-xs font-bold text-emerald-300">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <div className={`flex items-center gap-2 border px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  listenerRoomRef.current?.localParticipant.isSpeaking
+                    ? 'border-emerald-400/70 bg-emerald-500/15 text-emerald-200 shadow-[0_0_14px_rgba(52,211,153,0.18)]'
+                    : 'border-slate-700 bg-slate-900 text-slate-300'
+                }`}>
+                  {listenerRoomRef.current?.localParticipant.isSpeaking
+                    ? <Mic className="h-3.5 w-3.5 text-emerald-400" />
+                    : <span className="w-2 h-2 rounded-full bg-slate-500" />}
                   <span>You ({localRole === 'host' ? 'Host' : localRole === 'cohost' ? 'Co-host' : localRole === 'speaker' ? 'Speaker' : 'Listening'})</span>
                 </div>
                 {remoteParticipants.map(participant => (
-                  <div key={participant.identity} className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs text-slate-300">
+                  <div key={participant.identity} className={`flex items-center gap-2 border px-3 py-1.5 rounded-full text-xs transition-all ${
+                    participant.isSpeaking
+                      ? 'border-emerald-400/70 bg-emerald-500/15 text-emerald-200 shadow-[0_0_14px_rgba(52,211,153,0.18)]'
+                      : 'border-slate-800 bg-slate-900/80 text-slate-300'
+                  }`}>
+                    <span className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-black ${
+                      participant.isSpeaking ? 'bg-emerald-400 text-slate-950' : 'bg-slate-700 text-slate-200'
+                    }`}>
+                      {participant.isSpeaking ? <Mic className="h-3.5 w-3.5" /> : participant.name.slice(0, 1).toUpperCase()}
+                    </span>
                     <span>{participant.name}</span>
                   </div>
                 ))}
@@ -329,7 +509,7 @@ export default function AudioPodcastHub({
 
               <button
                 type="button"
-                onClick={joinAudioSpace}
+                onClick={() => setShowJoinModal(true)}
                 disabled={isJoiningAudioSpace}
                 className="shrink-0 rounded-full bg-fuchsia-500 hover:bg-fuchsia-400 px-5 py-2.5 text-xs font-black text-white transition cursor-pointer shadow-lg shadow-fuchsia-500/20"
               >
@@ -339,12 +519,15 @@ export default function AudioPodcastHub({
           </div>
         )}
         {audioSpaceError && <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs font-bold text-rose-300">{audioSpaceError}</p>}
-      </div>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="space-y-6 pb-28">
+    <>
+      {joinModal}
+      <div className="space-y-6 pb-28">
       {/* 🎙️ LIVE AUDIO ROOM STAGE FOR CONNECTED LISTENERS & ATTENDEES */}
       {activeAudioSpace && (
         isConnectedToSpace ? (
@@ -416,12 +599,27 @@ export default function AudioPodcastHub({
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5 pt-1">
-                <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-full text-xs font-bold text-emerald-300">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <div className={`flex items-center gap-2 border px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  listenerRoomRef.current?.localParticipant.isSpeaking
+                    ? 'border-emerald-400/70 bg-emerald-500/15 text-emerald-200 shadow-[0_0_14px_rgba(52,211,153,0.18)]'
+                    : 'border-slate-700 bg-slate-900 text-slate-300'
+                }`}>
+                  {listenerRoomRef.current?.localParticipant.isSpeaking
+                    ? <Mic className="h-3.5 w-3.5 text-emerald-400" />
+                    : <span className="w-2 h-2 rounded-full bg-slate-500" />}
                   <span>You ({localRole === 'host' ? 'Host' : localRole === 'cohost' ? 'Co-host' : localRole === 'speaker' ? 'Speaker' : 'Listening'})</span>
                 </div>
                 {remoteParticipants.map(participant => (
-                  <div key={participant.identity} className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs text-slate-300">
+                  <div key={participant.identity} className={`flex items-center gap-2 border px-3 py-1.5 rounded-full text-xs transition-all ${
+                    participant.isSpeaking
+                      ? 'border-emerald-400/70 bg-emerald-500/15 text-emerald-200 shadow-[0_0_14px_rgba(52,211,153,0.18)]'
+                      : 'border-slate-800 bg-slate-900/80 text-slate-300'
+                  }`}>
+                    <span className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-black ${
+                      participant.isSpeaking ? 'bg-emerald-400 text-slate-950' : 'bg-slate-700 text-slate-200'
+                    }`}>
+                      {participant.isSpeaking ? <Mic className="h-3.5 w-3.5" /> : participant.name.slice(0, 1).toUpperCase()}
+                    </span>
                     <span>{participant.name}</span>
                   </div>
                 ))}
@@ -444,7 +642,7 @@ export default function AudioPodcastHub({
 
               <button
                 type="button"
-                onClick={joinAudioSpace}
+                onClick={() => setShowJoinModal(true)}
                 disabled={isJoiningAudioSpace}
                 className="shrink-0 rounded-full bg-fuchsia-500 hover:bg-fuchsia-400 px-5 py-2.5 text-xs font-black text-white transition cursor-pointer shadow-lg shadow-fuchsia-500/20"
               >
@@ -752,6 +950,7 @@ export default function AudioPodcastHub({
           })}
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
