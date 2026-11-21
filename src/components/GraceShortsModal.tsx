@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   X,
   Heart,
@@ -66,7 +66,8 @@ export default function GraceShortsModal({
   });
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
   const [amensCountMap, setAmensCountMap] = useState<Record<string, number>>({});
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const touchStartY = useRef<number | null>(null);
 
   const hasShorts = allShorts.length > 0;
   const currentShort = hasShorts ? allShorts[currentIndex] : null;
@@ -93,12 +94,24 @@ export default function GraceShortsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/90 backdrop-blur-lg">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 p-0 backdrop-blur-lg sm:p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
-        className="w-full max-w-sm h-[88vh] max-h-[700px] bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative flex flex-col justify-between"
+        onTouchStart={(event) => {
+          touchStartY.current = event.touches[0]?.clientY ?? null;
+        }}
+        onTouchEnd={(event) => {
+          const startY = touchStartY.current;
+          touchStartY.current = null;
+          if (startY === null) return;
+          const deltaY = event.changedTouches[0].clientY - startY;
+          if (Math.abs(deltaY) < 48) return;
+          if (deltaY < 0) handleNext();
+          else handlePrev();
+        }}
+        className="relative flex h-[100dvh] w-full flex-col justify-between overflow-hidden bg-slate-900 shadow-2xl sm:h-[88vh] sm:max-h-[700px] sm:max-w-sm sm:rounded-3xl sm:border sm:border-slate-800"
       >
         {/* Short Media Background */}
         {currentShort ? (
@@ -110,6 +123,7 @@ export default function GraceShortsModal({
                 poster={currentShort.thumbnail}
                 className="w-full h-full object-cover"
                 style={{ objectPosition: currentShort.cropPosition || '50% 50%' }}
+                autoPlay
                 loop
                 playsInline
                 muted={isMuted}
