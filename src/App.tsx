@@ -113,6 +113,31 @@ const LEGACY_PROFILE_PLACEHOLDERS = new Set([
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
 ]);
 
+type MobileNavigationState = {
+  activeTab: 'platform' | 'profile' | 'discover' | 'auth';
+  selectedCategory: string;
+};
+
+const MOBILE_NAVIGATION_STATE_KEY = 'gospreadMobileNavigation';
+
+const isMobileNavigationTab = (tab: unknown): tab is MobileNavigationState['activeTab'] =>
+  tab === 'platform' || tab === 'profile' || tab === 'discover' || tab === 'auth';
+
+const getMobileNavigationState = (historyState: unknown): MobileNavigationState | null => {
+  if (!historyState || typeof historyState !== 'object') return null;
+
+  const mobileNavigation = (historyState as Record<string, unknown>)[MOBILE_NAVIGATION_STATE_KEY];
+  if (!mobileNavigation || typeof mobileNavigation !== 'object') return null;
+
+  const { activeTab, selectedCategory } = mobileNavigation as Record<string, unknown>;
+  if (!isMobileNavigationTab(activeTab) || typeof selectedCategory !== 'string') return null;
+
+  return {
+    activeTab,
+    selectedCategory,
+  };
+};
+
 export default function App() {
   // 🌤️ Sky Light Theme State (Defaulting to the requested Heavenly Sky Light Theme)
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -967,7 +992,25 @@ export default function App() {
   };
 
   useEffect(() => {
-    const handlePopState = () => setRoutePath(window.location.pathname);
+    const storedState = window.history.state;
+    const currentHistoryState =
+      storedState && typeof storedState === 'object' ? storedState : {};
+    window.history.replaceState({
+      ...currentHistoryState,
+      [MOBILE_NAVIGATION_STATE_KEY]: {
+        activeTab,
+        selectedCategory,
+      } satisfies MobileNavigationState,
+    }, '', window.location.href);
+
+    const handlePopState = (event: PopStateEvent) => {
+      setRoutePath(window.location.pathname);
+      const mobileNavigation = getMobileNavigationState(event.state);
+      if (mobileNavigation) {
+        setActiveTab(mobileNavigation.activeTab);
+        setSelectedCategory(mobileNavigation.selectedCategory);
+      }
+    };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
@@ -1123,7 +1166,7 @@ export default function App() {
     ));
   };
 
-  const handleNavigateHome = () => {
+  const handleNavigateHome = (fromMobileNavigation = false) => {
     setActiveTab('platform');
     setSelectedCategory('All');
     setSearchQuery('');
@@ -1131,8 +1174,50 @@ export default function App() {
     setIsPipDocked(false);
     setSelectedChannelModal(null);
     setSelectedCommunityPostId(null);
-    navigateTo('/');
+    if (fromMobileNavigation) {
+      if (window.location.pathname !== '/' || activeTab !== 'platform' || selectedCategory !== 'All') {
+        window.history.pushState({
+          [MOBILE_NAVIGATION_STATE_KEY]: {
+            activeTab: 'platform',
+            selectedCategory: 'All',
+          } satisfies MobileNavigationState,
+        }, '', '/');
+      }
+      setRoutePath('/');
+    } else {
+      navigateTo('/');
+    }
     setHomeNavigationKey(key => key + 1);
+  };
+
+  const handleMobileNavigation = (
+    tab: 'platform' | 'profile' | 'discover',
+    category = selectedCategory,
+  ) => {
+    if (tab === 'platform' && category === 'All') {
+      handleNavigateHome(true);
+      return;
+    }
+
+    const requiresAuthentication =
+      tab === 'profile' &&
+      !userSession.isLoggedIn &&
+      !(djangoApi.getAccessToken() || userSession.token);
+    const nextTab = requiresAuthentication ? 'auth' : tab;
+    if (window.location.pathname !== '/' || activeTab !== nextTab || selectedCategory !== category) {
+      window.history.pushState({
+        [MOBILE_NAVIGATION_STATE_KEY]: {
+          activeTab: nextTab,
+          selectedCategory: category,
+        } satisfies MobileNavigationState,
+      }, '', '/');
+    }
+    setRoutePath('/');
+    setSelectedCategory(category);
+    setActiveVideo(null);
+    setIsPipDocked(false);
+    if (tab === 'profile') openProtectedTab('profile');
+    else setActiveTab(tab);
   };
 
   // Filter video streams based on search and category
@@ -2915,11 +3000,8 @@ export default function App() {
       {/* 📱 Mobile Fixed Bottom Navigation Bar */}
       <MobileBottomNav
         activeTab={activeTab}
-        setActiveTab={(tab) => tab === 'profile' ? openProtectedTab('profile') : setActiveTab(tab)}
+        onNavigate={handleMobileNavigation}
         selectedCategory={selectedCategory}
-        setSelectedCategory={setSelectedCategory}
-        setActiveVideo={setActiveVideo}
-        onNavigateHome={handleNavigateHome}
         watchHistoryCount={watchHistory.length}
         onOpenShorts={() => setShowShortsModal(true)}
         onOpenGiving={() => handleOpenGiving()}

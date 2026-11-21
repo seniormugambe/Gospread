@@ -10,11 +10,8 @@ import { motion } from 'motion/react';
 
 interface MobileBottomNavProps {
   activeTab: 'platform' | 'generated' | 'create' | 'profile' | 'history' | 'discover' | 'community' | 'auth';
-  setActiveTab: (tab: 'platform' | 'generated' | 'create' | 'profile' | 'history' | 'discover' | 'community' | 'auth') => void;
+  onNavigate: (tab: 'platform' | 'profile' | 'discover', category?: string) => void;
   selectedCategory: string;
-  setSelectedCategory: (cat: string) => void;
-  setActiveVideo: (video: null) => void;
-  onNavigateHome: () => void;
   watchHistoryCount?: number;
   onOpenShorts?: () => void;
   onOpenGiving?: () => void;
@@ -22,11 +19,8 @@ interface MobileBottomNavProps {
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   activeTab,
-  setActiveTab,
+  onNavigate,
   selectedCategory,
-  setSelectedCategory,
-  setActiveVideo,
-  onNavigateHome,
 }) => {
   const isHomeActive = activeTab === 'platform' && selectedCategory === 'All';
   const isLiveActive = activeTab === 'platform' && (selectedCategory === 'Live' || selectedCategory === 'Live Worship');
@@ -41,7 +35,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       <motion.button
         whileTap={{ scale: 0.92 }}
         onClick={() => {
-          onNavigateHome();
+          onNavigate('platform', 'All');
         }}
         className={`flex flex-col items-center justify-center min-w-[56px] min-h-[44px] px-2 py-1 rounded-2xl transition relative ${
           isHomeActive
@@ -64,9 +58,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       <motion.button
         whileTap={{ scale: 0.92 }}
         onClick={() => {
-          setActiveTab('platform');
-          setSelectedCategory('Live');
-          setActiveVideo(null);
+          onNavigate('platform', 'Live');
         }}
         className={`flex flex-col items-center justify-center min-w-[56px] min-h-[44px] px-2 py-1 rounded-2xl transition relative ${
           isLiveActive
@@ -92,9 +84,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       <motion.button
         whileTap={{ scale: 0.92 }}
         onClick={() => {
-          setActiveTab('platform');
-          setSelectedCategory('Sermons');
-          setActiveVideo(null);
+          onNavigate('platform', 'Sermons');
         }}
         className={`flex flex-col items-center justify-center min-w-[56px] min-h-[44px] px-2 py-1 rounded-2xl transition relative ${
           isSermonsActive
@@ -117,8 +107,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       <motion.button
         whileTap={{ scale: 0.92 }}
         onClick={() => {
-          setActiveTab('discover');
-          setActiveVideo(null);
+          onNavigate('discover');
         }}
         className={`flex flex-col items-center justify-center min-w-[56px] min-h-[44px] px-2 py-1 rounded-2xl transition relative ${
           isMinistriesActive
@@ -141,7 +130,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       <motion.button
         whileTap={{ scale: 0.92 }}
         onClick={() => {
-          setActiveTab('profile');
+          onNavigate('profile');
         }}
         className={`flex flex-col items-center justify-center min-w-[56px] min-h-[44px] px-2 py-1 rounded-2xl transition relative ${
           isProfileActive
