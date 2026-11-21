@@ -23,6 +23,8 @@ import {
   ExternalLink,
   ChevronRight,
   Tv,
+  Video,
+  Headphones,
   Radio,
   Music,
   CheckCircle2,
@@ -36,13 +38,58 @@ import {
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { VideoStream, AudioTrack } from '../services/djangoApi';
+import { VideoStream, AudioTrack, PublicUserMedia } from '../services/djangoApi';
 import { djangoApi } from '../services/djangoApi';
 import { GivingTarget } from './GivingModal';
 import { UserSession } from './AuthModal';
 import { profilePath } from '../lib/routes';
 import { shareWithInvite } from '../lib/invites';
 import OnboardingProfileCard from './OnboardingProfileCard';
+
+const formatProfileMediaDuration = (seconds: number) =>
+  `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+
+const getProfileVideoCategory = (category: string): VideoStream['category'] => {
+  const normalized = category.toLowerCase();
+  if (normalized.includes('worship')) return 'Live Worship';
+  if (normalized.includes('choir')) return 'Choir Special';
+  if (normalized.includes('music')) return 'Gospel Music';
+  if (normalized.includes('bible') || normalized.includes('study')) return 'Bible Study';
+  return 'Sermon';
+};
+
+const toProfileVideo = (media: PublicUserMedia): VideoStream => ({
+  id: String(media.id),
+  title: media.title,
+  speakerOrArtist: media.speaker,
+  churchOrMinistry: media.church_name,
+  channelAvatar: media.channel_avatar,
+  subscribersCount: '',
+  likesCount: String(media.view_count),
+  category: getProfileVideoCategory(media.category),
+  isLive: false,
+  mediaKind: 'video',
+  viewsText: `${media.view_count} views`,
+  duration: media.duration_seconds ? formatProfileMediaDuration(media.duration_seconds) : undefined,
+  thumbnail: media.thumbnail_url,
+  description: media.description,
+  date: media.published_at ? new Date(media.published_at).toLocaleDateString() : 'Recent',
+  videoUrl: media.media_url,
+});
+
+const toProfileAudio = (media: PublicUserMedia): AudioTrack => ({
+  id: String(media.id),
+  title: media.title,
+  artistOrPreacher: media.speaker,
+  albumOrSeries: media.church_name,
+  channelAvatar: media.channel_avatar,
+  category: 'Audio Sermon',
+  coverUrl: media.thumbnail_url,
+  duration: media.duration_seconds ? formatProfileMediaDuration(media.duration_seconds) : '',
+  lyricsOrNotes: media.description,
+  publishedDate: media.published_at ? new Date(media.published_at).toLocaleDateString() : 'Recent',
+  audioUrl: media.media_url,
+});
 
 interface UserProfilePageProps {
   streakDays: number;
@@ -92,7 +139,7 @@ export default function UserProfilePage({
   onUpdateProfile
 }: UserProfilePageProps) {
   // Active tab state
-  const [activeProfileTab, setActiveProfileTab] = useState<'bookmarks' | 'giving' | 'prayers' | 'subscriptions' | 'settings'>('bookmarks');
+  const [activeProfileTab, setActiveProfileTab] = useState<'bookmarks' | 'media' | 'giving' | 'prayers' | 'subscriptions' | 'settings'>('bookmarks');
 
   // Editable Profile Information State
   const [isEditing, setIsEditing] = useState(false);
@@ -217,6 +264,37 @@ export default function UserProfilePage({
   // Saved media is account data, not bundled content.
   const [savedVideos, setSavedVideos] = useState<VideoStream[]>([]);
   const [savedAudios, setSavedAudios] = useState<AudioTrack[]>([]);
+  const [publicMedia, setPublicMedia] = useState<PublicUserMedia[]>([]);
+  const [isLoadingPublicMedia, setIsLoadingPublicMedia] = useState(false);
+  const [publicMediaError, setPublicMediaError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    if (!currentUser?.isLoggedIn || !currentUser.username) {
+      setPublicMedia([]);
+      setPublicMediaError('');
+      setIsLoadingPublicMedia(false);
+      return;
+    }
+
+    setPublicMedia([]);
+    setPublicMediaError('');
+    setIsLoadingPublicMedia(true);
+    djangoApi.getPublicUserProfile(currentUser.username)
+      .then(profile => {
+        if (active) setPublicMedia(profile.media || []);
+      })
+      .catch(error => {
+        if (!active) return;
+        console.error('Could not load your public media:', error);
+        setPublicMediaError('Unable to load your public media. Please try again later.');
+      })
+      .finally(() => {
+        if (active) setIsLoadingPublicMedia(false);
+      });
+
+    return () => { active = false; };
+  }, [currentUser?.isLoggedIn, currentUser?.username]);
 
   useEffect(() => {
     let active = true;
@@ -818,6 +896,7 @@ export default function UserProfilePage({
         <div className="flex border-b border-slate-800 pb-2 gap-2 overflow-x-auto">
           {[
             { id: 'bookmarks', label: 'Saved & Bookmarks', icon: Bookmark, count: savedIds.length },
+            { id: 'media', label: 'Public Media', icon: Video, count: publicMedia.length },
             { id: 'giving', label: 'Giving & Seeds Log', icon: DollarSign, count: givingLogs.length },
             { id: 'prayers', label: 'My Prayers & Notes', icon: Heart, count: myPrayers.length },
             { id: 'subscriptions', label: 'Followed Channels', icon: Tv, count: subscribedChannels.length },
@@ -946,6 +1025,85 @@ export default function UserProfilePage({
                       </button>
                     </div>
                   </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeProfileTab === 'media' && (
+          <div className="space-y-5">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-amber-300">Publicly Uploaded Media</h3>
+              <p className="mt-1 text-[11px] text-slate-400">Media you have published publicly appears here.</p>
+            </div>
+
+            {isLoadingPublicMedia ? (
+              <p role="status" className="rounded-3xl border border-slate-800 bg-[#181818] p-8 text-center text-xs text-slate-400">
+                Loading your public media...
+              </p>
+            ) : publicMediaError ? (
+              <p role="alert" className="rounded-3xl border border-red-900/50 bg-[#181818] p-8 text-center text-xs text-red-300">
+                {publicMediaError}
+              </p>
+            ) : publicMedia.length === 0 ? (
+              <div className="space-y-2 rounded-3xl border border-slate-800 bg-[#181818] p-8 text-center text-xs text-slate-500">
+                <Video className="mx-auto h-8 w-8 text-slate-600" />
+                <p>No public media yet.</p>
+                <p className="text-[10px]">Publish a video or audio track publicly from Creator Studio and it will appear here.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {publicMedia.map((media) => media.kind === 'audio' ? (
+                  <button
+                    key={`public-audio-${media.id}`}
+                    type="button"
+                    onClick={() => onPlayAudio(toProfileAudio(media))}
+                    aria-label={`Play public audio: ${media.title}`}
+                    className="group flex min-w-0 items-center gap-3 rounded-2xl border border-slate-800 bg-[#181818] p-3.5 text-left transition hover:border-amber-500/50"
+                  >
+                    {media.thumbnail_url ? (
+                      <img src={media.thumbnail_url} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover" />
+                    ) : (
+                      <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400">
+                        <Headphones className="h-6 w-6" />
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block line-clamp-2 text-xs font-bold text-white transition group-hover:text-amber-300">{media.title}</span>
+                      <span className="mt-1 block truncate text-[10px] text-slate-400">
+                        {media.speaker}{media.duration_seconds ? ` · ${formatProfileMediaDuration(media.duration_seconds)}` : ''}
+                      </span>
+                    </span>
+                    <Play className="h-4 w-4 shrink-0 fill-current text-amber-400" />
+                  </button>
+                ) : (
+                  <button
+                    key={`public-video-${media.id}`}
+                    type="button"
+                    onClick={() => onPlayVideo(toProfileVideo(media))}
+                    aria-label={`Play public video: ${media.title}`}
+                    className="group overflow-hidden rounded-2xl border border-slate-800 bg-[#181818] text-left transition hover:border-amber-500/50"
+                  >
+                    <div className="relative aspect-video bg-slate-900">
+                      {media.thumbnail_url ? (
+                        <img src={media.thumbnail_url} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                      ) : (
+                        <span className="flex h-full items-center justify-center text-slate-500"><Video className="h-8 w-8" /></span>
+                      )}
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/20 text-white transition group-hover:bg-black/40">
+                        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-400 text-slate-950 shadow-lg">
+                          <Play className="ml-0.5 h-5 w-5 fill-current" />
+                        </span>
+                      </span>
+                    </div>
+                    <span className="block p-3">
+                      <span className="block line-clamp-2 text-xs font-bold text-white transition group-hover:text-amber-300">{media.title}</span>
+                      <span className="mt-1 block truncate text-[10px] text-slate-400">
+                        {media.speaker}{media.duration_seconds ? ` · ${formatProfileMediaDuration(media.duration_seconds)}` : ''}
+                      </span>
+                    </span>
+                  </button>
                 ))}
               </div>
             )}

@@ -1375,6 +1375,12 @@ export default function App() {
                     { id: 'giving', label: 'Kingdom Giving & Offering', icon: DollarSign, badge: 'SUPPORT', badgeStyle: 'bg-emerald-600 text-white font-black' },
                   ],
                 },
+                {
+                  section: 'SUPPORT',
+                  items: [
+                    { id: 'feedback', label: 'Send Feedback', icon: MessageSquarePlus },
+                  ],
+                },
               ].map((grp) => (
                 <div key={grp.section} className="space-y-1.5">
                   <span className="menu-section flex items-center gap-2 px-2 pb-1 text-[10px] font-black uppercase tracking-[0.2em] text-amber-600/80 dark:text-amber-400/70 after:h-px after:flex-1 after:bg-gradient-to-r after:from-amber-500/30 after:to-transparent">
@@ -1430,6 +1436,8 @@ export default function App() {
                               setActiveVideo(null);
                             } else if (item.id === 'giving') {
                               handleOpenGiving();
+                            } else if (item.id === 'feedback') {
+                              setShowFeedbackModal(true);
                             } else if (item.id === 'home') {
                               handleNavigateHome();
                             } else {
@@ -1571,6 +1579,12 @@ export default function App() {
                           { id: 'giving', label: 'Kingdom Giving & Offering', icon: DollarSign, badge: 'SUPPORT', badgeStyle: 'bg-emerald-600 text-white font-black' },
                         ],
                       },
+                      {
+                        section: 'SUPPORT',
+                        items: [
+                          { id: 'feedback', label: 'Send Feedback', icon: MessageSquarePlus },
+                        ],
+                      },
                     ].map((grp) => (
                       <div key={grp.section} className="space-y-1.5">
                         <span className="menu-section flex items-center gap-2 px-2 pb-1 text-[10px] font-black uppercase tracking-[0.2em] text-amber-600/80 dark:text-amber-400/70 after:h-px after:flex-1 after:bg-gradient-to-r after:from-amber-500/30 after:to-transparent">
@@ -1627,6 +1641,8 @@ export default function App() {
                                     setActiveVideo(null);
                                   } else if (item.id === 'giving') {
                                     handleOpenGiving();
+                                  } else if (item.id === 'feedback') {
+                                    setShowFeedbackModal(true);
                                   } else if (item.id === 'home') {
                                     handleNavigateHome();
                                   } else {
