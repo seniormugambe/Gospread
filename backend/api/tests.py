@@ -1306,6 +1306,152 @@ class SermonSchedulingTests(APITestCase):
         self.assertEqual(feed.data["count"], 0)
         self.assertEqual(detail.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_scheduled_publishing_command_publishes_only_due_sermons(self):
+        due_time = timezone.now() - timedelta(minutes=3)
+        due_sermon = Sermon.objects.create(
+            church=self.church,
+            title="Due sermon",
+            speaker="Pastor Grace",
+            scheduled_for=due_time,
+            is_published=False,
+        )
+        future_sermon = Sermon.objects.create(
+            church=self.church,
+            title="Future sermon",
+            speaker="Pastor Grace",
+            scheduled_for=timezone.now() + timedelta(days=1),
+            is_published=False,
+        )
+        output = StringIO()
+
+        call_command("publish_scheduled_sermons", stdout=output)
+
+        due_sermon.refresh_from_db()
+        future_sermon.refresh_from_db()
+        self.assertTrue(due_sermon.is_published)
+        self.assertEqual(due_sermon.published_at, due_time)
+        self.assertFalse(future_sermon.is_published)
+        self.assertIn("Published 1 scheduled sermon(s).", output.getvalue())
+
+
+class CreatorAnalyticsTests(APITestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            username="analytics-owner", email="analytics-owner@example.com", password="StrongPass123!"
+        )
+        self.viewer = User.objects.create_user(
+            username="analytics-viewer", email="analytics-viewer@example.com", password="StrongPass123!"
+        )
+        self.other_owner = User.objects.create_user(
+            username="analytics-other", email="analytics-other@example.com", password="StrongPass123!"
+        )
+        self.church = Church.objects.create(name="Analytics Church", slug="analytics-church", owner=self.owner)
+        self.other_church = Church.objects.create(
+            name="Other Analytics Church", slug="other-analytics-church", owner=self.other_owner
+        )
+        self.client.force_authenticate(user=self.owner)
+
+    @override_settings(PLAYBACK_ANALYTICS_ENABLED=True)
+    def test_analytics_are_scoped_to_creator_and_aggregate_real_activity(self):
+        sermon = Sermon.objects.create(
+            church=self.church,
+            title="Tracked sermon",
+            speaker="Pastor Analytics",
+            is_published=True,
+            visibility="public",
+        )
+        other_sermon = Sermon.objects.create(
+            church=self.other_church,
+            title="Another creator's sermon",
+            speaker="Another pastor",
+            is_published=True,
+            visibility="public",
+        )
+        session = PlaybackSession.objects.create(
+            user=self.viewer,
+            sermon=sermon,
+            session_id=uuid4(),
+            qualified_watch_seconds=120,
+            is_qualified=True,
+        )
+        PlaybackEvent.objects.create(
+            session=session,
+            event_id=uuid4(),
+            position_seconds=120,
+            accepted_watch_seconds=120,
+        )
+        other_session = PlaybackSession.objects.create(
+            user=self.viewer,
+            sermon=other_sermon,
+            session_id=uuid4(),
+            qualified_watch_seconds=600,
+            is_qualified=True,
+        )
+        PlaybackEvent.objects.create(
+            session=other_session,
+            event_id=uuid4(),
+            position_seconds=600,
+            accepted_watch_seconds=600,
+        )
+        fund = GivingFund.objects.create(church=self.church, name="Missions")
+        other_fund = GivingFund.objects.create(church=self.other_church, name="Other gifts")
+        Donation.objects.create(
+            church=self.church,
+            fund=fund,
+            donor=self.viewer,
+            amount="125.00",
+            currency="UGX",
+            status=Donation.Status.COMPLETED,
+        )
+        Donation.objects.create(
+            church=self.church,
+            fund=fund,
+            donor=self.viewer,
+            amount="99.00",
+            currency="USD",
+            status=Donation.Status.PENDING,
+        )
+        Donation.objects.create(
+            church=self.other_church,
+            fund=other_fund,
+            donor=self.viewer,
+            amount="500.00",
+            currency="UGX",
+            status=Donation.Status.COMPLETED,
+        )
+
+        response = self.client.get("/api/v1/analytics/?range=28d")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["content"]["published_content_count"], 1)
+        self.assertEqual(response.data["content"]["lifetime_playback_sessions"], 1)
+        self.assertEqual(response.data["content"]["playback_sessions"], 1)
+        self.assertEqual(response.data["content"]["unique_viewers"], 1)
+        self.assertEqual(response.data["content"]["watch_seconds"], 120)
+        self.assertEqual(response.data["content"]["watch_hours"], 0.03)
+        self.assertEqual(response.data["content"]["top_content"][0]["title"], "Tracked sermon")
+        self.assertEqual(response.data["giving"]["completed_donations"], 1)
+        self.assertEqual(response.data["giving"]["totals_by_currency"], [
+            {"currency": "UGX", "amount": "125.00", "donations": 1},
+        ])
+
+    @override_settings(PLAYBACK_ANALYTICS_ENABLED=False, DISCOVERY_EVENTS_ENABLED=False)
+    def test_analytics_indicates_when_watch_time_tracking_is_disabled(self):
+        response = self.client.get("/api/v1/analytics/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["playback_tracking_enabled"])
+        self.assertIsNone(response.data["content"]["watch_hours"])
+        self.assertIsNone(response.data["content"]["watch_seconds"])
+
+    def test_analytics_requires_authentication_and_valid_range(self):
+        self.client.force_authenticate(user=None)
+        self.assertEqual(self.client.get("/api/v1/analytics/").status_code, status.HTTP_401_UNAUTHORIZED)
+
+        self.client.force_authenticate(user=self.owner)
+        invalid_range = self.client.get("/api/v1/analytics/?range=30d")
+        self.assertEqual(invalid_range.status_code, status.HTTP_400_BAD_REQUEST)
+
 
 class DiscoveryAlgorithmTests(APITestCase):
     def setUp(self):
@@ -1363,6 +1509,7 @@ class DiscoveryAlgorithmTests(APITestCase):
         self.assertEqual(response.data["config_version"], "2.2-pilot-1")
         self.assertTrue(response.data["algorithm_enabled"])
         self.assertTrue(response.data["events_enabled"])
+        self.assertTrue(response.data["playback_analytics_enabled"])
 
     @override_settings(DISCOVERY_ALGORITHM_ENABLED=True, DISCOVERY_EVENTS_ENABLED=True)
     def test_ranked_feed_records_served_impressions_for_private_aggregate_report(self):
@@ -1457,7 +1604,7 @@ class DiscoveryAlgorithmTests(APITestCase):
         self.assertEqual([item["id"] for item in response.data["results"]], [followed.id])
         self.assertNotIn(other.id, [item["id"] for item in response.data["results"]])
 
-    @override_settings(DISCOVERY_EVENTS_ENABLED=True)
+    @override_settings(PLAYBACK_ANALYTICS_ENABLED=True)
     def test_playback_heartbeat_is_authenticated_idempotent_and_conservative(self):
         sermon = self.create_sermon("Heartbeat sermon")
         session_id = uuid4()
@@ -1508,7 +1655,7 @@ class DiscoveryAlgorithmTests(APITestCase):
         self.assertEqual(third.data["qualified_watch_seconds"], 30)
         self.assertTrue(third.data["qualified_view"])
 
-    @override_settings(DISCOVERY_EVENTS_ENABLED=True)
+    @override_settings(PLAYBACK_ANALYTICS_ENABLED=True)
     def test_playback_heartbeat_rejects_unavailable_content_and_impossible_positions(self):
         private_sermon = self.create_sermon("Private sermon", visibility="private")
         private_response = self.client.post(
@@ -1527,7 +1674,7 @@ class DiscoveryAlgorithmTests(APITestCase):
         self.assertEqual(invalid_position.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(PlaybackEvent.objects.count(), 0)
 
-    @override_settings(DISCOVERY_EVENTS_ENABLED=False)
+    @override_settings(PLAYBACK_ANALYTICS_ENABLED=False, DISCOVERY_EVENTS_ENABLED=False)
     def test_playback_heartbeat_is_disabled_by_default(self):
         sermon = self.create_sermon("Events disabled")
 

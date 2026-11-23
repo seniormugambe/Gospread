@@ -83,7 +83,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream, ChurchLocation, SocialLink, registerChurchProfile } from '../data/gospelData';
-import { djangoApi } from '../services/djangoApi';
+import { djangoApi, type CreatorAnalyticsApi, type CreatorAnalyticsRange } from '../services/djangoApi';
 import CreateShortPanel from './CreateShortPanel';
 import { UserSession } from './AuthModal';
 import LiveBroadcastRoom from './LiveBroadcastRoom';
@@ -645,6 +645,81 @@ export default function CreatePage({
   const [payoutAccounts, setPayoutAccounts] = useState<PayoutAccountItem[]>([]);
   const [payoutLoadError, setPayoutLoadError] = useState<string | null>(null);
   const [payoutLoadAttempt, setPayoutLoadAttempt] = useState(0);
+  const [creatorAnalyticsState, setCreatorAnalyticsState] = useState<{
+    data: CreatorAnalyticsApi | null;
+    range: CreatorAnalyticsRange;
+    loading: boolean;
+    error: string | null;
+    attempt: number;
+  }>({
+    data: null,
+    range: '28d',
+    loading: Boolean(currentUser?.isLoggedIn),
+    error: null,
+    attempt: 0,
+  });
+
+  useEffect(() => {
+    let active = true;
+    if (!currentUser?.isLoggedIn) {
+      setCreatorAnalyticsState(state => ({ ...state, data: null, loading: false, error: null }));
+      return () => { active = false; };
+    }
+
+    setCreatorAnalyticsState(state => ({ ...state, loading: true, error: null }));
+    djangoApi.getCreatorAnalytics(creatorAnalyticsState.range).then(data => {
+      if (active) setCreatorAnalyticsState(state => ({ ...state, data, loading: false, error: null }));
+    }).catch((error: unknown) => {
+      if (active) {
+        setCreatorAnalyticsState(state => ({
+          ...state,
+          data: null,
+          loading: false,
+          error: error instanceof Error
+            ? `Creator analytics could not be loaded: ${error.message}`
+            : 'Creator analytics could not be loaded. Check your connection and try again.',
+        }));
+      }
+    });
+    return () => { active = false; };
+  }, [
+    currentUser?.id,
+    currentUser?.isLoggedIn,
+    currentUser?.token,
+    creatorAnalyticsState.attempt,
+    creatorAnalyticsState.range,
+  ]);
+
+  const formatAnalyticsMetric = (value: number | null | undefined) => {
+    if (creatorAnalyticsState.loading) return '...';
+    if (creatorAnalyticsState.error) return 'Unavailable';
+    if (!currentUser?.isLoggedIn) return 'Sign in';
+    return value == null ? '--' : value.toLocaleString();
+  };
+  const formatPlaybackMetric = (value: number | null | undefined) => {
+    if (creatorAnalyticsState.loading) return '...';
+    if (creatorAnalyticsState.error) return 'Unavailable';
+    if (!currentUser?.isLoggedIn) return 'Sign in';
+    if (!creatorAnalyticsState.data?.playback_tracking_enabled) return 'Not tracked';
+    return value == null ? '--' : value.toLocaleString();
+  };
+  const formatCreatorWatchHours = () => {
+    if (creatorAnalyticsState.loading) return '...';
+    if (creatorAnalyticsState.error) return 'Unavailable';
+    if (!currentUser?.isLoggedIn) return 'Sign in';
+    if (!creatorAnalyticsState.data?.playback_tracking_enabled) return 'Not tracked';
+    return `${(creatorAnalyticsState.data.content.watch_hours ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} hrs`;
+  };
+  const formatCreatorDonations = () => {
+    if (creatorAnalyticsState.loading) return '...';
+    if (creatorAnalyticsState.error) return 'Unavailable';
+    if (!currentUser?.isLoggedIn) return 'Sign in';
+    const totals = creatorAnalyticsState.data?.giving.totals_by_currency ?? [];
+    return totals.length
+      ? totals.map(item => `${item.currency} ${Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).join(' · ')
+      : 'No completed gifts';
+  };
+
   useEffect(() => {
     if (studioNavTab !== 'giving') return;
     let active = true;
@@ -1446,6 +1521,25 @@ export default function CreatePage({
     <div className={`creator-studio-portal max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 space-y-6 ${
       isLight ? 'creator-studio-light' : 'creator-studio-dark'
     }`}>
+      {studioNavTab === 'overview' && creatorAnalyticsState.error && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-500/30 bg-rose-950/30 p-4 text-sm text-rose-200">
+          <p>{creatorAnalyticsState.error}</p>
+          <button
+            type="button"
+            onClick={() => setCreatorAnalyticsState(state => ({
+              ...state,
+              data: null,
+              loading: true,
+              error: null,
+              attempt: state.attempt + 1,
+            }))}
+            className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-rose-500"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Retry analytics
+          </button>
+        </div>
+      )}
       
       {/* 👑 RECOGNIZED MINISTRY IDENTITY & STUDIO COMMAND BAR */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-900/90 to-amber-950/40 border border-amber-500/30 rounded-3xl p-4 sm:p-6 shadow-2xl relative overflow-hidden backdrop-blur-xl">
@@ -1495,22 +1589,22 @@ export default function CreatePage({
               <div className="flex items-center gap-3 pt-1 flex-wrap text-[11px]">
                 <div className="flex items-center gap-1 text-slate-300 font-medium">
                   <Users className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="font-bold text-white">0</span> Saints
+                  <span className="font-bold text-white">{formatPlaybackMetric(creatorAnalyticsState.data?.content.unique_viewers)}</span> Unique Viewers
                 </div>
                 <span className="text-slate-700">•</span>
                 <div className="flex items-center gap-1 text-slate-300 font-medium">
                   <Film className="w-3.5 h-3.5 text-sky-400" />
-                  <span className="font-bold text-white">0</span> Sermons & VODs
+                  <span className="font-bold text-white">{formatAnalyticsMetric(creatorAnalyticsState.data?.content.published_content_count)}</span> Published Sermons
                 </div>
                 <span className="text-slate-700">•</span>
                 <div className="flex items-center gap-1 text-slate-300 font-medium">
                   <Compass className="w-3.5 h-3.5 text-purple-400" />
-                  <span className="font-bold text-white">0</span> Watch Hours
+                  <span className="font-bold text-white">{formatCreatorWatchHours()}</span>
                 </div>
                 <span className="text-slate-700">•</span>
                 <div className="flex items-center gap-1 text-slate-300 font-medium">
                   <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="font-bold text-emerald-400">$0</span> Seed Balance
+                  <span className="font-bold text-emerald-400">{formatCreatorDonations()}</span> Giving
                 </div>
               </div>
             </div>
@@ -1776,6 +1870,24 @@ export default function CreatePage({
         <StudioNavigationContext.Provider value={{ state: studioNavigation, dispatch: dispatchStudioNavigation }}>
           <KingdomStudioSections
             currentUser={currentUser}
+            creatorAnalytics={creatorAnalyticsState.data}
+            analyticsLoading={creatorAnalyticsState.loading}
+            analyticsError={creatorAnalyticsState.error}
+            analyticsTimeRange={creatorAnalyticsState.range}
+            onAnalyticsTimeRangeChange={range => setCreatorAnalyticsState(state => ({
+              ...state,
+              data: null,
+              range,
+              loading: true,
+              error: null,
+            }))}
+            onRetryAnalytics={() => setCreatorAnalyticsState(state => ({
+              ...state,
+              data: null,
+              loading: true,
+              error: null,
+              attempt: state.attempt + 1,
+            }))}
             ministryName={ministryName}
             ownerName={ownerName}
             avatarUrl={avatarUrl}
@@ -2222,37 +2334,29 @@ export default function CreatePage({
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
             <div className="p-4 sm:p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-2">
               <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="font-bold">Congregation Reach</span>
+                <span className="font-bold">Lifetime Playback Sessions</span>
                 <Eye className="w-4 h-4 text-amber-400" />
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-white">0</p>
-              <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-bold">
-                <TrendingUp className="w-3.5 h-3.5" />
-                <span>No reach data loaded</span>
-              </div>
+              <p className="text-2xl sm:text-3xl font-black text-white">{formatPlaybackMetric(creatorAnalyticsState.data?.content.lifetime_playback_sessions)}</p>
+              <span className="text-[11px] text-slate-400">Across all recorded sessions on public sermons</span>
             </div>
 
             <div className="p-4 sm:p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-2">
               <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="font-bold">Broadcast Watch Hours</span>
+                <span className="font-bold">Sermon Watch Hours</span>
                 <Compass className="w-4 h-4 text-sky-400" />
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-white">0</p>
-              <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-bold">
-                <TrendingUp className="w-3.5 h-3.5" />
-                <span>No watch data loaded</span>
-              </div>
+              <p className="text-2xl sm:text-3xl font-black text-white">{formatCreatorWatchHours()}</p>
+              <span className="text-[11px] text-slate-400">Accepted play time over {creatorAnalyticsState.range}</span>
             </div>
 
             <div className="p-4 sm:p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-2">
               <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="font-bold">Kingdom Seed Balance</span>
+                <span className="font-bold">Completed Donations</span>
                 <DollarSign className="w-4 h-4 text-emerald-400" />
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-emerald-400">$0</p>
-              <div className="flex items-center gap-1 text-[11px] text-slate-400">
-                <span>No giving data loaded</span>
-              </div>
+              <p className="text-xl sm:text-2xl font-black text-emerald-400">{formatCreatorDonations()}</p>
+              <span className="text-[11px] text-slate-400">Completed donations, grouped by currency</span>
             </div>
 
             <div className="p-4 sm:p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-2">
@@ -2260,9 +2364,9 @@ export default function CreatePage({
                 <span className="font-bold">Intercession Altar</span>
                 <Heart className="w-4 h-4 text-rose-400" />
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-rose-400">{prayerRequests.length}</p>
+              <p className="text-2xl sm:text-3xl font-black text-rose-400">{prayerRequests.length.toLocaleString()}</p>
               <div className="flex items-center gap-1 text-[11px] text-slate-400">
-                <span>Prayers standing in agreement</span>
+                <span>Prayer requests in this studio session</span>
               </div>
             </div>
           </div>

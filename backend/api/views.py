@@ -797,6 +797,9 @@ class DiscoveryConfigView(generics.GenericAPIView):
                 "config_version": discovery.CONFIG_VERSION,
                 "algorithm_enabled": settings.DISCOVERY_ALGORITHM_ENABLED,
                 "events_enabled": settings.DISCOVERY_EVENTS_ENABLED,
+                "playback_analytics_enabled": (
+                    settings.PLAYBACK_ANALYTICS_ENABLED or settings.DISCOVERY_EVENTS_ENABLED
+                ),
             }
         )
 
@@ -1328,7 +1331,7 @@ class SermonHeartbeatView(generics.GenericAPIView):
 
     @transaction.atomic
     def post(self, request, sermon_id):
-        if not settings.DISCOVERY_EVENTS_ENABLED:
+        if not (settings.PLAYBACK_ANALYTICS_ENABLED or settings.DISCOVERY_EVENTS_ENABLED):
             return Response(
                 {"detail": "Playback event ingestion is not enabled."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -1399,6 +1402,122 @@ class SermonHeartbeatView(generics.GenericAPIView):
                 "qualified_view": session.is_qualified,
             }
         )
+
+
+class CreatorAnalyticsView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        time_range = request.query_params.get("range", "28d")
+        days_by_range = {"7d": 7, "28d": 28, "90d": 90}
+        if time_range != "all" and time_range not in days_by_range:
+            raise ValidationError({"range": "Choose 7d, 28d, 90d, or all."})
+
+        now = timezone.now()
+        start = now - timedelta(days=days_by_range[time_range]) if time_range != "all" else None
+        sermons = Sermon.objects.filter(
+            church__owner=request.user,
+            is_published=True,
+            visibility="public",
+        )
+        sermon_ids = sermons.values("id")
+
+        all_sessions = PlaybackSession.objects.filter(sermon_id__in=sermon_ids)
+        sessions = all_sessions
+        if start:
+            sessions = sessions.filter(created_at__gte=start, created_at__lt=now)
+        session_totals = sessions.aggregate(
+            playback_sessions=Count("id"),
+            unique_viewers=Count("user_id", distinct=True),
+            qualified_sessions=Count("id", filter=Q(is_qualified=True)),
+        )
+
+        playback_tracking_enabled = (
+            settings.PLAYBACK_ANALYTICS_ENABLED or settings.DISCOVERY_EVENTS_ENABLED
+        )
+        events = PlaybackEvent.objects.filter(session__sermon_id__in=sermon_ids)
+        if start:
+            events = events.filter(received_at__gte=start, received_at__lt=now)
+        watch_seconds = (
+            events.aggregate(total=Sum("accepted_watch_seconds"))["total"] or 0
+            if playback_tracking_enabled
+            else None
+        )
+
+        top_content_rows = list(
+            sessions.values("sermon_id", "sermon__title")
+            .annotate(
+                playback_sessions=Count("id"),
+                unique_viewers=Count("user_id", distinct=True),
+            )
+            .order_by("-playback_sessions", "sermon__title")[:5]
+        )
+        top_content_events = events.values("session__sermon_id").annotate(
+            watch_seconds=Sum("accepted_watch_seconds")
+        )
+        watch_seconds_by_sermon = {
+            item["session__sermon_id"]: item["watch_seconds"] or 0
+            for item in top_content_events
+        } if playback_tracking_enabled else {}
+        top_content = [
+            {
+                "sermon_id": item["sermon_id"],
+                "title": item["sermon__title"],
+                "playback_sessions": item["playback_sessions"],
+                "unique_viewers": item["unique_viewers"],
+                "watch_hours": (
+                    round(watch_seconds_by_sermon.get(item["sermon_id"], 0) / 3600, 2)
+                    if playback_tracking_enabled else None
+                ),
+            }
+            for item in top_content_rows
+        ]
+
+        donation_queryset = Donation.objects.filter(
+            church__owner=request.user,
+            status=Donation.Status.COMPLETED,
+        )
+        if start:
+            donation_queryset = donation_queryset.filter(created_at__gte=start, created_at__lt=now)
+        donation_totals = list(
+            donation_queryset.values("currency")
+            .annotate(amount=Sum("amount"), donation_count=Count("id"))
+            .order_by("currency")
+        )
+
+        return Response({
+            "range": time_range,
+            "period_start": start.isoformat() if start else None,
+            "period_end": now.isoformat(),
+            "playback_tracking_enabled": playback_tracking_enabled,
+            "content": {
+                "published_content_count": sermons.count(),
+                "lifetime_playback_sessions": (
+                    all_sessions.count() if playback_tracking_enabled else None
+                ),
+                "playback_sessions": session_totals["playback_sessions"],
+                "unique_viewers": session_totals["unique_viewers"],
+                "qualified_sessions": session_totals["qualified_sessions"],
+                "qualified_rate": (
+                    session_totals["qualified_sessions"] / session_totals["playback_sessions"]
+                    if session_totals["playback_sessions"] else None
+                ),
+                "watch_seconds": watch_seconds,
+                "watch_hours": round(watch_seconds / 3600, 2) if watch_seconds is not None else None,
+                "top_content": top_content,
+            },
+            "giving": {
+                "completed_donations": sum(item["donation_count"] for item in donation_totals),
+                "totals_by_currency": [
+                    {
+                        "currency": item["currency"],
+                        "amount": format(item["amount"] or 0, ".2f"),
+                        "donations": item["donation_count"],
+                    }
+                    for item in donation_totals
+                ],
+            },
+        })
 
 
 class SermonShortViewSet(viewsets.ModelViewSet):

@@ -253,6 +253,40 @@ export interface CreatorSermonApi {
   media_url: string;
 }
 
+export type CreatorAnalyticsRange = '7d' | '28d' | '90d' | 'all';
+
+export interface CreatorAnalyticsApi {
+  range: CreatorAnalyticsRange;
+  period_start: string | null;
+  period_end: string;
+  playback_tracking_enabled: boolean;
+  content: {
+    published_content_count: number;
+    lifetime_playback_sessions: number | null;
+    playback_sessions: number;
+    unique_viewers: number;
+    qualified_sessions: number;
+    qualified_rate: number | null;
+    watch_seconds: number | null;
+    watch_hours: number | null;
+    top_content: Array<{
+      sermon_id: number;
+      title: string;
+      playback_sessions: number;
+      unique_viewers: number;
+      watch_hours: number | null;
+    }>;
+  };
+  giving: {
+    completed_donations: number;
+    totals_by_currency: Array<{
+      currency: string;
+      amount: string;
+      donations: number;
+    }>;
+  };
+}
+
 // Base API URL configuration from environment or direct default
 export const DJANGO_API_BASE_URL = import.meta.env.VITE_DJANGO_API_URL || 'https://gospread-api.onrender.com/api/v1';
 
@@ -400,6 +434,7 @@ export interface ActiveAudioSpaceApi {
   title: string;
   topic: string;
   host_name: string;
+  host_id: number;
   ministry_name: string;
   started_at: string;
 }
@@ -1388,11 +1423,13 @@ class DjangoApiClient {
     config_version: string;
     algorithm_enabled: boolean;
     events_enabled: boolean;
+    playback_analytics_enabled: boolean;
   }> {
     return this.request<{
       config_version: string;
       algorithm_enabled: boolean;
       events_enabled: boolean;
+      playback_analytics_enabled: boolean;
     }>('/discovery/config/');
   }
 
@@ -1481,6 +1518,11 @@ class DjangoApiClient {
       `/sermons/${query ? `?${query}` : ''}`,
     );
     return Array.isArray(response) ? response : response.results;
+  }
+
+  public async getCreatorAnalytics(range: CreatorAnalyticsRange): Promise<CreatorAnalyticsApi> {
+    const params = new URLSearchParams({ range });
+    return this.request<CreatorAnalyticsApi>(`/analytics/?${params.toString()}`);
   }
 
   public async publishSermon(id: string | number): Promise<CreatorSermonApi> {

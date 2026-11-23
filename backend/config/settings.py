@@ -79,6 +79,7 @@ LIVEKIT_API_SECRET = os.getenv("LIVEKIT_API_SECRET", "").strip()
 AWS_IVS_REGION = os.getenv("AWS_IVS_REGION", os.getenv("AWS_REGION", "us-east-1")).strip()
 DISCOVERY_ALGORITHM_ENABLED = os.getenv("DISCOVERY_ALGORITHM_ENABLED", "false").strip().lower() == "true"
 DISCOVERY_EVENTS_ENABLED = os.getenv("DISCOVERY_EVENTS_ENABLED", "false").strip().lower() == "true"
+PLAYBACK_ANALYTICS_ENABLED = os.getenv("PLAYBACK_ANALYTICS_ENABLED", "false").strip().lower() == "true"
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},

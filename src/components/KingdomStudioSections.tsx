@@ -53,11 +53,17 @@ import { motion } from 'motion/react';
 import { UserSession } from './AuthModal';
 import { ChurchLocation, SocialLink } from '../data/gospelData';
 import { RecordedStreamData } from './LiveRecordingVODModal';
-import { djangoApi } from '../services/djangoApi';
+import { djangoApi, type CreatorAnalyticsApi, type CreatorAnalyticsRange } from '../services/djangoApi';
 import { useStudioNavigation } from './creatorStudioState';
 
 interface KingdomStudioSectionsProps {
   currentUser?: UserSession;
+  creatorAnalytics: CreatorAnalyticsApi | null;
+  analyticsLoading: boolean;
+  analyticsError: string | null;
+  analyticsTimeRange: CreatorAnalyticsRange;
+  onAnalyticsTimeRangeChange: (range: CreatorAnalyticsRange) => void;
+  onRetryAnalytics: () => void;
   ministryName: string;
   ownerName: string;
   avatarUrl: string;
@@ -81,6 +87,12 @@ interface KingdomStudioSectionsProps {
 
 export default function KingdomStudioSections({
   currentUser,
+  creatorAnalytics,
+  analyticsLoading,
+  analyticsError,
+  analyticsTimeRange,
+  onAnalyticsTimeRangeChange,
+  onRetryAnalytics,
   ministryName,
   ownerName,
   avatarUrl,
@@ -110,6 +122,35 @@ export default function KingdomStudioSections({
     dispatchNavigation({ type: 'set-live-subtab', value });
   const setCommunitySubTab = (value: typeof communitySubTab) =>
     dispatchNavigation({ type: 'set-community-subtab', value });
+  const formatAnalyticsMetric = (value: number | null | undefined) => {
+    if (analyticsLoading) return '...';
+    if (analyticsError) return 'Unavailable';
+    if (!currentUser?.isLoggedIn) return 'Sign in';
+    return value == null ? '--' : value.toLocaleString();
+  };
+  const formatPlaybackMetric = (value: number | null | undefined) => {
+    if (analyticsLoading) return '...';
+    if (analyticsError) return 'Unavailable';
+    if (!currentUser?.isLoggedIn) return 'Sign in';
+    if (!creatorAnalytics?.playback_tracking_enabled) return 'Not tracked';
+    return value == null ? '--' : value.toLocaleString();
+  };
+  const formatWatchHours = () => {
+    if (analyticsLoading) return '...';
+    if (analyticsError) return 'Unavailable';
+    if (!currentUser?.isLoggedIn) return 'Sign in';
+    if (!creatorAnalytics?.playback_tracking_enabled) return 'Not tracked';
+    return `${(creatorAnalytics.content.watch_hours ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} hrs`;
+  };
+  const formatDonationTotals = () => {
+    if (analyticsLoading) return '...';
+    if (analyticsError) return 'Unavailable';
+    if (!currentUser?.isLoggedIn) return 'Sign in';
+    const totals = creatorAnalytics?.giving.totals_by_currency ?? [];
+    return totals.length
+      ? totals.map(item => `${item.currency} ${Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).join(' · ')
+      : 'No completed gifts';
+  };
 
   const [sampleVideos, setSampleVideos] = useState<any[]>([]);
   const [sampleShorts, setSampleShorts] = useState<any[]>([]);
@@ -244,7 +285,6 @@ export default function KingdomStudioSections({
   // 🎛️ Interactive Filters & UX State
   const [contentSearchQuery, setContentSearchQuery] = useState('');
   const [contentCategoryFilter, setContentCategoryFilter] = useState<'all' | 'sermon' | 'worship' | 'podcast'>('all');
-  const [analyticsTimeRange, setAnalyticsTimeRange] = useState<'7d' | '28d' | '90d' | 'all'>('28d');
   const [activeEncoderTab, setActiveEncoderTab] = useState<'obs' | 'streamlabs' | 'vmix' | 'hardware'>('obs');
   const [revealStreamKey, setRevealStreamKey] = useState(false);
   const [givingFilter, setGivingFilter] = useState<'all' | 'tithes' | 'missions' | 'building'>('all');
@@ -305,6 +345,15 @@ export default function KingdomStudioSections({
       (contentCategoryFilter === 'sermon' && !v.title.toLowerCase().includes('worship') && !v.title.toLowerCase().includes('podcast'));
     return matchesSearch && matchesCat;
   });
+  const creatorVideos = sampleVideos.filter(video => video.isOwner);
+  const topContent = creatorAnalytics?.content.top_content ?? [];
+  const maxTopContentSessions = Math.max(1, ...topContent.map(item => item.playback_sessions));
+  const analyticsRanges: Array<{ id: CreatorAnalyticsRange; label: string }> = [
+    { id: '7d', label: '7D' },
+    { id: '28d', label: '28D' },
+    { id: '90d', label: '90D' },
+    { id: 'all', label: 'All-Time' },
+  ];
 
   return (
     <div className="space-y-6">
@@ -318,6 +367,19 @@ export default function KingdomStudioSections({
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Retry loading
+          </button>
+        </div>
+      )}
+      {analyticsError && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-500/30 bg-rose-950/30 p-4 text-sm text-rose-200">
+          <p>{analyticsError}</p>
+          <button
+            type="button"
+            onClick={onRetryAnalytics}
+            className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-rose-500"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Retry analytics
           </button>
         </div>
       )}
@@ -344,47 +406,38 @@ export default function KingdomStudioSections({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
             <div className="p-4 sm:p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-1.5 shadow-lg">
               <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="font-bold">Total Congregation Views</span>
+                <span className="font-bold">Lifetime Playback Sessions</span>
                 <Eye className="w-4 h-4 text-amber-400" />
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-white">{sampleVideos.reduce((total, video) => total + Number(video.viewsText?.replace(/[^0-9]/g, '') || 0), 0).toLocaleString()}</p>
-              <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-bold">
-                <TrendingUp className="w-3.5 h-3.5" />
-                <span>Live data</span>
-              </div>
+              <p className="text-2xl sm:text-3xl font-black text-white">{formatPlaybackMetric(creatorAnalytics?.content.lifetime_playback_sessions)}</p>
+              <span className="text-[11px] text-slate-400">Across all recorded sessions on public sermons</span>
             </div>
 
             <div className="p-4 sm:p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-1.5 shadow-lg">
               <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="font-bold">Broadcast Watch Hours</span>
+                <span className="font-bold">Sermon Watch Hours</span>
                 <Compass className="w-4 h-4 text-sky-400" />
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-white">0 hrs</p>
-              <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-bold">
-                <TrendingUp className="w-3.5 h-3.5" />
-                <span>+18.2% vs last week</span>
-              </div>
+              <p className="text-2xl sm:text-3xl font-black text-white">{formatWatchHours()}</p>
+              <span className="text-[11px] text-slate-400">Accepted play time over {analyticsTimeRange}</span>
             </div>
 
             <div className="p-4 sm:p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-1.5 shadow-lg">
               <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="font-bold">Saints & Partners</span>
+                <span className="font-bold">Unique Viewers</span>
                 <Users className="w-4 h-4 text-amber-400" />
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-white">{sampleComments.length}</p>
-              <div className="flex items-center gap-1 text-[11px] text-amber-400 font-bold">
-                <Plus className="w-3.5 h-3.5" />
-                <span>820 new this week</span>
-              </div>
+              <p className="text-2xl sm:text-3xl font-black text-white">{formatPlaybackMetric(creatorAnalytics?.content.unique_viewers)}</p>
+              <span className="text-[11px] text-slate-400">Signed-in viewers over {analyticsTimeRange}</span>
             </div>
 
             <div className="p-4 sm:p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-1.5 shadow-lg">
               <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="font-bold">Seed Gifts & Giving</span>
+                <span className="font-bold">Completed Donations</span>
                 <DollarSign className="w-4 h-4 text-emerald-400" />
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-emerald-400">$0</p>
-              <span className="text-[10px] text-slate-400">No donation summary loaded</span>
+              <p className="text-xl sm:text-2xl font-black text-emerald-400">{formatDonationTotals()}</p>
+              <span className="text-[10px] text-slate-400">Grouped by currency over {analyticsTimeRange}</span>
             </div>
           </div>
 
@@ -433,39 +486,38 @@ export default function KingdomStudioSections({
             </div>
           </div>
 
-          {/* DUAL DASHBOARD GRID: LATEST VIDEO PERFORMANCE + AUDIENCE GEOGRAPHIC REACH */}
+          {/* CREATOR CONTENT PERFORMANCE */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             
-            {/* Latest Video Performance Card */}
+            {/* Latest Published Content */}
             <div className="p-5 sm:p-6 rounded-3xl bg-[#161616] border border-slate-800 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <BarChart3 className="w-4 h-4 text-amber-400" />
-                  <span>Latest Sermon Performance</span>
+                  <span>Latest Published Content</span>
                 </h3>
-                <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-full">
-                  First 3 days
+                <span className="text-[11px] font-bold text-slate-300 bg-slate-800 px-2 py-0.5 rounded-full">
+                  {creatorVideos.length} published
                 </span>
               </div>
 
-              {sampleVideos[0] ? (
+              {creatorVideos[0] ? (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800/80">
                   <div className="relative shrink-0 w-full sm:w-44 aspect-video rounded-xl overflow-hidden bg-slate-950">
-                    {sampleVideos[0].thumbnail && <img src={sampleVideos[0].thumbnail} alt={sampleVideos[0].title} referrerPolicy="no-referrer" className="w-full h-full object-cover" />}
-                    {sampleVideos[0].duration && <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-mono text-white">{sampleVideos[0].duration}</span>}
+                    {creatorVideos[0].thumbnail && <img src={creatorVideos[0].thumbnail} alt={creatorVideos[0].title} referrerPolicy="no-referrer" className="w-full h-full object-cover" />}
+                    {creatorVideos[0].duration && <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-mono text-white">{creatorVideos[0].duration}</span>}
                   </div>
                   <div className="space-y-1.5 min-w-0">
-                    <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-2">{sampleVideos[0].title}</h4>
-                    <p className="text-[11px] text-slate-400">Published {sampleVideos[0].date} • {sampleVideos[0].scripture || sampleVideos[0].category}</p>
-                    <div className="pt-1 border-t border-slate-800 text-xs"><span className="text-[10px] text-slate-400">Views</span><p className="font-bold text-white">{sampleVideos[0].views}</p></div>
+                    <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-2">{creatorVideos[0].title}</h4>
+                    <p className="text-[11px] text-slate-400">Published {creatorVideos[0].date} • {creatorVideos[0].scripture || creatorVideos[0].category}</p>
                   </div>
                 </div>
               ) : (
-                <div className="p-6 text-center rounded-2xl bg-slate-900/80 border border-slate-800 text-xs text-slate-400">No published content available.</div>
+                <div className="p-6 text-center rounded-2xl bg-slate-900/80 border border-slate-800 text-xs text-slate-400">No published content found for this creator.</div>
               )}
 
               <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
-                <span>Transcoding: 4K UHD, 1080p, 720p HLS</span>
+                <span>Lifetime playback sessions: {formatPlaybackMetric(creatorAnalytics?.content.lifetime_playback_sessions)}</span>
                 <button
                   onClick={() => {
                     setContentSubTab('videos');
@@ -473,45 +525,51 @@ export default function KingdomStudioSections({
                   }}
                   className="text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 cursor-pointer"
                 >
-                  <span>View All {sampleVideos.length} Videos</span>
+                  <span>View All {creatorVideos.length} Videos</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
 
-            {/* Audience Geographic Reach */}
+            {/* Top Content by Real Playback Sessions */}
             <div className="p-5 sm:p-6 rounded-3xl bg-[#161616] border border-slate-800 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Globe2 className="w-4 h-4 text-sky-400" />
-                  <span>Global Congregation Reach</span>
+                  <TrendingUp className="w-4 h-4 text-sky-400" />
+                  <span>Top Content</span>
                 </h3>
-                <span className="text-xs text-slate-400">Live data</span>
+                <span className="text-xs text-slate-400">{analyticsTimeRange}</span>
               </div>
 
-              <div className="space-y-3 pt-1">
-                {[
-                  { country: 'Uganda', percent: 42, color: 'bg-amber-500' },
-                  { country: 'Kenya', percent: 28, color: 'bg-emerald-500' },
-                  { country: 'United States', percent: 14, color: 'bg-blue-500' },
-                  { country: 'United Kingdom', percent: 10, color: 'bg-purple-500' },
-                  { country: 'Other Nations', percent: 6, color: 'bg-slate-600' }
-                ].map(item => (
-                  <div key={item.country} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-300 font-medium">{item.country}</span>
-                      <span className="font-mono font-bold text-white">{item.percent}%</span>
+              {analyticsLoading ? (
+                <p role="status" className="py-8 text-center text-xs text-slate-400">Loading playback data...</p>
+              ) : analyticsError ? (
+                <p className="py-8 text-center text-xs text-slate-400">Playback data is unavailable. Use Retry analytics above.</p>
+              ) : creatorAnalytics && !creatorAnalytics.playback_tracking_enabled ? (
+                <p className="py-8 text-center text-xs text-slate-400">Playback tracking is disabled for this deployment.</p>
+              ) : topContent.length ? (
+                <div className="space-y-4 pt-1">
+                  {topContent.map(item => (
+                    <div key={item.sermon_id} className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-3 text-xs">
+                        <span className="truncate text-slate-300 font-medium">{item.title}</span>
+                        <span className="shrink-0 font-mono font-bold text-white">{item.playback_sessions.toLocaleString()} plays</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-sky-500" style={{ width: `${(item.playback_sessions / maxTopContentSessions) * 100}%` }} />
+                      </div>
+                      <p className="text-[10px] text-slate-500">
+                        {formatAnalyticsMetric(item.unique_viewers)} unique viewers
+                        {item.watch_hours === null ? '' : ` · ${item.watch_hours.toLocaleString(undefined, { maximumFractionDigits: 2 })} watch hours`}
+                      </p>
                     </div>
-                    <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${item.color}`} style={{ width: `${item.percent}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <p className="text-[11px] text-slate-500 pt-1">
-                Data aggregated across mobile app installs, live web streams, and smart TV sessions.
-              </p>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 text-center text-xs text-slate-400">
+                  No playback sessions were recorded in this period.
+                </p>
+              )}
             </div>
 
           </div>
@@ -1113,19 +1171,14 @@ export default function KingdomStudioSections({
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
               <Compass className="w-4 h-4 text-amber-400" />
-              <span>Ministry Analytics & Spiritual Impact</span>
+              <span>Creator Performance</span>
             </h3>
 
             <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
-              {[
-                { id: '7d', label: '7D' },
-                { id: '28d', label: '28D' },
-                { id: '90d', label: '90D' },
-                { id: 'all', label: 'All-Time' }
-              ].map(t => (
+              {analyticsRanges.map(t => (
                 <button
                   key={t.id}
-                  onClick={() => setAnalyticsTimeRange(t.id as any)}
+                  onClick={() => onAnalyticsTimeRangeChange(t.id)}
                   className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
                     analyticsTimeRange === t.id
                       ? 'bg-amber-500 text-slate-950 font-black'
@@ -1138,48 +1191,86 @@ export default function KingdomStudioSections({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-1.5 shadow-sm">
-              <span className="text-[11px] text-slate-400 font-bold">Congregation Retention Rate</span>
-              <p className="text-2xl font-black text-white">0%</p>
-              <span className="text-[10px] text-slate-400 font-bold">No analytics loaded</span>
+              <span className="text-[11px] text-slate-400 font-bold">Playback Sessions</span>
+              <p className="text-2xl font-black text-white">{formatPlaybackMetric(creatorAnalytics?.content.playback_sessions)}</p>
+              <span className="text-[10px] text-slate-400">{analyticsTimeRange} period</span>
             </div>
             <div className="p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-1.5 shadow-sm">
-              <span className="text-[11px] text-slate-400 font-bold">Average Live Duration</span>
-              <p className="text-2xl font-black text-white">0 mins</p>
-              <span className="text-[10px] text-amber-400 font-bold">High engagement on altar calls</span>
+              <span className="text-[11px] text-slate-400 font-bold">Unique Viewers</span>
+              <p className="text-2xl font-black text-white">{formatPlaybackMetric(creatorAnalytics?.content.unique_viewers)}</p>
+              <span className="text-[10px] text-slate-400">Signed-in accounts</span>
             </div>
             <div className="p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-1.5 shadow-sm">
-              <span className="text-[11px] text-slate-400 font-bold">Peak Concurrent Saints</span>
-              <p className="text-2xl font-black text-white">0</p>
-              <span className="text-[10px] text-slate-400 font-bold">No live audience data</span>
+              <span className="text-[11px] text-slate-400 font-bold">Qualified Sessions</span>
+              <p className="text-2xl font-black text-white">{formatPlaybackMetric(creatorAnalytics?.content.qualified_sessions)}</p>
+              <span className="text-[10px] text-slate-400">At least 30 accepted watch seconds</span>
+            </div>
+            <div className="p-5 rounded-3xl bg-[#161616] border border-slate-800 space-y-1.5 shadow-sm">
+              <span className="text-[11px] text-slate-400 font-bold">Watch Hours</span>
+              <p className="text-2xl font-black text-white">{formatWatchHours()}</p>
+              <span className="text-[10px] text-slate-400">
+                {creatorAnalytics?.playback_tracking_enabled ? 'Accepted play time' : 'Playback tracking status'}
+              </span>
             </div>
           </div>
 
-          {/* Spiritual Altar Impact Summary */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-[#161616] border border-slate-800 space-y-4">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Heart className="w-4 h-4 text-rose-400" />
-              <span>Spiritual Altar Impact Summary</span>
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-              <div className="p-4 bg-[#0f0f0f] rounded-2xl border border-slate-800">
-                <span className="text-[10px] text-slate-400 font-bold uppercase">Altar Calls Answered</span>
-                <p className="text-xl font-black text-emerald-400 mt-1">0</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <section className="p-5 sm:p-6 rounded-3xl bg-[#161616] border border-slate-800 space-y-4">
+              <h3 className="text-sm font-bold text-white">Top Content by Playback Sessions</h3>
+              {analyticsLoading ? (
+                <p role="status" className="py-6 text-center text-xs text-slate-400">Loading playback data...</p>
+              ) : analyticsError ? (
+                <p className="py-6 text-center text-xs text-slate-400">Playback data is unavailable. Use Retry analytics above.</p>
+              ) : !creatorAnalytics?.playback_tracking_enabled ? (
+                <p className="py-6 text-center text-xs text-slate-400">Playback tracking is disabled for this deployment.</p>
+              ) : creatorAnalytics.content.top_content.length ? (
+                <div className="space-y-3">
+                  {creatorAnalytics.content.top_content.map(item => (
+                    <div key={item.sermon_id} className="flex items-center justify-between gap-4 border-b border-slate-800 pb-3 last:border-0 last:pb-0">
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-bold text-white">{item.title}</p>
+                        <p className="mt-1 text-[10px] text-slate-400">{formatPlaybackMetric(item.unique_viewers)} unique viewers</p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-xs font-bold text-white">{item.playback_sessions.toLocaleString()} plays</p>
+                        <p className="mt-1 text-[10px] text-slate-400">
+                          {item.watch_hours === null ? 'Watch time unavailable' : `${item.watch_hours.toLocaleString(undefined, { maximumFractionDigits: 2 })} hrs`}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="py-6 text-center text-xs text-slate-400">No playback sessions were recorded in this period.</p>
+              )}
+            </section>
+
+            <section className="p-5 sm:p-6 rounded-3xl bg-[#161616] border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-bold text-white">Completed Donations</h3>
+                <span className="text-xs text-slate-400">{formatAnalyticsMetric(creatorAnalytics?.giving.completed_donations)} gifts</span>
               </div>
-              <div className="p-4 bg-[#0f0f0f] rounded-2xl border border-slate-800">
-                <span className="text-[10px] text-slate-400 font-bold uppercase">Prayers Lifted</span>
-                <p className="text-xl font-black text-amber-400 mt-1">0</p>
-              </div>
-              <div className="p-4 bg-[#0f0f0f] rounded-2xl border border-slate-800">
-                <span className="text-[10px] text-slate-400 font-bold uppercase">Verses Highlighted</span>
-                <p className="text-xl font-black text-blue-400 mt-1">0</p>
-              </div>
-              <div className="p-4 bg-[#0f0f0f] rounded-2xl border border-slate-800">
-                <span className="text-[10px] text-slate-400 font-bold uppercase">Amen Reactions</span>
-                <p className="text-xl font-black text-rose-400 mt-1">0</p>
-              </div>
-            </div>
+              {analyticsLoading ? (
+                <p role="status" className="py-6 text-center text-xs text-slate-400">Loading donation data...</p>
+              ) : analyticsError ? (
+                <p className="py-6 text-center text-xs text-slate-400">Donation data is unavailable. Use Retry analytics above.</p>
+              ) : creatorAnalytics?.giving.totals_by_currency.length ? (
+                <div className="space-y-3">
+                  {creatorAnalytics.giving.totals_by_currency.map(item => (
+                    <div key={item.currency} className="flex items-center justify-between border-b border-slate-800 pb-3 last:border-0 last:pb-0">
+                      <span className="text-xs font-semibold text-slate-300">{item.currency}</span>
+                      <span className="text-sm font-black text-emerald-400">
+                        {Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="py-6 text-center text-xs text-slate-400">No completed donations in this period.</p>
+              )}
+            </section>
           </div>
         </motion.div>
       )}

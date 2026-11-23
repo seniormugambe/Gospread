@@ -6,7 +6,7 @@ from .views import (
     AudioSpaceEndView, AudioSpaceListView, AudioSpaceParticipantsView, AudioSpaceTokenView, GospreadTokenRefreshView, GospreadTokenView, DirectoryView, HealthCheckView, LiveStreamViewSet, LogoutView, MeView,
     PasswordResetConfirmView, PayoutAccountViewSet, PasswordResetRequestView, PublicUserProfileView,
     PrayerRequestViewSet, RandomScriptureView, SavedSermonViewSet, SermonShortViewSet,
-    DiscoveryConfigView, DiscoveryFairnessReportView, SermonHeartbeatView, SermonUploadChunkView, SermonUploadCompleteView, SermonUploadSessionView, SermonViewSet,
+    CreatorAnalyticsView, DiscoveryConfigView, DiscoveryFairnessReportView, SermonHeartbeatView, SermonUploadChunkView, SermonUploadCompleteView, SermonUploadSessionView, SermonViewSet,
     OnboardingQuestionsView, OnboardingView, SignupView, StreakCheckinView, VerificationApplicationView,
     VerificationAppealView, WatchProgressViewSet, WorshipSongViewSet,
 )
@@ -33,6 +33,7 @@ urlpatterns = [
     path("profiles/<str:username>/", PublicUserProfileView.as_view(), name="public-user-profile"),
     path("discovery/config/", DiscoveryConfigView.as_view(), name="discovery-config"),
     path("discovery/fairness-report/", DiscoveryFairnessReportView.as_view(), name="discovery-fairness-report"),
+    path("analytics/", CreatorAnalyticsView.as_view(), name="creator-analytics"),
     path("audio-spaces/token/", AudioSpaceTokenView.as_view(), name="audio-space-token"),
     path("audio-spaces/", AudioSpaceListView.as_view(), name="audio-space-list"),
     path("audio-spaces/end/", AudioSpaceEndView.as_view(), name="audio-space-end"),
