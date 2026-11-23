@@ -109,6 +109,14 @@ def _resolve_church_for_user(user, church=None):
 def _save_sermon_for_user(serializer, user):
     church = _resolve_church_for_user(user, serializer.validated_data.get("church"))
 
+    # Always credit the uploader's full name. Fall back to username only if the
+    # account has no first/last name set, so the speaker field never shows a
+    # bare @handle on published media.
+    if not serializer.validated_data.get("speaker", "").strip():
+        serializer.validated_data["speaker"] = (
+            user.get_full_name().strip() or user.username
+        )
+
     if serializer.validated_data.get("is_published", False):
         return serializer.save(church=church, published_at=timezone.now(), scheduled_for=None)
     return serializer.save(church=church)

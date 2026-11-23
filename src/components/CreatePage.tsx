@@ -654,7 +654,7 @@ export default function CreatePage({
     djangoApi.createSermon(
       {
         title: uploadTitle || selectedFile?.name?.replace(/\.[^/.]+$/, '') || 'Untitled Sermon',
-        speaker: ownerUsername,
+        speaker: ownerName || ownerUsername,
         description: uploadDescription,
         category: mappedApiCategory,
         kind: isAudioFile(selectedMediaFile) ? 'audio' : 'video',
@@ -695,7 +695,7 @@ export default function CreatePage({
         const newVideo = djangoApi.mapSermonToVideoStream(sermon, {
           bibleVerse: uploadScripture || undefined,
           channelAvatar: avatarUrl,
-          speaker: ownerUsername,
+          speaker: ownerName || ownerUsername,
           ministry: ministryName,
           category: mappedCategory,
           viewsText: isScheduled
