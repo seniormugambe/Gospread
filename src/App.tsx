@@ -272,6 +272,7 @@ export default function App() {
           title: space.title,
           topic: space.topic,
           hostName: space.host_name,
+          hostId: space.host_id,
           ministryName: space.ministry_name,
           startedAt: Date.parse(space.started_at) || Date.now(),
           roomName: space.room_name,
@@ -2498,8 +2499,19 @@ export default function App() {
                   onRemoveWatchHistory={removeFromWatchHistory}
                   activeAudioSpace={activeAudioSpace}
                   onJoinAudioSpace={() => {
-                    setSelectedCategory('Podcasts');
-                    setAutoJoinAudioSpace(true);
+                    // If the current user is the host, take them back to their Creator Studio
+                    if (
+                      activeAudioSpace &&
+                      userSession?.isLoggedIn &&
+                      (activeAudioSpace.hostId
+                        ? String(activeAudioSpace.hostId) === String(userSession.id)
+                        : (activeAudioSpace.hostName === (userSession.fullName || userSession.username)))
+                    ) {
+                      handleCreateMenuSelect('audio_space');
+                    } else {
+                      setSelectedCategory('Podcasts');
+                      setAutoJoinAudioSpace(true);
+                    }
                   }}
                 />
               )}
@@ -2557,8 +2569,18 @@ export default function App() {
                       const url = new URL(window.location.href);
                       url.searchParams.set('audio_space', space.roomName);
                       window.history.replaceState({}, '', url);
-                      setSelectedCategory('Podcasts');
-                      setAutoJoinAudioSpace(true);
+                      // Route host back to their studio; everyone else goes to Podcasts listener
+                      if (
+                        userSession?.isLoggedIn &&
+                        (space.hostId
+                          ? String(space.hostId) === String(userSession.id)
+                          : (space.hostName === (userSession.fullName || userSession.username)))
+                      ) {
+                        handleCreateMenuSelect('audio_space');
+                      } else {
+                        setSelectedCategory('Podcasts');
+                        setAutoJoinAudioSpace(true);
+                      }
                     }}
                   />
                 ) : <>

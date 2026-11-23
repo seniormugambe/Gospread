@@ -1036,10 +1036,11 @@ class WorshipSongSerializer(serializers.ModelSerializer):
 
 class AudioSpaceSerializer(serializers.ModelSerializer):
     host_name = serializers.SerializerMethodField()
+    host_id = serializers.IntegerField(source='host.id', read_only=True)
 
     class Meta:
         model = AudioSpace
-        fields = ("room_name", "title", "topic", "host_name", "ministry_name", "started_at")
+        fields = ("room_name", "title", "topic", "host_name", "host_id", "ministry_name", "started_at")
 
     def get_host_name(self, obj):
         return obj.host.get_full_name() or obj.host.username

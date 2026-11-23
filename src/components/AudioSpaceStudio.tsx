@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Check, Circle, Clock, Loader2, Mic, Radio, Share2, Square, Users, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Check, Circle, Clock, Loader2, Mic, Mic2, Share2, Square, Users, AlertTriangle, Radio, Signal, Headphones, Waves } from 'lucide-react';
 import { UserSession } from './AuthModal';
 import { Room, RoomEvent, RemoteTrack } from 'livekit-client';
 import { djangoApi } from '../services/djangoApi';
@@ -10,6 +10,7 @@ export interface ActiveAudioSpace {
   title: string;
   topic: string;
   hostName: string;
+  hostId?: string | number;
   ministryName: string;
   startedAt: number;
   roomName: string;
@@ -209,6 +210,7 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
         title: spaceTitle,
         topic: spaceTopic,
         hostName: currentUser?.fullName || currentUser?.username || 'Host',
+        hostId: currentUser?.id,
         ministryName,
         startedAt: Date.now(),
         roomName,
@@ -388,21 +390,25 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
 
   const formatTime = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
+  const hostDisplayName = activeAudioSpace?.hostName || currentUser?.fullName || currentUser?.username || 'Host';
+  const hostInitial = hostDisplayName.slice(0, 1).toUpperCase();
+  const isSpeakingNow = Boolean(roomRef.current?.localParticipant.isSpeaking);
+
   return (
     <>
-      {/* ── Quit confirmation sheet ── */}
+      {/* ── End-space confirmation sheet ── */}
       {showQuitConfirm && (
-        <div className="fixed inset-0 z-200 flex items-end justify-center sm:items-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-3xl border border-rose-500/30 bg-[#161616] p-6 shadow-2xl shadow-black/60 space-y-5">
+        <div className="fixed inset-0 z-[200] flex items-end justify-center sm:items-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#111] p-6 shadow-2xl space-y-5">
             <div className="flex flex-col items-center gap-3 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-rose-500/15 border border-rose-500/30">
-                <AlertTriangle className="h-6 w-6 text-rose-400" />
-              </div>
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-red-500/15 border border-red-500/25">
+                <AlertTriangle className="h-6 w-6 text-red-400" />
+              </span>
               <div>
                 <p className="text-base font-black text-white">End this Audio Space?</p>
                 <p className="mt-1.5 text-sm text-slate-400">
                   {isRecording
-                    ? 'The active recording will be stopped and saved before the Space ends.'
+                    ? 'The active recording will be stopped and saved before the Space closes.'
                     : 'All listeners will be disconnected and the room will close.'}
                 </p>
               </div>
@@ -411,16 +417,16 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
               <button
                 type="button"
                 onClick={() => setShowQuitConfirm(false)}
-                className="rounded-full border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800 active:scale-95 transition"
+                className="rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-slate-200 hover:bg-white/10 active:scale-95 transition"
               >
-                No, stay
+                Stay live
               </button>
               <button
                 type="button"
                 onClick={() => { setShowQuitConfirm(false); void endSpace(); }}
-                className="rounded-full bg-rose-600 px-4 py-3 text-sm font-black text-white hover:bg-rose-500 active:scale-95 transition shadow-lg shadow-rose-600/25"
+                className="rounded-full bg-red-600 px-4 py-3 text-sm font-black text-white hover:bg-red-500 active:scale-95 transition"
               >
-                Yes, end it
+                End Space
               </button>
             </div>
           </div>
@@ -429,175 +435,269 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
 
       <div className="space-y-5">
         {/* ── Top bar ── */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3 gap-3">
+        <div className="flex items-center justify-between border-b border-white/[0.07] pb-3 gap-3">
           <button
             onClick={isLive ? () => setShowQuitConfirm(true) : onBack}
-            className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white active:scale-95 transition min-h-9"
+            className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white active:scale-95 transition min-h-9"
           >
             <ArrowLeft className="w-4 h-4 shrink-0" />
-            <span>{isLive ? 'End Space' : 'Back to Creator Studio'}</span>
+            <span>{isLive ? 'End Space' : 'Back to Studio'}</span>
           </button>
           {isLive && (
-            <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-[10px] font-bold uppercase text-rose-300">
-              <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'animate-pulse bg-rose-400' : 'bg-amber-400'}`} />
-              {isConnected ? 'Live' : 'Disconnected'}
+            <span className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${
+              isConnected
+                ? 'border border-red-500/30 bg-red-500/10 text-red-300'
+                : 'border border-amber-500/30 bg-amber-500/10 text-amber-300'
+            }`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'animate-pulse bg-red-400' : 'bg-amber-400'}`} />
+              {isConnected ? 'On Air' : 'Reconnecting'}
             </span>
           )}
         </div>
 
         {!isLive ? (
-          /* ── Setup screen ── */
-          <div className="mx-auto max-w-2xl rounded-3xl border border-slate-800 bg-[#161616] p-5 sm:p-8 space-y-5">
-            <div>
-              <div className="mb-2 flex items-center gap-2 text-amber-400">
-                <Radio className="w-5 h-5" />
-                <span className="text-xs font-black uppercase tracking-wider">Audio Space</span>
+          /* ════════════════════════════════════════════
+             SETUP SCREEN — creator configures the Space
+             ════════════════════════════════════════════ */
+          <div className="mx-auto max-w-xl space-y-6">
+            {/* Hero */}
+            <div className="rounded-3xl border border-white/[0.07] bg-gradient-to-b from-[#1a1a1a] to-[#111] p-6 sm:p-8 space-y-5">
+              <div className="flex items-center gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-600 to-rose-600 shadow-lg">
+                  <Mic2 className="h-5 w-5 text-white" />
+                </span>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-fuchsia-400">Audio Space</p>
+                  <h1 className="text-lg font-black text-white leading-tight">Start a live voice room</h1>
+                </div>
               </div>
-              <h1 className="text-xl sm:text-2xl font-black text-white">Start a live audio conversation</h1>
-              <p className="mt-2 text-sm text-slate-400">Host a voice-first room for {ministryName}. Your microphone stays off until you start.</p>
+
+              <p className="text-sm text-slate-400 leading-relaxed">
+                Host a live voice conversation for <span className="font-semibold text-slate-200">{ministryName}</span>. Listeners join from your home feed or Podcasts tab.
+              </p>
+
+              <div className="space-y-3">
+                <label className="block space-y-1.5">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">Space title</span>
+                  <input
+                    value={title}
+                    onChange={event => setTitle(event.target.value)}
+                    placeholder="What are you talking about today?"
+                    className="w-full rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-fuchsia-500/60 focus:bg-white/[0.06] transition"
+                  />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                    Topic / scripture <span className="font-normal normal-case text-slate-600">(optional)</span>
+                  </span>
+                  <input
+                    value={topic}
+                    onChange={event => setTopic(event.target.value)}
+                    placeholder="Give listeners context"
+                    className="w-full rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-fuchsia-500/60 focus:bg-white/[0.06] transition"
+                  />
+                </label>
+              </div>
+
+              {error && (
+                <p className="rounded-xl border border-red-500/25 bg-red-500/10 p-3 text-xs font-semibold text-red-300">{error}</p>
+              )}
+
+              <button
+                onClick={startSpace}
+                className="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-rose-600 px-5 py-3.5 text-sm font-black text-white hover:from-fuchsia-500 hover:to-rose-500 active:scale-[0.98] transition shadow-lg shadow-fuchsia-700/25"
+              >
+                <Signal className="w-4 h-4" />
+                Go Live
+              </button>
             </div>
-            <label className="block space-y-1.5 text-xs font-bold text-slate-300">
-              Space title
-              <input
-                value={title}
-                onChange={event => setTitle(event.target.value)}
-                placeholder="What are you talking about?"
-                className="mt-1.5 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-amber-400"
-              />
-            </label>
-            <label className="block space-y-1.5 text-xs font-bold text-slate-300">
-              Topic or scripture <span className="font-normal text-slate-500">(optional)</span>
-              <input
-                value={topic}
-                onChange={event => setTopic(event.target.value)}
-                placeholder="Add context for listeners"
-                className="mt-1.5 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-amber-400"
-              />
-            </label>
-            {error && (
-              <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs font-bold text-rose-300">{error}</p>
-            )}
-            <button
-              onClick={startSpace}
-              className="flex w-full items-center justify-center gap-2 rounded-full bg-amber-500 px-5 py-3.5 text-sm font-black text-slate-950 hover:bg-amber-400 active:scale-[0.98] transition"
-            >
-              <Mic className="w-4 h-4" /> Start Audio Space
-            </button>
-            <p className="text-center text-[11px] text-slate-500">Your microphone is published through LiveKit. Listeners can join from Home or Audio Podcasts.</p>
+
+            {/* How it works */}
+            <div className="grid grid-cols-3 gap-3 text-center">
+              {[
+                { icon: <Mic2 className="h-5 w-5" />, label: 'You speak', sub: 'Mic auto-enables' },
+                { icon: <Headphones className="h-5 w-5" />, label: 'They listen', sub: 'Join from feed' },
+                { icon: <Waves className="h-5 w-5" />, label: 'Real-time', sub: 'Powered by LiveKit' },
+              ].map(item => (
+                <div key={item.label} className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3.5 space-y-1.5">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-fuchsia-300">{item.icon}</span>
+                  <p className="text-xs font-black text-white">{item.label}</p>
+                  <p className="text-[10px] text-slate-500">{item.sub}</p>
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
-          /* ── Live screen ── */
+          /* ════════════════════════════════════════════
+             LIVE HOST STUDIO — creator controls the room
+             ════════════════════════════════════════════ */
           <div className="mx-auto max-w-3xl space-y-4">
-            {/* Header card */}
-            <div className="rounded-3xl border border-rose-500/30 bg-linear-to-br from-rose-950/40 via-[#161616] to-[#161616] p-5 sm:p-8">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-wider text-rose-300">Live Audio Space</p>
-                  <h1 className="mt-1 text-xl sm:text-2xl font-black text-white truncate">{title}</h1>
-                  <p className="mt-1 text-sm text-slate-400 truncate">{topic || 'Open conversation'} · {activeAudioSpace?.hostName || currentUser?.fullName || 'Host'}</p>
-                </div>
-                <div className="flex shrink-0 items-center gap-1.5 text-xs font-mono text-slate-300">
-                  <Clock className="w-4 h-4" />{formatTime(elapsedSeconds)}
-                </div>
-              </div>
 
-              {/* Host avatar */}
-              <div className="mt-8 flex flex-col items-center gap-3">
-                <div className={`flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-full border-4 bg-slate-900 transition-all duration-200 ${
-                  roomRef.current?.localParticipant.isSpeaking
-                    ? 'border-emerald-400 text-emerald-300 shadow-[0_0_32px_rgba(52,211,153,0.45)] ring-4 ring-emerald-400/20'
-                    : 'border-rose-400/60 text-rose-300 shadow-xl shadow-rose-500/20'
-                }`}>
-                  <Mic className="h-9 w-9 sm:h-10 sm:w-10" />
-                </div>
-                <p className="text-sm font-bold text-white">{activeAudioSpace?.hostName || currentUser?.fullName || 'Host'}</p>
-                <span className="rounded-full bg-rose-500/15 px-3 py-1 text-[10px] font-black uppercase text-rose-300">Host</span>
-              </div>
+            {/* ── Main stage card ── */}
+            <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-b from-[#1c0a2e] via-[#130a1f] to-[#0d0d0d]">
+              {/* Ambient glow */}
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_0%,rgba(168,85,247,0.15),transparent)]" />
 
-              {/* Participant grid */}
-              {remoteParticipants.length > 0 && (
-                <div className="mt-6 grid grid-cols-3 gap-3 border-t border-slate-800/70 pt-5 sm:grid-cols-4">
-                  {remoteParticipants.slice(0, 12).map(participant => {
-                    const isSpeaking = speakingParticipants.has(participant.identity);
-                    return (
-                      <div key={participant.identity} className="flex min-w-0 flex-col items-center text-center">
-                        <div className={`flex h-14 w-14 items-center justify-center rounded-full border-2 text-base font-black transition-all duration-200 sm:h-18 sm:w-18 ${
-                          isSpeaking
-                            ? 'border-emerald-400 bg-emerald-500/25 text-emerald-200 shadow-[0_0_20px_rgba(52,211,153,0.45)] ring-4 ring-emerald-400/20'
-                            : 'border-slate-600 bg-slate-800 text-slate-200'
-                        }`}>
-                          {isSpeaking ? <Mic className="h-5 w-5" /> : participant.name.slice(0, 1).toUpperCase()}
-                        </div>
-                        <p className="mt-1.5 w-full truncate text-xs font-bold text-white">{participant.name}</p>
-                        <p className={`mt-0.5 text-[10px] ${isSpeaking ? 'font-bold text-emerald-300' : 'text-slate-400'}`}>
-                          {isSpeaking ? 'Talking' : 'Listener'}
-                        </p>
-                      </div>
-                    );
-                  })}
+              <div className="relative p-5 sm:p-7">
+                {/* Room meta row */}
+                <div className="flex flex-wrap items-start justify-between gap-3 mb-7">
+                  <div className="min-w-0">
+                    <div className="mb-1.5 flex items-center gap-2">
+                      <Radio className="h-3.5 w-3.5 text-fuchsia-400 shrink-0" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-fuchsia-400">Host Studio</span>
+                    </div>
+                    <h1 className="text-lg sm:text-xl font-black text-white truncate leading-tight">{title}</h1>
+                    {topic && <p className="mt-0.5 text-sm text-slate-400 truncate">{topic}</p>}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5">
+                    <Clock className="h-3.5 w-3.5 text-slate-400" />
+                    <span className="text-xs font-mono text-slate-300">{formatTime(elapsedSeconds)}</span>
+                  </div>
                 </div>
-              )}
+
+                {/* Host avatar — centre stage */}
+                <div className="flex flex-col items-center gap-3">
+                  <div className="relative">
+                    {isSpeakingNow && (
+                      <span className="absolute inset-0 rounded-full bg-fuchsia-500/20 animate-ping" />
+                    )}
+                    <div className={`relative flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-full border-[3px] text-3xl font-black transition-all duration-300 ${
+                      isSpeakingNow
+                        ? 'border-fuchsia-400 bg-fuchsia-900/40 text-fuchsia-200 shadow-[0_0_40px_rgba(192,86,243,0.5)]'
+                        : 'border-white/20 bg-white/[0.06] text-slate-200'
+                    }`}>
+                      {currentUser?.avatarUrl || currentUser?.avatar
+                        ? <img src={currentUser.avatarUrl || currentUser.avatar} alt="" className="h-full w-full rounded-full object-cover" />
+                        : hostInitial}
+                    </div>
+                    {isSpeakingNow && (
+                      <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#1c0a2e] bg-fuchsia-500 text-white shadow">
+                        <Mic2 className="h-3.5 w-3.5" />
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <p className="text-sm font-bold text-white">{hostDisplayName}</p>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-fuchsia-500/20 border border-fuchsia-500/30 px-3 py-0.5 text-[10px] font-black uppercase tracking-wider text-fuchsia-300">
+                      <Mic2 className="h-2.5 w-2.5" /> Host
+                    </span>
+                  </div>
+                </div>
+
+                {/* Listeners grid */}
+                {remoteParticipants.length > 0 && (
+                  <div className="mt-7 border-t border-white/[0.06] pt-5">
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">In this space</span>
+                      <span className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400">
+                        <Users className="h-3 w-3" />{remoteParticipants.length}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2.5 sm:grid-cols-5">
+                      {remoteParticipants.slice(0, 15).map(participant => {
+                        const speaking = speakingParticipants.has(participant.identity);
+                        return (
+                          <div key={participant.identity} className="flex min-w-0 flex-col items-center gap-1.5 text-center">
+                            <div className={`flex h-12 w-12 items-center justify-center rounded-full border text-sm font-black transition-all duration-200 ${
+                              speaking
+                                ? 'border-emerald-400 bg-emerald-500/20 text-emerald-200 shadow-[0_0_16px_rgba(52,211,153,0.4)]'
+                                : 'border-white/10 bg-white/[0.05] text-slate-300'
+                            }`}>
+                              {speaking ? <Mic className="h-4 w-4" /> : participant.name.slice(0, 1).toUpperCase()}
+                            </div>
+                            <p className="w-full truncate text-[10px] font-semibold text-slate-300">{participant.name}</p>
+                            <span className={`text-[9px] font-bold ${speaking ? 'text-emerald-400' : 'text-slate-600'}`}>
+                              {speaking ? 'Talking' : 'Listening'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Listener count */}
-            <div className="rounded-2xl border border-slate-800 bg-[#161616] p-4 flex items-center gap-4">
-              <Users className="h-5 w-5 text-sky-400 shrink-0" />
-              <div>
-                <p className="text-xl font-black text-white">{listenerCount}</p>
-                <p className="text-xs text-slate-400">Participants connected</p>
+            {/* ── Stats strip ── */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-500/15">
+                  <Headphones className="h-4.5 w-4.5 text-sky-400" />
+                </span>
+                <div>
+                  <p className="text-xl font-black text-white leading-none">{listenerCount}</p>
+                  <p className="mt-0.5 text-[11px] text-slate-500">Listening now</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-fuchsia-500/15">
+                  <Waves className="h-4.5 w-4.5 text-fuchsia-400" />
+                </span>
+                <div>
+                  <p className="text-xl font-black text-white leading-none font-mono">{formatTime(elapsedSeconds)}</p>
+                  <p className="mt-0.5 text-[11px] text-slate-500">Time on air</p>
+                </div>
               </div>
             </div>
 
+            {/* ── Status banners ── */}
             {recordingSaved && (
-              <p className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-center text-xs font-bold text-emerald-300">
-                Recording saved to your profile media and 24/7 Gospel Radio.
+              <p className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-center text-xs font-semibold text-emerald-300">
+                Recording saved — available in your profile and 24/7 Gospel Radio.
               </p>
             )}
-
             {error && (
-              <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs font-bold text-rose-300">{error}</p>
+              <p className="rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-xs font-semibold text-red-300">{error}</p>
             )}
 
+            {/* ── Room tools (chat, speakers, moderation) ── */}
             {roomRef.current && (
               <AudioSpaceRoomTools room={roomRef.current} roomName={roomNameRef.current || ''} canManage isHost />
             )}
 
-            {/* Action row — wraps gracefully on small screens */}
-            <div className="flex flex-wrap justify-center gap-2.5 pb-2">
-              <button
-                onClick={inviteListeners}
-                className="flex items-center gap-2 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-4 py-2.5 text-xs font-bold text-fuchsia-200 hover:bg-fuchsia-500/25 active:scale-95 transition"
-              >
-                {inviteCopied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
-                {inviteCopied ? 'Link copied' : 'Invite'}
-              </button>
+            {/* ── Host action bar ── */}
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2.5">
+                {/* Invite */}
+                <button
+                  onClick={inviteListeners}
+                  className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.05] px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-white/[0.09] active:scale-95 transition"
+                >
+                  {inviteCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
+                  {inviteCopied ? 'Copied!' : 'Invite listeners'}
+                </button>
 
-              <button
-                type="button"
-                onClick={isRecording ? stopRecording : startRecording}
-                disabled={isSavingRecording}
-                className={`flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-black transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-                  isRecording
-                    ? 'bg-rose-600 text-white hover:bg-rose-500 shadow-lg shadow-rose-600/25'
-                    : 'border border-rose-500/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20'
-                }`}
-              >
-                {isSavingRecording ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" />Saving…</>
-                ) : isRecording ? (
-                  <><Square className="h-4 w-4 fill-current" />Stop recording</>
-                ) : (
-                  <><Circle className="h-4 w-4 fill-rose-500 text-rose-500" />Record</>
-                )}
-              </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Record toggle */}
+                  <button
+                    type="button"
+                    onClick={isRecording ? stopRecording : startRecording}
+                    disabled={isSavingRecording}
+                    className={`flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-black transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${
+                      isRecording
+                        ? 'bg-red-600 text-white hover:bg-red-500'
+                        : 'border border-white/[0.08] bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
+                    }`}
+                  >
+                    {isSavingRecording ? (
+                      <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>
+                    ) : isRecording ? (
+                      <><Square className="h-3.5 w-3.5 fill-current" /> Stop rec</>
+                    ) : (
+                      <><Circle className="h-3.5 w-3.5 fill-red-500 text-red-500" /> Record</>
+                    )}
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => setShowQuitConfirm(true)}
-                className="rounded-full bg-rose-600 px-4 py-2.5 text-xs font-black text-white hover:bg-rose-500 active:scale-95 transition shadow-lg shadow-rose-600/20"
-              >
-                End Space
-              </button>
+                  {/* End space */}
+                  <button
+                    type="button"
+                    onClick={() => setShowQuitConfirm(true)}
+                    className="flex items-center gap-1.5 rounded-xl bg-red-600/90 px-4 py-2.5 text-xs font-black text-white hover:bg-red-600 active:scale-95 transition"
+                  >
+                    End Space
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
