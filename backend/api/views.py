@@ -585,6 +585,25 @@ class OnboardingView(generics.GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         track, answers = serializer.validated_data["track"], serializer.validated_data["answers"]
+
+        # Prevent a track change while a verification application is active (pending,
+        # under review, or already verified). Changing track would orphan the
+        # application and silently strip a verified badge.
+        existing_profile = OnboardingProfile.objects.filter(user=request.user).first()
+        if existing_profile and existing_profile.track != track:
+            application = getattr(request.user, "verification_application", None)
+            if application and application.status not in (
+                VerificationApplication.Status.REJECTED,
+                VerificationApplication.Status.SUSPENDED,
+            ):
+                raise ValidationError({
+                    "track": (
+                        "You cannot change your account category while a verification application "
+                        f"is {application.get_status_display().lower()}. Withdraw or resolve your "
+                        "application first."
+                    )
+                })
+
         OnboardingProfile.objects.update_or_create(user=request.user, defaults={"track": track, "answers": answers})
         request.user.role = onboarding.ROLE_BY_TRACK[track]
         request.user.save(update_fields=["role"])

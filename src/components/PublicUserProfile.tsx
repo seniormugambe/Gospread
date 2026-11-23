@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Headphones, Play, ShieldCheck, User, Video } from 'lucide-react';
+import { ArrowLeft, Headphones, Play, ShieldCheck, User, Video, Music } from 'lucide-react';
 import {
   AudioTrack,
   djangoApi,
@@ -9,12 +9,67 @@ import {
 } from '../services/djangoApi';
 import { profilePath, updatePageMetadata } from '../lib/routes';
 
+// ─── helpers ────────────────────────────────────────────────────────────────
+
 const roleLabels: Record<PublicUserProfileData['role'], string> = {
   believer: 'Believer',
   creator: 'Creator',
   pastor: 'Pastor / Church Leader',
   artiste: 'Gospel Artiste',
 };
+
+const roleBadgeColor: Record<PublicUserProfileData['role'], string> = {
+  believer: 'bg-slate-700/60 text-slate-300 border-slate-600/40',
+  creator: 'bg-blue-500/15 text-blue-300 border-blue-500/25',
+  pastor: 'bg-amber-500/15 text-amber-300 border-amber-500/25',
+  artiste: 'bg-purple-500/15 text-purple-300 border-purple-500/25',
+};
+
+const fmtDuration = (s: number) =>
+  `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+const toVideoCategory = (category: string): VideoStream['category'] => {
+  const n = category.toLowerCase();
+  if (n.includes('worship')) return 'Live Worship';
+  if (n.includes('choir')) return 'Choir Special';
+  if (n.includes('music')) return 'Gospel Music';
+  if (n.includes('bible') || n.includes('study')) return 'Bible Study';
+  return 'Sermon';
+};
+
+const toVideoStream = (m: PublicUserMedia): VideoStream => ({
+  id: String(m.id),
+  title: m.title,
+  speakerOrArtist: m.speaker,
+  churchOrMinistry: m.church_name,
+  channelAvatar: m.channel_avatar,
+  subscribersCount: '',
+  likesCount: String(m.view_count),
+  category: toVideoCategory(m.category),
+  isLive: false,
+  viewsText: `${m.view_count} views`,
+  duration: m.duration_seconds ? fmtDuration(m.duration_seconds) : undefined,
+  thumbnail: m.thumbnail_url,
+  description: m.description,
+  date: m.published_at ? new Date(m.published_at).toLocaleDateString() : 'Recent',
+  videoUrl: m.media_url,
+});
+
+const toAudioTrack = (m: PublicUserMedia): AudioTrack => ({
+  id: String(m.id),
+  title: m.title,
+  artistOrPreacher: m.speaker,
+  albumOrSeries: m.church_name,
+  channelAvatar: m.channel_avatar,
+  category: 'Audio Sermon',
+  coverUrl: m.thumbnail_url,
+  duration: m.duration_seconds ? fmtDuration(m.duration_seconds) : '',
+  lyricsOrNotes: m.description,
+  publishedDate: m.published_at ? new Date(m.published_at).toLocaleDateString() : 'Recent',
+  audioUrl: m.media_url,
+});
+
+// ─── props ───────────────────────────────────────────────────────────────────
 
 interface PublicUserProfileProps {
   username: string;
@@ -23,57 +78,45 @@ interface PublicUserProfileProps {
   onPlayAudio: (track: AudioTrack) => void;
 }
 
-const formatDuration = (seconds: number) =>
-  `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+// ─── skeleton ────────────────────────────────────────────────────────────────
 
-const getVideoCategory = (category: string): VideoStream['category'] => {
-  const normalized = category.toLowerCase();
-  if (normalized.includes('worship')) return 'Live Worship';
-  if (normalized.includes('choir')) return 'Choir Special';
-  if (normalized.includes('music')) return 'Gospel Music';
-  if (normalized.includes('bible') || normalized.includes('study')) return 'Bible Study';
-  return 'Sermon';
-};
+function Skeleton({ className }: { className?: string }) {
+  return <span className={`block rounded-xl bg-slate-800 animate-pulse ${className}`} />;
+}
 
-const toVideoStream = (media: PublicUserMedia): VideoStream => ({
-  id: String(media.id),
-  title: media.title,
-  speakerOrArtist: media.speaker,
-  churchOrMinistry: media.church_name,
-  channelAvatar: media.channel_avatar,
-  subscribersCount: '',
-  likesCount: String(media.view_count),
-  category: getVideoCategory(media.category),
-  isLive: false,
-  viewsText: `${media.view_count} views`,
-  duration: media.duration_seconds ? formatDuration(media.duration_seconds) : undefined,
-  thumbnail: media.thumbnail_url,
-  description: media.description,
-  date: media.published_at ? new Date(media.published_at).toLocaleDateString() : 'Recent',
-  videoUrl: media.media_url,
-});
+function ProfileSkeleton() {
+  return (
+    <div className="space-y-5">
+      <div className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900">
+        <Skeleton className="h-36 rounded-none" />
+        <div className="px-6 pb-8 space-y-3">
+          <Skeleton className="w-20 h-20 -mt-10 rounded-2xl" />
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-3.5 w-24" />
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-3/4" />
+        </div>
+      </div>
+      <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 space-y-4">
+        <Skeleton className="h-4 w-32" />
+        <div className="grid grid-cols-2 gap-3">
+          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="aspect-video rounded-2xl" />)}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-const toAudioTrack = (media: PublicUserMedia): AudioTrack => ({
-  id: String(media.id),
-  title: media.title,
-  artistOrPreacher: media.speaker,
-  albumOrSeries: media.church_name,
-  channelAvatar: media.channel_avatar,
-  category: 'Audio Sermon',
-  coverUrl: media.thumbnail_url,
-  duration: media.duration_seconds ? formatDuration(media.duration_seconds) : '',
-  lyricsOrNotes: media.description,
-  publishedDate: media.published_at ? new Date(media.published_at).toLocaleDateString() : 'Recent',
-  audioUrl: media.media_url,
-});
+// ─── main component ──────────────────────────────────────────────────────────
 
 export default function PublicUserProfile({ username, onBack, onPlayVideo, onPlayAudio }: PublicUserProfileProps) {
   const [profile, setProfile] = useState<PublicUserProfileData | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [mediaTab, setMediaTab] = useState<'all' | 'video' | 'audio'>('all');
 
   useEffect(() => {
-    let active = true;
+    let alive = true;
     setProfile(null);
     setError('');
     setLoading(true);
@@ -82,155 +125,217 @@ export default function PublicUserProfile({ username, onBack, onPlayVideo, onPla
       description: `Visit ${username}'s profile on Gospread.`,
       path: profilePath(username),
     });
-    djangoApi.getPublicUserProfile(username).then((result) => {
-      if (!active) return;
-      setProfile(result);
-      updatePageMetadata({
-        title: `${result.name} | Gospread`,
-        description: result.bio || `Visit ${result.name}'s profile on Gospread.`,
-        path: profilePath(result.username),
-        image: result.avatar_url || undefined,
-      });
-    }).catch((reason: unknown) => {
-      if (!active) return;
-      const status = reason instanceof Error && 'status' in reason ? reason.status : undefined;
-      setError(status === 404 ? 'This profile is not available.' : 'Unable to load this profile. Please try again later.');
-      console.error('Could not load public profile:', reason);
-    }).finally(() => {
-      if (active) setLoading(false);
-    });
-    return () => { active = false; };
+    djangoApi.getPublicUserProfile(username)
+      .then(result => {
+        if (!alive) return;
+        setProfile(result);
+        updatePageMetadata({
+          title: `${result.name} | Gospread`,
+          description: result.bio || `Visit ${result.name}'s profile on Gospread.`,
+          path: profilePath(result.username),
+          image: result.avatar_url || undefined,
+        });
+      })
+      .catch((err: unknown) => {
+        if (!alive) return;
+        const status = err instanceof Error && 'status' in err ? (err as any).status : undefined;
+        setError(status === 404 ? 'This profile does not exist.' : 'Could not load this profile. Please try again.');
+      })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
   }, [username]);
 
-  const videos = profile?.media?.filter((item) => item.kind === 'video') ?? [];
-  const audios = profile?.media?.filter((item) => item.kind === 'audio') ?? [];
+  const videos = profile?.media?.filter(m => m.kind === 'video') ?? [];
+  const audios = profile?.media?.filter(m => m.kind === 'audio') ?? [];
+
+  const visibleMedia = mediaTab === 'all'
+    ? (profile?.media ?? [])
+    : mediaTab === 'video' ? videos : audios;
+
+  const initials = profile?.name
+    ? profile.name.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase()
+    : username.slice(0, 2).toUpperCase();
+
+  // ── render ───────────────────────────────────────────────────────────────
 
   return (
-    <section className="mx-auto w-full max-w-3xl p-4 lg:p-6">
-      <button type="button" onClick={onBack} className="mb-5 text-sm font-semibold text-amber-400 hover:text-amber-300">
-        Back to home
+    <section className="mx-auto w-full max-w-3xl px-4 py-5 lg:px-6 space-y-5">
+
+      {/* Back button */}
+      <button type="button" onClick={onBack}
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-amber-400 transition">
+        <ArrowLeft className="w-3.5 h-3.5" />
+        Back
       </button>
+
       {loading ? (
-        <p role="status" className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-slate-300">Loading profile...</p>
+        <ProfileSkeleton />
       ) : error ? (
-        <p role="alert" className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-slate-300">{error}</p>
+        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-10 text-center space-y-2">
+          <User className="w-10 h-10 text-slate-700 mx-auto" />
+          <p className="text-sm text-slate-400 font-semibold">{error}</p>
+        </div>
       ) : profile ? (
-        <div className="space-y-5">
+        <>
+          {/* ── PROFILE CARD ─────────────────────────────────────────── */}
           <div className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 shadow-xl">
-            <div className="h-24 bg-gradient-to-r from-slate-800 via-slate-900 to-amber-950" />
-            <div className="px-6 pb-8">
-              <div className="-mt-10 flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border-4 border-slate-900 bg-slate-800 text-amber-400">
-                {profile.avatar_url ? (
-                  <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <User className="h-9 w-9" aria-hidden="true" />
+
+            {/* Cover */}
+            <div className="h-32 sm:h-40 bg-gradient-to-br from-amber-950 via-slate-900 to-slate-950 relative overflow-hidden">
+              <div className="absolute inset-0 opacity-25"
+                style={{ backgroundImage: 'radial-gradient(ellipse 50% 70% at 80% 30%, #f59e0b66, transparent)' }} />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent" />
+            </div>
+
+            <div className="px-5 sm:px-7 pb-7">
+
+              {/* Avatar */}
+              <div className="-mt-11 mb-4 flex items-end justify-between">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-4 border-slate-900 shadow-xl overflow-hidden bg-slate-800 flex items-center justify-center shrink-0">
+                  {profile.avatar_url
+                    ? <img src={profile.avatar_url} alt={profile.name} className="w-full h-full object-cover" />
+                    : <span className="text-2xl font-black text-amber-300 font-serif select-none">{initials}</span>}
+                </div>
+              </div>
+
+              {/* Name + badges */}
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-xl sm:text-2xl font-black text-white font-serif leading-tight">{profile.name}</h1>
+                  {profile.verified && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                      <ShieldCheck className="w-3 h-3" /> Verified
+                    </span>
+                  )}
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${roleBadgeColor[profile.role]}`}>
+                    {roleLabels[profile.role]}
+                  </span>
+                </div>
+                <p className="text-xs font-mono text-amber-400">@{profile.username}</p>
+                {profile.bio && (
+                  <p className="text-sm text-slate-300 leading-relaxed mt-2 max-w-xl whitespace-pre-wrap">{profile.bio}</p>
                 )}
               </div>
-              <h1 className="mt-4 flex flex-wrap items-center gap-2 text-2xl font-bold text-white">
-                {profile.name}
-                {profile.verified && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-300" aria-label="Verified profile">
-                    <ShieldCheck className="h-4 w-4" /> Verified
-                  </span>
-                )}
-              </h1>
-              <p className="mt-1 text-sm text-amber-400">@{profile.username}</p>
-              <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-400">{roleLabels[profile.role]}</p>
-              {profile.bio && <p className="mt-5 whitespace-pre-wrap text-sm leading-relaxed text-slate-300">{profile.bio}</p>}
+
+              {/* Media counts */}
+              {(videos.length > 0 || audios.length > 0) && (
+                <div className="flex gap-4 mt-5 pt-4 border-t border-slate-800 text-xs text-slate-500">
+                  {videos.length > 0 && (
+                    <span className="flex items-center gap-1.5">
+                      <Video className="w-3.5 h-3.5 text-amber-400" />
+                      <strong className="text-white font-bold">{videos.length}</strong> {videos.length === 1 ? 'video' : 'videos'}
+                    </span>
+                  )}
+                  {audios.length > 0 && (
+                    <span className="flex items-center gap-1.5">
+                      <Headphones className="w-3.5 h-3.5 text-amber-400" />
+                      <strong className="text-white font-bold">{audios.length}</strong> {audios.length === 1 ? 'audio' : 'audios'}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
-          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl sm:p-6" aria-label="Public media">
-            <div className="mb-5">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">From this creator</p>
-              <h2 className="mt-1 text-xl font-black text-white">Public Media</h2>
-              <p className="mt-1 text-xs text-slate-400">Audio and videos published by {profile.name}.</p>
-            </div>
+          {/* ── MEDIA SECTION ────────────────────────────────────────── */}
+          {(videos.length > 0 || audios.length > 0) && (
+            <section className="rounded-3xl border border-slate-800 bg-slate-900 overflow-hidden">
+              {/* Header */}
+              <div className="px-5 pt-5 pb-4 border-b border-slate-800 flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-400">From this creator</p>
+                  <h2 className="text-base font-black text-white mt-0.5">Public Media</h2>
+                </div>
 
-            <div className="space-y-6">
-              <div>
-                <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-white">
-                  <Video className="h-4 w-4 text-amber-400" /> Videos
-                  <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-slate-400">
-                    {videos.length}
-                  </span>
-                </h3>
-                {videos.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {videos.map((item) => {
-                      const video = toVideoStream(item);
-                      return (
-                        <button
-                          key={`video-${item.id}`}
-                          type="button"
-                          onClick={() => onPlayVideo(video)}
-                          aria-label={`Play video: ${item.title}`}
-                          className="group overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60 text-left transition hover:border-amber-400/50"
-                        >
-                          <div className="relative aspect-video bg-slate-800">
-                            {item.thumbnail_url ? (
-                              <img src={item.thumbnail_url} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
-                            ) : (
-                              <div className="flex h-full items-center justify-center text-slate-500"><Video className="h-8 w-8" /></div>
-                            )}
-                            <span className="absolute inset-0 flex items-center justify-center bg-black/20 text-white transition group-hover:bg-black/40">
-                              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-400 text-slate-950 shadow-lg">
-                                <Play className="ml-0.5 h-5 w-5 fill-current" />
-                              </span>
-                            </span>
-                          </div>
-                          <div className="p-3">
-                            <p className="line-clamp-2 text-sm font-bold text-white">{item.title}</p>
-                            <p className="mt-1 text-xs text-slate-400">{item.speaker} · {item.duration_seconds ? formatDuration(item.duration_seconds) : 'Video'}</p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="rounded-xl border border-dashed border-slate-700 px-4 py-5 text-center text-xs text-slate-500">No public videos yet.</p>
-                )}
+                {/* Filter tabs */}
+                <div className="flex gap-1 p-1 rounded-xl bg-slate-950/60 border border-slate-800">
+                  {[
+                    { id: 'all' as const, label: 'All', count: (profile.media?.length ?? 0) },
+                    { id: 'video' as const, label: 'Video', count: videos.length, icon: Video },
+                    { id: 'audio' as const, label: 'Audio', count: audios.length, icon: Music },
+                  ].filter(t => t.count > 0 || t.id === 'all').map(t => (
+                    <button key={t.id} onClick={() => setMediaTab(t.id)}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold transition ${mediaTab === t.id ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}>
+                      {t.icon && <t.icon className="w-3 h-3" />}
+                      {t.label}
+                      {t.count > 0 && (
+                        <span className={`text-[9px] px-1 rounded font-mono ${mediaTab === t.id ? 'bg-slate-950/40 text-amber-300' : 'bg-slate-800 text-slate-500'}`}>
+                          {t.count}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div>
-                <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-white">
-                  <Headphones className="h-4 w-4 text-amber-400" /> Audio
-                  <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-slate-400">
-                    {audios.length}
-                  </span>
-                </h3>
-                {audios.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {audios.map((item) => (
-                      <button
-                        key={`audio-${item.id}`}
-                        type="button"
-                        onClick={() => onPlayAudio(toAudioTrack(item))}
-                        aria-label={`Listen to audio: ${item.title}`}
-                        className="group flex min-w-0 items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/60 p-3 text-left transition hover:border-amber-400/50"
-                      >
-                        {item.thumbnail_url ? (
-                          <img src={item.thumbnail_url} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover" />
-                        ) : (
-                          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400">
-                            <Headphones className="h-6 w-6" />
+              {/* Media grid */}
+              <div className="p-5 space-y-3">
+                {visibleMedia.length === 0 ? (
+                  <p className="text-center text-xs text-slate-600 py-8">
+                    No {mediaTab === 'video' ? 'videos' : mediaTab === 'audio' ? 'audio' : 'media'} yet.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {visibleMedia.map(item => item.kind === 'video' ? (
+                      <button key={`v${item.id}`} type="button"
+                        onClick={() => onPlayVideo(toVideoStream(item))}
+                        aria-label={`Play video: ${item.title}`}
+                        className="group overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/50 hover:border-amber-400/50 text-left transition">
+                        <div className="relative aspect-video bg-slate-800">
+                          {item.thumbnail_url
+                            ? <img src={item.thumbnail_url} alt="" className="w-full h-full object-cover transition duration-300 group-hover:scale-105" />
+                            : <span className="flex h-full items-center justify-center text-slate-600"><Video className="w-8 h-8" /></span>}
+                          <span className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition flex items-center justify-center">
+                            <span className="w-11 h-11 rounded-full bg-amber-400 flex items-center justify-center shadow-lg">
+                              <Play className="w-5 h-5 fill-slate-950 ml-0.5" />
+                            </span>
                           </span>
-                        )}
-                        <span className="min-w-0 flex-1">
-                          <span className="block line-clamp-2 text-sm font-bold text-white">{item.title}</span>
-                          <span className="mt-1 block truncate text-xs text-slate-400">{item.speaker} · {item.duration_seconds ? formatDuration(item.duration_seconds) : 'Audio'}</span>
+                          {item.duration_seconds > 0 && (
+                            <span className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/70 text-white text-[10px] font-mono">
+                              {fmtDuration(item.duration_seconds)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="p-3">
+                          <p className="text-sm font-bold text-white line-clamp-2 leading-snug">{item.title}</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {item.speaker}{item.view_count > 0 ? ` · ${item.view_count} views` : ''}
+                          </p>
+                        </div>
+                      </button>
+                    ) : (
+                      <button key={`a${item.id}`} type="button"
+                        onClick={() => onPlayAudio(toAudioTrack(item))}
+                        aria-label={`Listen: ${item.title}`}
+                        className="group flex items-center gap-3 p-3 rounded-2xl border border-slate-800 bg-slate-950/50 hover:border-amber-400/50 text-left transition">
+                        <span className="w-16 h-16 shrink-0 rounded-xl overflow-hidden bg-amber-500/10 flex items-center justify-center">
+                          {item.thumbnail_url
+                            ? <img src={item.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                            : <Headphones className="w-6 h-6 text-amber-400" />}
                         </span>
-                        <Play className="h-4 w-4 shrink-0 fill-current text-amber-400 transition group-hover:scale-110" />
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-sm font-bold text-white line-clamp-2 leading-snug">{item.title}</span>
+                          <span className="block text-xs text-slate-500 mt-0.5 truncate">
+                            {item.speaker}{item.duration_seconds ? ` · ${fmtDuration(item.duration_seconds)}` : ''}
+                          </span>
+                        </span>
+                        <Play className="w-4 h-4 shrink-0 fill-current text-amber-400 group-hover:scale-110 transition" />
                       </button>
                     ))}
                   </div>
-                ) : (
-                  <p className="rounded-xl border border-dashed border-slate-700 px-4 py-5 text-center text-xs text-slate-500">No public audio yet.</p>
                 )}
               </div>
+            </section>
+          )}
+
+          {/* Empty media state */}
+          {videos.length === 0 && audios.length === 0 && (
+            <div className="rounded-3xl border border-dashed border-slate-800 p-10 text-center space-y-2">
+              <Video className="w-8 h-8 text-slate-700 mx-auto" />
+              <p className="text-xs text-slate-600">{profile.name} hasn't published any media yet.</p>
             </div>
-          </section>
-        </div>
+          )}
+        </>
       ) : null}
     </section>
   );

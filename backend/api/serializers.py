@@ -136,7 +136,7 @@ class PublicUserProfileSerializer(serializers.ModelSerializer):
             is_published=True,
             visibility="public",
             kind__in=(Sermon.Kind.VIDEO, Sermon.Kind.AUDIO),
-        ).exclude(media_url="").select_related("church").order_by("-published_at", "-created_at")
+        ).exclude(media_url="").select_related("church").order_by("-published_at", "-created_at")[:20]
         return PublicProfileMediaSerializer(sermons, many=True, context=self.context).data
 
 
