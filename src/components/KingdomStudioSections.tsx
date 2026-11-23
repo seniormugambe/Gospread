@@ -127,7 +127,7 @@ export default function KingdomStudioSections({
     setSampleComments([]);
     const loadStudioContent = async () => {
       const [videos, shorts, streams, posts] = await Promise.all([
-        djangoApi.getVideos(undefined, false),
+        djangoApi.getVideos(),
         djangoApi.getShorts(),
         djangoApi.getVideos(),
         djangoApi.getCommunityPosts()

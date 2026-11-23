@@ -26,7 +26,7 @@ import {
   Mic
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { AudioTrack, AUDIO_TRACKS } from '../data/gospelData';
+import { AudioTrack } from '../data/gospelData';
 import { djangoApi } from '../services/djangoApi';
 import { GivingTarget } from './GivingModal';
 import { ActiveAudioSpace } from './AudioSpaceStudio';
@@ -241,7 +241,7 @@ export default function AudioPodcastHub({
       }
 
       if (active) {
-        setAudioList(AUDIO_TRACKS);
+        setAudioList([]);
         setAudioSource('curated');
         setIsLoadingAudio(false);
       }

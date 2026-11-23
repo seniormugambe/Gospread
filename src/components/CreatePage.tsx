@@ -601,7 +601,7 @@ export default function CreatePage({
 
   useEffect(() => {
     let active = true;
-    djangoApi.getVideos(undefined, false).then(videos => {
+    djangoApi.getVideos().then(videos => {
       if (active) setLatestSermon(videos[0] || null);
     }).catch(() => {
       if (active) setLatestSermon(null);

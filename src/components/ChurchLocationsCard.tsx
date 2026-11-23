@@ -17,7 +17,7 @@ import {
   Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChurchLocation, CHURCH_LOCATIONS } from '../data/gospelData';
+import { ChurchLocation } from '../data/gospelData';
 
 interface ChurchLocationsCardProps {
   churchName: string;
@@ -32,27 +32,8 @@ export default function ChurchLocationsCard({
   onSelectCampusForSchedule,
   className = ''
 }: ChurchLocationsCardProps) {
-  // Retrieve locations or fallback to default
-  const campuses: ChurchLocation[] = customLocations || CHURCH_LOCATIONS[churchName] || [
-    {
-      id: 'loc-default-1',
-      churchName: churchName,
-      campusName: `${churchName} Main Worship Center`,
-      isMainCampus: true,
-      address: '777 Kingdom Avenue',
-      city: 'Atlanta',
-      stateOrRegion: 'GA',
-      country: 'United States',
-      zipCode: '30303',
-      leadPastor: 'Senior Pastors & Leadership',
-      phone: '+1 (800) 555-7700',
-      email: `contact@${churchName.toLowerCase().replace(/\s+/g, '')}.org`,
-      googleMapsUrl: `https://maps.google.com/?q=${encodeURIComponent(churchName)}`,
-      serviceTimes: ['Sundays: 9:00 AM & 11:30 AM EST', 'Midweek: Wednesdays 7:00 PM EST'],
-      features: ['Main Worship Sanctuary', 'Youth & Kids Chapel', 'Free On-Site Parking', 'Wheelchair Accessible'],
-      image: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=800&q=80'
-    }
-  ];
+  // Use provided locations only; empty list handled downstream
+  const campuses: ChurchLocation[] = customLocations || [];
 
   const [selectedCampusId, setSelectedCampusId] = useState<string>(campuses[0]?.id || '');
   const activeCampus = campuses.find(c => c.id === selectedCampusId) || campuses[0];

@@ -13,7 +13,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { GRACE_SHORTS, GraceShort, VideoStream } from '../data/gospelData';
+import { GraceShort, VideoStream } from '../data/gospelData';
 import { GivingTarget } from './GivingModal';
 
 interface GraceShortsModalProps {
@@ -50,10 +50,8 @@ export default function GraceShortsModal({
   shorts = [],
   onSelectVideo,
 }: GraceShortsModalProps) {
-  // Prefer live backend shorts; fall back to curated GRACE_SHORTS
-  const allShorts: GraceShort[] = shorts.length > 0
-    ? shorts.map(videoStreamToGraceShort)
-    : GRACE_SHORTS;
+  // Use backend shorts; show empty state when none are available
+  const allShorts: GraceShort[] = shorts.map(videoStreamToGraceShort);
   // Map back from GraceShort id → VideoStream for the play callback
   const videoStreamById = new Map(shorts.map(v => [v.id, v]));
 

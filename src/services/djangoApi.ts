@@ -1,6 +1,6 @@
 // Production-ready Django REST Framework / Django Ninja API Client Service
 // Connected directly to Django 5.x / DRF endpoints with JWT Authentication (SimpleJWT)
-import { AUDIO_TRACKS, CHURCH_LOCATIONS, GRACE_SHORTS, LIVE_VIDEO_STREAMS } from '../data/gospelData';
+
 import { getSavedReferrer } from '../lib/invites';
 
 export interface DirectoryEntryApi {
@@ -1221,7 +1221,6 @@ class DjangoApiClient {
     category?: string,
     isLive?: boolean,
     search?: string,
-    includeLocalFallback = true,
     surface: 'home' | 'explore' | 'sermons' | 'following' = 'home',
   ): Promise<VideoStream[]> {
     const params = new URLSearchParams();
@@ -1325,42 +1324,7 @@ class DjangoApiClient {
       return finalVideos;
     }
 
-    if (!includeLocalFallback) {
-      return [];
-    }
-
-    let localVideos = LIVE_VIDEO_STREAMS.slice();
-    if (category && category.toLowerCase() !== 'all') {
-      const cat = category.toLowerCase();
-      if (cat === 'live') {
-        localVideos = localVideos.filter(v => v.isLive);
-      } else if (cat === 'sermons' || cat === 'sermon') {
-        localVideos = localVideos.filter(v => v.category.toLowerCase().includes('sermon'));
-      } else if (cat === 'worship') {
-        localVideos = localVideos.filter(v =>
-          v.category.toLowerCase().includes('worship') ||
-          v.category.toLowerCase().includes('choir') ||
-          v.category.toLowerCase().includes('music')
-        );
-      } else {
-        localVideos = localVideos.filter(v => v.category.toLowerCase().includes(cat));
-      }
-    }
-
-    if (isLive !== undefined) {
-      localVideos = localVideos.filter(v => v.isLive === isLive);
-    }
-
-    if (search?.trim()) {
-      const q = search.toLowerCase().trim();
-      localVideos = localVideos.filter(v =>
-        v.title.toLowerCase().includes(q) ||
-        v.speakerOrArtist.toLowerCase().includes(q) ||
-        v.churchOrMinistry.toLowerCase().includes(q)
-      );
-    }
-
-    return localVideos;
+    return [];
   }
 
   public async getDiscoveryConfig(): Promise<{
@@ -1513,7 +1477,7 @@ class DjangoApiClient {
     await this.request(`/shorts/${encodeURIComponent(id.replace(/^short-/, ''))}/`, { method: 'DELETE' });
   }
 
-  public async getShorts(includeLocalFallback = true): Promise<VideoStream[]> {
+  public async getShorts(): Promise<VideoStream[]> {
     try {
       const res = await this.request<any[] | { results: any[] }>('/shorts/').catch(() => []);
       const items = Array.isArray(res) ? res : (res?.results || []);
@@ -1532,7 +1496,7 @@ class DjangoApiClient {
           viewersCount: short.view_count || 0,
           viewsText: `${short.view_count || 0} views`,
           duration: short.duration_seconds ? `${Math.floor(short.duration_seconds / 60)}:${String(short.duration_seconds % 60).padStart(2, '0')}` : '0:45',
-          thumbnail: short.thumbnail_url || 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=600&q=80',
+          thumbnail: short.thumbnail_url || '',
           description: short.caption || '',
           date: short.created_at ? new Date(short.created_at).toLocaleDateString() : 'Today',
           videoUrl: short.video_url,
@@ -1541,30 +1505,9 @@ class DjangoApiClient {
         }));
       }
     } catch {
-      // Fall through to curated local shorts.
+      // fall through
     }
-    if (!includeLocalFallback) {
-      return [];
-    }
-    return GRACE_SHORTS.map((short) => ({
-      id: short.id,
-      title: short.title,
-      speakerOrArtist: short.speaker,
-      churchOrMinistry: short.church,
-      channelAvatar: short.avatar,
-      subscribersCount: 'Verified',
-      likesCount: short.likes,
-      category: 'Sermon' as const,
-      isLive: false,
-      isShort: true,
-      viewersCount: short.amensCount,
-      viewsText: `${short.amensCount} amens`,
-      duration: short.duration,
-      thumbnail: short.thumbnail,
-      description: short.tags.join(' '),
-      date: 'Today',
-      videoUrl: short.videoUrl,
-    }));
+    return [];
   }
 
   // === 4. AUDIO & PODCASTS ===
@@ -1610,22 +1553,14 @@ class DjangoApiClient {
       audioUrl: sermon.media_url,
     }));
     const availableTracks = [...sermonTracks, ...songTracks];
-    if (availableTracks.length > 0) {
-      const categoryFilter = category?.toLowerCase().trim();
-      return categoryFilter && categoryFilter !== 'all'
-        ? availableTracks.filter(track => track.category.toLowerCase().includes(categoryFilter))
-        : availableTracks;
-    }
-
     const categoryFilter = category?.toLowerCase().trim();
-    return AUDIO_TRACKS.filter((track) => {
-      if (!categoryFilter || categoryFilter === 'all') return true;
-      return track.category.toLowerCase().includes(categoryFilter);
-    });
+    return categoryFilter && categoryFilter !== 'all'
+      ? availableTracks.filter(track => track.category.toLowerCase().includes(categoryFilter))
+      : availableTracks;
   }
 
   // === 5. CHURCH DIRECTORY & REGISTRATION ===
-  public async getChurchLocations(query?: string, includeLocalFallback = true): Promise<ChurchLocation[]> {
+  public async getChurchLocations(query?: string): Promise<ChurchLocation[]> {
     const params = new URLSearchParams();
     if (query) params.append('search', query);
 
@@ -1655,45 +1590,7 @@ class DjangoApiClient {
       }));
     }
 
-    if (!includeLocalFallback) {
-      return [];
-    }
-
-    const allChurchLocations: ChurchLocation[] = [];
-    for (const [name, locs] of Object.entries(CHURCH_LOCATIONS)) {
-      for (const loc of locs) {
-        allChurchLocations.push({
-          id: loc.id,
-          name: `${name} — ${loc.campusName}`,
-          slug: loc.id,
-          address: loc.address,
-          cityState: `${loc.city}, ${loc.stateOrRegion}`,
-          distance: loc.isMainCampus ? 'Main Sanctuary' : 'Campus Branch',
-          serviceTimes: loc.serviceTimes.join(' | '),
-          leadPastor: loc.leadPastor,
-          phone: loc.phone,
-          email: loc.email,
-          website: 'https://gracecitycathedral.org',
-          googleMapsUrl: loc.googleMapsUrl,
-          verified: false,
-          avatar: loc.pastorAvatar || 'https://images.unsplash.com/photo-1548625361-188f58b6fa24?auto=format&fit=crop&w=300&q=80',
-          coverImage: loc.image,
-          category: 'Cathedral Sanctuary',
-          weeklyScheduleCount: loc.serviceTimes.length,
-        });
-      }
-    }
-
-    if (query?.trim()) {
-      const q = query.toLowerCase().trim();
-      return allChurchLocations.filter(c => 
-        c.name.toLowerCase().includes(q) || 
-        c.cityState.toLowerCase().includes(q) || 
-        c.leadPastor.toLowerCase().includes(q)
-      );
-    }
-
-    return allChurchLocations;
+    return [];
   }
 
   public async registerMinistry(ministryData: {

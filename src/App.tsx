@@ -377,7 +377,7 @@ export default function App() {
       try {
         const [backendVideos, backendShorts] = await Promise.all([
           djangoApi.getVideos(),
-          djangoApi.getShorts(false),
+          djangoApi.getShorts(),
         ]);
         if (isMounted) {
           setVideoStreams(backendVideos);
@@ -398,7 +398,7 @@ export default function App() {
       try {
         const [backendVideos, backendShorts] = await Promise.all([
           djangoApi.getVideos(),
-          djangoApi.getShorts(false),
+          djangoApi.getShorts(),
         ]);
         if (isMounted) {
           setVideoStreams(backendVideos);

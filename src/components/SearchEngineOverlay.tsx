@@ -25,7 +25,7 @@ import {
   Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { VideoStream, AudioTrack, LIVE_VIDEO_STREAMS, AUDIO_TRACKS, SUBSCRIPTION_CHANNELS } from '../data/gospelData';
+import { VideoStream, AudioTrack, SUBSCRIPTION_CHANNELS } from '../data/gospelData';
 import { djangoApi } from '../services/djangoApi';
 
 interface SearchEngineOverlayProps {
@@ -64,7 +64,7 @@ export const SearchEngineOverlay: React.FC<SearchEngineOverlayProps> = ({
   const [durationFilter, setDurationFilter] = useState<SearchDuration>('any');
   const [liveOnly, setLiveOnly] = useState(false);
   const [videoResults, setVideoResults] = useState<VideoStream[]>([]);
-  const [audioResults, setAudioResults] = useState<AudioTrack[]>(AUDIO_TRACKS);
+  const [audioResults, setAudioResults] = useState<AudioTrack[]>([]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -77,14 +77,13 @@ export const SearchEngineOverlay: React.FC<SearchEngineOverlayProps> = ({
             undefined,
             liveOnly ? true : undefined,
             searchQuery.trim(),
-            false,
             'explore',
           ),
           djangoApi.getAudioTracks(),
         ]);
         if (!active) return;
         setVideoResults(videos);
-        setAudioResults(audioTracks.length > 0 ? audioTracks : AUDIO_TRACKS);
+        setAudioResults(audioTracks);
       } catch (error) {
         console.warn('[Search] Failed to load Gospread media:', error);
         if (active) setVideoResults([]);
@@ -288,9 +287,9 @@ export const SearchEngineOverlay: React.FC<SearchEngineOverlayProps> = ({
     return c.name.toLowerCase().includes(q);
   });
 
-  // Scripture matches
-  const matchingScriptures = LIVE_VIDEO_STREAMS.filter(v => v.bibleVerse && searchQuery.trim() && v.bibleVerse.toLowerCase().includes(searchQuery.toLowerCase().trim()))
-    .concat(AUDIO_TRACKS.filter(a => a.scriptureVerses && searchQuery.trim() && a.scriptureVerses.some(s => s.reference.toLowerCase().includes(searchQuery.toLowerCase().trim()) || s.text.toLowerCase().includes(searchQuery.toLowerCase().trim()))) as any);
+  // Scripture matches — search within already-fetched API results
+  const matchingScriptures = videoResults.filter(v => v.bibleVerse && searchQuery.trim() && v.bibleVerse.toLowerCase().includes(searchQuery.toLowerCase().trim()))
+    .concat(audioResults.filter(a => a.scriptureVerses && searchQuery.trim() && a.scriptureVerses.some(s => s.reference.toLowerCase().includes(searchQuery.toLowerCase().trim()) || s.text.toLowerCase().includes(searchQuery.toLowerCase().trim()))) as any);
 
   const totalResultsCount = matchingVideos.length + matchingAudio.length + matchingChannels.length;
 
