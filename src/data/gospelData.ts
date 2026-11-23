@@ -23,7 +23,10 @@ export interface VideoStream {
   streamUrl?: string;
   /** CSS object-position used to crop non-9:16 Nuggets, e.g. "35% 50%". */
   cropPosition?: string;
+  commentCount?: number;
   seriesName?: string;
+  /** Tags added by the creator, used for personalised recommendations. */
+  tags?: string[];
 }
 
 export interface AudioChapter {
@@ -201,6 +204,9 @@ export interface GraceShort {
   avatar: string;
   likes: string;
   amensCount: number;
+  views: number;
+  commentCount: number;
+  category: string;
   videoUrl: string;
   thumbnail: string;
   duration: string;

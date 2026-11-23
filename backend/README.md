@@ -55,7 +55,7 @@ Email verification uses the configured Django email backend and `FRONTEND_URL`. 
 - `/api/discovery/config/` — public pilot feature-flag state
 - `/api/discovery/fairness-report/` — staff-only aggregate weekly fairness report
 - `POST /api/sermons/{id}/heartbeat/` — authenticated, deduplicated playback heartbeat
-- `POST /api/sermons/uploads/` — create or resume an authenticated video upload session
+- `POST /api/sermons/uploads/` — create or resume an authenticated upload session; unfinished uploads can resume within 24 hours after a browser restart when the creator reselects the same file, and metadata can be revised until completion
 - `PUT /api/sermons/uploads/{upload_id}/chunks/` — append a chunk using the `Upload-Offset` header
 - `POST /api/sermons/uploads/{upload_id}/complete/` — validate and publish/save the uploaded sermon
 - `/api/shorts/` — sermon clips up to three minutes

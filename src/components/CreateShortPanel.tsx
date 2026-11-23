@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Loader2, UploadCloud, Zap } from 'lucide-react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { ArrowLeft, CheckCircle2, Loader2, UploadCloud, Zap, Tag, X } from 'lucide-react';
 import { djangoApi } from '../services/djangoApi';
 import { VideoStream } from '../data/gospelData';
 import { isVideoFile } from '../utils/mediaFiles';
@@ -8,6 +8,10 @@ export const SHORT_MAX_SECONDS = 60;
 const SHORT_ASPECT = 9 / 16;
 const CAPTION_MAX = 280;
 const MAX_FILE_BYTES = 500 * 1024 * 1024;
+const SUGGESTED_TAGS = [
+  'Sermon', 'Worship', 'Prayer', 'Word of God', 'Faith', 'Healing',
+  'Salvation', 'Grace', 'Prophecy', 'Youth', 'Devotional', 'Praise',
+];
 
 interface VideoInfo {
   duration: number;
@@ -116,6 +120,9 @@ function readVideoInfo(url: string): Promise<VideoInfo> {
   });
 }
 
+/** Clamp a value between min and max. */
+const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+
 interface CreateShortPanelProps {
   onBack: () => void;
   onPublished: (stream: VideoStream) => void;
@@ -127,14 +134,21 @@ interface CreateShortPanelProps {
 export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, isSignedIn, username }: CreateShortPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [info, setInfo] = useState<VideoInfo | null>(null);
   const [crop, setCrop] = useState(0.5);
   const [caption, setCaption] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [done, setDone] = useState(false);
+  // Drag state for the visual crop handle
+  const isDragging = useRef(false);
+  const dragStartCrop = useRef(0);
+  const dragStartPos = useRef(0);
 
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
 
@@ -174,6 +188,55 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
     }
   };
 
+  // ── Visual drag-to-crop logic ──────────────────────────────────────────────
+  const getEventPos = (e: MouseEvent | TouchEvent) =>
+    'touches' in e ? e.touches[0] : e;
+
+  const onDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    if (!axis) return;
+    isDragging.current = true;
+    dragStartCrop.current = crop;
+    const pos = 'touches' in e ? e.touches[0] : e;
+    dragStartPos.current = axis === 'x' ? pos.clientX : pos.clientY;
+  }, [axis, crop]);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent | TouchEvent) => {
+      if (!isDragging.current || !axis || !previewRef.current) return;
+      const pos = getEventPos(e);
+      const current = axis === 'x' ? pos.clientX : pos.clientY;
+      const rect = previewRef.current.getBoundingClientRect();
+      const size = axis === 'x' ? rect.width : rect.height;
+      const delta = (current - dragStartPos.current) / size;
+      setCrop(clamp(dragStartCrop.current + delta, 0, 1));
+    };
+    const onEnd = () => { isDragging.current = false; };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('touchmove', onMove, { passive: true });
+    window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchend', onEnd);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('mouseup', onEnd);
+      window.removeEventListener('touchend', onEnd);
+    };
+  }, [axis]);
+
+  // ── Tag helpers ────────────────────────────────────────────────────────────
+  const addTag = (tag: string) => {
+    const clean = tag.trim().replace(/^#+/, '');
+    if (!clean || tags.includes(clean) || tags.length >= 8) return;
+    setTags((prev) => [...prev, clean]);
+    setTagInput('');
+  };
+  const removeTag = (tag: string) => setTags((prev) => prev.filter((t) => t !== tag));
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(tagInput); }
+    if (e.key === 'Backspace' && !tagInput && tags.length) removeTag(tags[tags.length - 1]);
+  };
+
+  // ── Upload ─────────────────────────────────────────────────────────────────
   const handlePost = async () => {
     if (!file || !info) return;
     if (!isSignedIn) return onRequireAuth?.();
@@ -186,7 +249,16 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
     try {
       const thumbnail = info.frame ? await cropFrameToBlob(info.frame, cropX, cropY).catch(() => null) : null;
       const created = await djangoApi.createShort(
-        { caption, speaker: username, duration_seconds: info.duration, crop_x: cropX, crop_y: cropY, video_file: file, thumbnail_file: thumbnail },
+        {
+          caption,
+          speaker: username,
+          duration_seconds: info.duration,
+          crop_x: cropX,
+          crop_y: cropY,
+          tags,
+          video_file: file,
+          thumbnail_file: thumbnail,
+        },
         setProgress,
       );
       const shorts = await djangoApi.getShorts().catch(() => [] as VideoStream[]);
@@ -214,6 +286,9 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
 
   const uploading = progress !== null;
 
+  // Visual crop handle position (percentage along the axis)
+  const handlePct = axis ? Math.round(crop * 100) : 50;
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <button onClick={onBack} className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1.5 transition cursor-pointer">
@@ -227,31 +302,92 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
       </div>
 
       <div className="grid sm:grid-cols-[220px_1fr] gap-6">
-        <div>
-          {previewUrl ? (
-            <video
-              src={previewUrl}
-              controls
-              playsInline
-              className="w-full aspect-[9/16] rounded-2xl bg-black object-cover"
-              style={{ objectPosition: `${cropX * 100}% ${cropY * 100}%` }}
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              className="w-full aspect-[9/16] rounded-2xl border-2 border-dashed border-slate-700 hover:border-amber-500 text-slate-400 hover:text-amber-400 flex flex-col items-center justify-center gap-2 px-4 text-center transition cursor-pointer"
-            >
-              <UploadCloud className="w-8 h-8" />
-              <span className="text-xs font-bold">Choose a video</span>
-              <span className="text-[10px]">Up to {SHORT_MAX_SECONDS} seconds. Not 9:16? We'll help you crop it.</span>
-            </button>
-          )}
+
+        {/* ── Preview + Visual Crop ── */}
+        <div className="space-y-2">
+          <div
+            ref={previewRef}
+            className="relative w-full aspect-[9/16] rounded-2xl overflow-hidden bg-black"
+          >
+            {previewUrl ? (
+              <>
+                <video
+                  src={previewUrl}
+                  controls={!axis}
+                  playsInline
+                  className="w-full h-full object-cover"
+                  style={{ objectPosition: `${cropX * 100}% ${cropY * 100}%` }}
+                />
+
+                {/* Crop overlay — only shown when cropping is needed */}
+                {axis && !uploading && (
+                  <div
+                    className="absolute inset-0 cursor-grab active:cursor-grabbing select-none"
+                    onMouseDown={onDragStart}
+                    onTouchStart={onDragStart}
+                  >
+                    {/* Semi-transparent excluded region indicators */}
+                    {axis === 'x' ? (
+                      <>
+                        {/* Left excluded strip */}
+                        <div
+                          className="absolute inset-y-0 left-0 bg-black/50 pointer-events-none transition-all"
+                          style={{ width: `${handlePct * (1 - SHORT_ASPECT / (info!.width / info!.height))}%` }}
+                        />
+                        {/* Right excluded strip */}
+                        <div
+                          className="absolute inset-y-0 right-0 bg-black/50 pointer-events-none transition-all"
+                          style={{ width: `${(1 - handlePct / 100) * (1 - SHORT_ASPECT / (info!.width / info!.height))}%` }}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        {/* Top excluded strip */}
+                        <div
+                          className="absolute inset-x-0 top-0 bg-black/50 pointer-events-none transition-all"
+                          style={{ height: `${handlePct * (1 - (info!.height / info!.width) * SHORT_ASPECT)}%` }}
+                        />
+                        {/* Bottom excluded strip */}
+                        <div
+                          className="absolute inset-x-0 bottom-0 bg-black/50 pointer-events-none transition-all"
+                          style={{ height: `${(1 - handlePct / 100) * (1 - (info!.height / info!.width) * SHORT_ASPECT)}%` }}
+                        />
+                      </>
+                    )}
+
+                    {/* Centre guide frame */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="border-2 border-amber-400/70 rounded-xl w-[85%] h-[85%]" />
+                    </div>
+
+                    {/* Drag hint */}
+                    <div className="absolute bottom-3 left-0 right-0 flex justify-center pointer-events-none">
+                      <span className="px-2.5 py-1 rounded-full bg-black/70 text-[10px] font-bold text-amber-300 backdrop-blur-sm">
+                        Drag to reframe
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                className="w-full h-full rounded-2xl border-2 border-dashed border-slate-700 hover:border-amber-500 text-slate-400 hover:text-amber-400 flex flex-col items-center justify-center gap-2 px-4 text-center transition cursor-pointer"
+              >
+                <UploadCloud className="w-8 h-8" />
+                <span className="text-xs font-bold">Choose a video</span>
+                <span className="text-[10px]">Up to {SHORT_MAX_SECONDS} seconds · Not 9:16? Drag to reframe it.</span>
+              </button>
+            )}
+          </div>
+
           {/* No `capture` here: it forces the camera on mobile and hides the gallery. */}
           <input ref={inputRef} type="file" accept="video/*" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
           <input ref={cameraInputRef} type="file" accept="video/*" capture="environment" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
+
           {!uploading && (
-            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <button type="button" onClick={() => inputRef.current?.click()} className="text-xs font-bold text-slate-400 hover:text-white cursor-pointer">
                 {file ? 'Change video' : 'Choose from gallery'}
               </button>
@@ -260,14 +396,39 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
               </button>
             </div>
           )}
+
+          {/* Fine-tune slider (falls back when drag isn't possible) */}
+          {axis && !uploading && (
+            <label className="block space-y-1.5 rounded-xl bg-slate-900 border border-slate-800 p-3">
+              <span className="text-xs font-bold text-slate-300">
+                Fine-tune crop — {axis === 'x' ? 'left ↔ right' : 'top ↕ bottom'}
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={handlePct}
+                onChange={(e) => setCrop(Number(e.target.value) / 100)}
+                aria-label={axis === 'x' ? 'Move crop left or right' : 'Move crop up or down'}
+                className="w-full accent-amber-500"
+              />
+              <span className="flex justify-between text-[10px] text-slate-500">
+                <span>{axis === 'x' ? 'Left' : 'Top'}</span>
+                <span>{axis === 'x' ? 'Right' : 'Bottom'}</span>
+              </span>
+            </label>
+          )}
         </div>
 
+        {/* ── Metadata fields ── */}
         <div className="space-y-4">
           {info && (
             <p className="text-xs text-slate-400">
               {Math.ceil(info.duration)}s / {SHORT_MAX_SECONDS}s · {info.width}×{info.height}
+              {axis && <span className="ml-2 text-amber-400 font-semibold">Needs crop to 9:16</span>}
             </p>
           )}
+
           <label className="block space-y-1.5">
             <span className="text-xs font-bold text-slate-300">Profile username</span>
             <input
@@ -279,6 +440,7 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
               className="w-full rounded-xl bg-slate-900 border border-slate-700 outline-none p-3 text-sm text-white opacity-80"
             />
           </label>
+
           <label className="block space-y-1.5">
             <span className="text-xs font-bold text-slate-300">Caption</span>
             <textarea
@@ -293,32 +455,73 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
             <span className="block text-right text-[10px] text-slate-500">{caption.length}/{CAPTION_MAX}</span>
           </label>
 
-          {axis && !uploading && (
-            <label className="block space-y-1.5 rounded-xl bg-slate-900 border border-slate-800 p-3">
-              <span className="text-xs font-bold text-slate-300">
-                Crop to 9:16 — slide to choose what stays in frame
-              </span>
+          {/* ── Tags field ── */}
+          <div className="space-y-2">
+            <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+              <Tag className="w-3.5 h-3.5" /> Tags <span className="text-slate-500 font-normal">(up to 8)</span>
+            </span>
+
+            {/* Selected tags */}
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[11px] font-bold"
+                  >
+                    #{tag}
+                    <button
+                      type="button"
+                      onClick={() => removeTag(tag)}
+                      disabled={uploading}
+                      className="text-amber-400 hover:text-white transition cursor-pointer"
+                      aria-label={`Remove tag ${tag}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Type-your-own input */}
+            {tags.length < 8 && !uploading && (
               <input
-                type="range"
-                min={0}
-                max={100}
-                value={Math.round(crop * 100)}
-                onChange={(e) => setCrop(Number(e.target.value) / 100)}
-                aria-label={axis === 'x' ? 'Move crop left or right' : 'Move crop up or down'}
-                className="w-full accent-amber-500"
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={handleTagKeyDown}
+                placeholder="Type a tag and press Enter"
+                maxLength={30}
+                className="w-full rounded-xl bg-slate-900 border border-slate-700 focus:border-amber-500 outline-none p-2.5 text-xs text-white placeholder-slate-500"
               />
-              <span className="flex justify-between text-[10px] text-slate-500">
-                <span>{axis === 'x' ? 'Left' : 'Top'}</span>
-                <span>{axis === 'x' ? 'Right' : 'Bottom'}</span>
-              </span>
-            </label>
-          )}
+            )}
+
+            {/* Suggested tags */}
+            {tags.length < 8 && !uploading && (
+              <div className="flex flex-wrap gap-1.5">
+                {SUGGESTED_TAGS.filter((t) => !tags.includes(t)).slice(0, 6).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => addTag(t)}
+                    className="px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400 hover:text-amber-300 hover:border-amber-500/40 text-[11px] font-bold transition cursor-pointer"
+                  >
+                    +{t}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {error && <p role="alert" className="text-xs font-bold text-red-400">{error}</p>}
 
           {uploading && (
-            <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
-              <div className="h-full bg-amber-500 transition-all" style={{ width: `${progress}%` }} />
+            <div className="space-y-1">
+              <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+                <div className="h-full bg-amber-500 transition-all" style={{ width: `${progress}%` }} />
+              </div>
+              <p className="text-[10px] text-slate-400 text-right">{progress}% uploaded</p>
             </div>
           )}
 

@@ -22,7 +22,7 @@ from rest_framework.test import APITestCase
 from .models import (
     AudioSpace, AudioSpaceParticipant, Church, ChurchEvent, CommunityPost, Donation, FeedbackSubmission, GivingFund, LiveStream,
     DiscoveryImpression, OnboardingProfile, PaymentGatewayCheckout, PlaybackEvent, PlaybackSession, Scripture, Sermon,
-    SermonShort, User, VerificationApplication, VerificationStatusHistory,
+    SermonShort, SermonUploadSession, User, VerificationApplication, VerificationStatusHistory,
 )
 from .verification import email_verification_token_generator
 
@@ -1099,6 +1099,43 @@ class SermonUploadSessionTests(APITestCase):
         self.assertEqual(repeated_complete.status_code, status.HTTP_200_OK)
         self.assertEqual(repeated_complete.data["id"], sermon.id)
 
+    def test_upload_resume_accepts_updated_metadata_and_keeps_offset(self):
+        upload_id, started, file_bytes, _metadata = self.start_upload()
+        self.assertEqual(started.status_code, status.HTTP_200_OK)
+        first_chunk = file_bytes[:5]
+        self.assertEqual(self.put_chunk(upload_id, 0, first_chunk).status_code, status.HTTP_200_OK)
+
+        updated_metadata = {
+            "title": "Updated Sunday service",
+            "speaker": "Pastor Grace",
+            "is_published": True,
+            "tags": ["worship"],
+        }
+        resumed = self.client.post("/api/v1/sermons/uploads/", {
+            "upload_id": str(upload_id),
+            "file_name": "service.mp4",
+            "file_size": len(file_bytes),
+            "metadata": updated_metadata,
+        }, format="json")
+
+        self.assertEqual(resumed.status_code, status.HTTP_200_OK, resumed.data)
+        self.assertEqual(resumed.data["offset"], len(first_chunk))
+        self.assertEqual(SermonUploadSession.objects.get(upload_id=upload_id).metadata, updated_metadata)
+
+    def test_upload_resume_rejects_different_file_details(self):
+        upload_id, started, file_bytes, metadata = self.start_upload()
+        self.assertEqual(started.status_code, status.HTTP_200_OK)
+
+        resumed = self.client.post("/api/v1/sermons/uploads/", {
+            "upload_id": str(upload_id),
+            "file_name": "different.mp4",
+            "file_size": len(file_bytes),
+            "metadata": metadata,
+        }, format="json")
+
+        self.assertEqual(resumed.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("already associated", str(resumed.data))
+
     def test_upload_with_generated_thumbnail_data_uri_completes(self):
         pixel = (
             "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
@@ -1138,6 +1175,69 @@ class SermonUploadSessionTests(APITestCase):
 
         response = self.put_chunk(upload_id, 0, file_bytes)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class CreatorDraftPublicationTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="audio-draft-host",
+            email="audio-draft@example.com",
+            password="StrongPass123!",
+        )
+        self.church = Church.objects.create(
+            name="Audio Draft Church",
+            slug="audio-draft-church",
+            owner=self.user,
+        )
+        self.client.force_authenticate(user=self.user)
+
+    def test_owner_can_save_audio_recording_as_private_draft(self):
+        audio_file = SimpleUploadedFile("audio-space.webm", b"audio-bytes", content_type="audio/webm")
+
+        response = self.client.post(
+            "/api/v1/sermons/",
+            {
+                "title": "Audio Space recording",
+                "speaker": "Pastor Grace",
+                "kind": "audio",
+                "media_file": audio_file,
+                "is_published": "false",
+                "visibility": "private",
+                "tags": '["live-audio-space"]',
+                "key_takeaways": "[]",
+                "audience": "all_ages",
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        draft = Sermon.objects.get(id=response.data["id"])
+        self.assertEqual(draft.kind, Sermon.Kind.AUDIO)
+        self.assertFalse(draft.is_published)
+        self.assertEqual(draft.visibility, "private")
+
+    def test_owner_can_publish_audio_draft_and_publication_time_is_recorded(self):
+        draft = Sermon.objects.create(
+            church=self.church,
+            speaker="Pastor Grace",
+            title="Audio Space recording",
+            kind=Sermon.Kind.AUDIO,
+            media_url="https://media.example.com/audio-space.webm",
+            visibility="private",
+            is_published=False,
+        )
+
+        response = self.client.patch(
+            f"/api/v1/sermons/{draft.id}/",
+            {"is_published": True, "visibility": "public"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        draft.refresh_from_db()
+        self.assertTrue(draft.is_published)
+        self.assertEqual(draft.visibility, "public")
+        self.assertIsNotNone(draft.published_at)
 
 
 class SermonSchedulingTests(APITestCase):

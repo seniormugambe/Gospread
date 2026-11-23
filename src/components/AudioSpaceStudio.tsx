@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { FormEvent, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Check, Circle, Clock, Loader2, Mic, Mic2, Share2, Square, Users, AlertTriangle, Radio, Signal, Headphones, Waves } from 'lucide-react';
 import { UserSession } from './AuthModal';
 import { Room, RoomEvent, RemoteTrack } from 'livekit-client';
@@ -38,6 +38,11 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
   const [isRecording, setIsRecording] = useState(false);
   const [isSavingRecording, setIsSavingRecording] = useState(false);
   const [recordingSaved, setRecordingSaved] = useState(false);
+  const [pendingRecording, setPendingRecording] = useState<Blob | null>(null);
+  const [recordingPreviewUrl, setRecordingPreviewUrl] = useState('');
+  const [recordingTitle, setRecordingTitle] = useState('');
+  const [recordingDescription, setRecordingDescription] = useState('');
+  const [recordingSpeaker, setRecordingSpeaker] = useState('');
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
@@ -46,6 +51,16 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
   const roomNameRef = useRef<string | null>(null);
   const audioElementsRef = useRef<HTMLAudioElement[]>([]);
   const attachedAudioTrackSidsRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (!pendingRecording) {
+      setRecordingPreviewUrl('');
+      return;
+    }
+    const previewUrl = URL.createObjectURL(pendingRecording);
+    setRecordingPreviewUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [pendingRecording]);
 
   const syncListenerCount = (room: Room) => {
     setListenerCount(room.remoteParticipants.size);
@@ -299,12 +314,14 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
     return stream;
   };
 
-  const saveRecording = async (blob: Blob) => {
+  const saveRecording = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const blob = pendingRecording;
     if (!currentUser?.isLoggedIn) {
       setError('Sign in again before saving this recording.');
       return;
     }
-    if (!blob.size) {
+    if (!blob?.size) {
       setError('The recording was empty. Please try again.');
       return;
     }
@@ -313,23 +330,23 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
     setError('');
     try {
       const extension = blob.type.includes('ogg') ? 'ogg' : blob.type.includes('mp4') ? 'm4a' : 'webm';
-      const file = new File([blob], `${title.trim() || 'Audio Space'} - recording.${extension}`, {
+      const file = new File([blob], `${recordingTitle.trim() || 'Audio Space recording'}.${extension}`, {
         type: blob.type || `audio/${extension}`,
       });
       await djangoApi.createSermon({
-        title: `${title.trim() || 'Live Audio Space'} — Recording`,
-        speaker: currentUser.fullName || currentUser.username || 'Host',
-        description: topic.trim() || `Live Audio Space recording hosted by ${ministryName}.`,
+        title: recordingTitle.trim(),
+        speaker: recordingSpeaker.trim() || currentUser.fullName || currentUser.username || 'Host',
+        description: recordingDescription.trim(),
         category: '24/7 Gospel Radio',
         kind: 'audio',
-        is_published: true,
-        tags: ['live-audio-space', '24/7-gospel-radio'],
-        scripture_reference: topic.trim(),
+        is_published: false,
+        tags: ['live-audio-space'],
         key_takeaways: [],
-        visibility: 'public',
+        visibility: 'private',
         audience: 'all_ages',
         media_file: file,
       });
+      setPendingRecording(null);
       setRecordingSaved(true);
       window.setTimeout(() => setRecordingSaved(false), 4000);
     } catch (saveError) {
@@ -337,6 +354,14 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
     } finally {
       setIsSavingRecording(false);
     }
+  };
+
+  const discardRecording = () => {
+    setPendingRecording(null);
+    setRecordingTitle('');
+    setRecordingDescription('');
+    setRecordingSpeaker('');
+    setError('');
   };
 
   const stopRecording = () => {
@@ -380,9 +405,16 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
       mediaRecorderRef.current = null;
       recordingStreamRef.current = null;
       setIsRecording(false);
-      void saveRecording(blob);
+      if (!blob.size) {
+        setError('The recording was empty. Check that the Space had active audio and try again.');
+        return;
+      }
+      setRecordingTitle(`${title.trim() || 'Live Audio Space'} - Recording`);
+      setRecordingDescription(topic.trim() || `Live Audio Space recording hosted by ${ministryName}.`);
+      setRecordingSpeaker(currentUser?.fullName || currentUser?.username || 'Host');
+      setPendingRecording(blob);
     };
-    recorder.onerror = () => setError('The Audio Space recording stopped unexpectedly.');
+    recorder.onerror = () => setError('The Audio Space recording stopped unexpectedly. Try recording again.');
     mediaRecorderRef.current = recorder;
     recorder.start(1000);
     setIsRecording(true);
@@ -396,6 +428,86 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
 
   return (
     <>
+      {pendingRecording && (
+        <div className="fixed inset-0 z-[210] flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm">
+          <form
+            onSubmit={saveRecording}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="audio-recording-review-title"
+            className="my-auto w-full max-w-xl space-y-5 rounded-3xl border border-white/10 bg-[#111] p-6 shadow-2xl"
+          >
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-fuchsia-300">Audio Space recording</p>
+              <h2 id="audio-recording-review-title" className="mt-1 text-xl font-black text-white">
+                Review before saving
+              </h2>
+              <p className="mt-1 text-xs text-slate-400">
+                Review and edit the details before saving. Until saved, the recording exists only on this page and will be lost if you leave or reload.
+              </p>
+            </div>
+            {recordingPreviewUrl && (
+              <audio className="w-full" controls preload="metadata" src={recordingPreviewUrl}>
+                Your browser cannot play this recording.
+              </audio>
+            )}
+            <label className="block space-y-1.5 text-xs font-bold text-slate-300">
+              Recording title
+              <input
+                autoFocus
+                required
+                maxLength={220}
+                value={recordingTitle}
+                onChange={event => setRecordingTitle(event.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-white outline-none focus:border-fuchsia-400"
+              />
+            </label>
+            <label className="block space-y-1.5 text-xs font-bold text-slate-300">
+              Speaker
+              <input
+                required
+                maxLength={150}
+                value={recordingSpeaker}
+                onChange={event => setRecordingSpeaker(event.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-white outline-none focus:border-fuchsia-400"
+              />
+            </label>
+            <label className="block space-y-1.5 text-xs font-bold text-slate-300">
+              Description
+              <textarea
+                rows={3}
+                value={recordingDescription}
+                onChange={event => setRecordingDescription(event.target.value)}
+                className="w-full resize-y rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-white outline-none focus:border-fuchsia-400"
+              />
+            </label>
+            {error && (
+              <p role="alert" className="rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-xs font-semibold text-red-300">
+                {error}
+              </p>
+            )}
+            <div className="flex flex-col-reverse justify-between gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={discardRecording}
+                disabled={isSavingRecording}
+                className="rounded-xl border border-white/10 px-4 py-2.5 text-xs font-bold text-slate-300 transition hover:bg-white/5 disabled:opacity-50"
+              >
+                Discard recording
+              </button>
+              <button
+                type="submit"
+                disabled={isSavingRecording}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-fuchsia-600 px-4 py-2.5 text-xs font-black text-white transition hover:bg-fuchsia-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSavingRecording ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {isSavingRecording ? 'Saving private draft...' : 'Save as private draft'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* ── End-space confirmation sheet ── */}
       {showQuitConfirm && (
         <div className="fixed inset-0 z-[200] flex items-end justify-center sm:items-center p-4 bg-black/70 backdrop-blur-sm">
@@ -408,7 +520,7 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
                 <p className="text-base font-black text-white">End this Audio Space?</p>
                 <p className="mt-1.5 text-sm text-slate-400">
                   {isRecording
-                    ? 'The active recording will be stopped and saved before the Space closes.'
+                    ? 'The recording will stop before the Space closes. You can review it and save it as a private draft afterward.'
                     : 'All listeners will be disconnected and the room will close.'}
                 </p>
               </div>
@@ -643,7 +755,7 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
             {/* ── Status banners ── */}
             {recordingSaved && (
               <p className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-center text-xs font-semibold text-emerald-300">
-                Recording saved — available in your profile and 24/7 Gospel Radio.
+                Recording saved as a private draft. Review and publish it from Creator Studio.
               </p>
             )}
             {error && (
@@ -672,7 +784,7 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
                   <button
                     type="button"
                     onClick={isRecording ? stopRecording : startRecording}
-                    disabled={isSavingRecording}
+                    disabled={isSavingRecording || Boolean(pendingRecording)}
                     className={`flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-black transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${
                       isRecording
                         ? 'bg-red-600 text-white hover:bg-red-500'
@@ -681,6 +793,8 @@ export default function AudioSpaceStudio({ currentUser, ministryName, activeAudi
                   >
                     {isSavingRecording ? (
                       <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>
+                    ) : pendingRecording ? (
+                      <>Review recording</>
                     ) : isRecording ? (
                       <><Square className="h-3.5 w-3.5 fill-current" /> Stop rec</>
                     ) : (

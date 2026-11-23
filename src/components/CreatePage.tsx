@@ -1,4 +1,4 @@
-import React, { useState, FormEvent, useEffect, useRef } from 'react';
+import React, { useState, useReducer, FormEvent, useEffect, useRef } from 'react';
 import { 
   Building2, 
   Music2, 
@@ -85,16 +85,26 @@ import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream, ChurchLocation, SocialLink, registerChurchProfile } from '../data/gospelData';
 import { djangoApi } from '../services/djangoApi';
 import CreateShortPanel from './CreateShortPanel';
-import { IvsBroadcastCredentials } from '../services/ivsBroadcast';
 import { UserSession } from './AuthModal';
 import LiveBroadcastRoom from './LiveBroadcastRoom';
 import LiveControlRoom from './LiveControlRoom';
 import LiveRecordingVODModal, { RecordedStreamData } from './LiveRecordingVODModal';
 import KingdomStudioSections from './KingdomStudioSections';
 import AudioSpaceStudio, { ActiveAudioSpace } from './AudioSpaceStudio';
-import { extractVideoFrames, type VideoExtractedFrame } from '../utils/extractVideoFrames';
+import { extractVideoFrames } from '../utils/extractVideoFrames';
 import { renderGospelThumbnailDataUrl } from '../utils/gospelThumbnailCanvas';
 import { isAudioFile, isVideoFile } from '../utils/mediaFiles';
+import {
+  createInitialBroadcastWorkflowState,
+  createInitialUploadWorkflowState,
+  createStateSetter,
+  initialStudioNavigation,
+  StudioNavigationContext,
+  studioNavigationReducer,
+  stateUpdateReducer,
+  type BroadcastWorkflowState,
+  type UploadWorkflowState,
+} from './creatorStudioState';
 
 export type CreatorCategory = 'Church' | 'Artiste' | 'Creator' | 'Radio';
 export type StudioAction = 'choose' | 'upload' | 'audio_upload' | 'short' | 'live' | 'audio_space' | 'schedule' | 'live_control_room' | 'dashboard' | 'content' | 'analytics' | 'community' | 'giving' | 'settings';
@@ -329,13 +339,19 @@ export default function CreatePage({
   const isStandaloneAudioUpload = studioAction === 'audio_upload';
   const [uploadMode, setUploadMode] = useState<UploadMode>(initialUploadSource);
 
-  // Studio Navigation Tab: 'overview' | 'dashboard' | 'content' | 'live_hub' | 'schedule_hub' | 'analytics' | 'community' | 'giving' | 'settings'
-  const [studioNavTab, setStudioNavTab] = useState<'overview' | 'dashboard' | 'content' | 'live_hub' | 'schedule_hub' | 'analytics' | 'community' | 'giving' | 'settings'>('overview');
-
-  // Sub-tabs
-  const [contentSubTab, setContentSubTab] = useState<'videos' | 'shorts' | 'drafts' | 'scheduled'>('videos');
-  const [liveSubTab, setLiveSubTab] = useState<'go_live' | 'streams' | 'recordings'>('go_live');
-  const [communitySubTab, setCommunitySubTab] = useState<'comments' | 'prayers' | 'chat'>('comments');
+  const [studioNavigation, dispatchStudioNavigation] = useReducer(
+    studioNavigationReducer,
+    initialStudioNavigation,
+  );
+  const { studioNavTab, contentSubTab, liveSubTab, communitySubTab } = studioNavigation;
+  const setStudioNavTab = (value: typeof studioNavTab) =>
+    dispatchStudioNavigation({ type: 'set-tab', value });
+  const setContentSubTab = (value: typeof contentSubTab) =>
+    dispatchStudioNavigation({ type: 'set-content-subtab', value });
+  const setLiveSubTab = (value: typeof liveSubTab) =>
+    dispatchStudioNavigation({ type: 'set-live-subtab', value });
+  const setCommunitySubTab = (value: typeof communitySubTab) =>
+    dispatchStudioNavigation({ type: 'set-community-subtab', value });
 
   // Sync props if initialAction/initialUploadSource changes
   useEffect(() => {
@@ -404,29 +420,102 @@ export default function CreatePage({
   // -------------------------------------------------------------
   // 📤 Video and audio upload workflow state
   // -------------------------------------------------------------
-  const [uploadStep, setUploadStep] = useState<UploadStep>('select');
-  const [selectedFile, setSelectedFile] = useState<{
-    name: string;
-    sizeFormatted: string;
-    sizeBytes: number;
-    type: string;
-  } | null>(null);
-  const [selectedMediaFile, setSelectedMediaFile] = useState<File | null>(null);
+  const [uploadState, dispatchUploadState] = useReducer(
+    stateUpdateReducer<UploadWorkflowState>,
+    { ownerUsername, ministryName },
+    ({ ownerUsername: username, ministryName: ministry }) =>
+      createInitialUploadWorkflowState(username, ministry),
+  );
+  const {
+    uploadStep,
+    selectedFile,
+    selectedMediaFile,
+    isDragging,
+    uploadProgressPercent,
+    uploadedBytes,
+    totalBytes,
+    uploadSpeed,
+    isRealUploadInProgress,
+    extractedFrames,
+    isExtractingFrames,
+    frameExtractError,
+    uploadTitle,
+    uploadDescription,
+    uploadSpeaker,
+    uploadMinistry,
+    uploadCategory,
+    tagsInput,
+    uploadScripture,
+    keyTakeaways,
+    newTakeawayInput,
+    uploadThumbnail,
+    thumbnailMode,
+    selectedFrameIndex,
+    selectedAiPresetId,
+    aiOverlayTitle,
+    aiOverlaySpeaker,
+    aiOverlayMinistry,
+    aiOverlayVerse,
+    isAiGenerating,
+    aiAppliedSuccess,
+    customThumbnailInput,
+    videoVisibility,
+    audienceKidsOption,
+    isFaithPolicyConfirmed,
+    isCopyrightConfirmed,
+    publishActionOption,
+    publishScheduledDate,
+    publishScheduledTime,
+    publishScheduledTimezone,
+    publishNotifyFollowers,
+  } = uploadState;
+  const createUploadStateSetter = createStateSetter<UploadWorkflowState>();
+  const setUploadStep = createUploadStateSetter(dispatchUploadState, 'uploadStep');
+  const setSelectedFile = createUploadStateSetter(dispatchUploadState, 'selectedFile');
+  const setSelectedMediaFile = createUploadStateSetter(dispatchUploadState, 'selectedMediaFile');
+  const setIsDragging = createUploadStateSetter(dispatchUploadState, 'isDragging');
+  const setUploadProgressPercent = createUploadStateSetter(dispatchUploadState, 'uploadProgressPercent');
+  const setUploadedBytes = createUploadStateSetter(dispatchUploadState, 'uploadedBytes');
+  const setTotalBytes = createUploadStateSetter(dispatchUploadState, 'totalBytes');
+  const setUploadSpeed = createUploadStateSetter(dispatchUploadState, 'uploadSpeed');
+  const setIsRealUploadInProgress = createUploadStateSetter(dispatchUploadState, 'isRealUploadInProgress');
+  const setExtractedFrames = createUploadStateSetter(dispatchUploadState, 'extractedFrames');
+  const setIsExtractingFrames = createUploadStateSetter(dispatchUploadState, 'isExtractingFrames');
+  const setFrameExtractError = createUploadStateSetter(dispatchUploadState, 'frameExtractError');
+  const setUploadTitle = createUploadStateSetter(dispatchUploadState, 'uploadTitle');
+  const setUploadDescription = createUploadStateSetter(dispatchUploadState, 'uploadDescription');
+  const setUploadSpeaker = createUploadStateSetter(dispatchUploadState, 'uploadSpeaker');
+  const setUploadMinistry = createUploadStateSetter(dispatchUploadState, 'uploadMinistry');
+  const setUploadCategory = createUploadStateSetter(dispatchUploadState, 'uploadCategory');
+  const setTagsInput = createUploadStateSetter(dispatchUploadState, 'tagsInput');
+  const setUploadScripture = createUploadStateSetter(dispatchUploadState, 'uploadScripture');
+  const setKeyTakeaways = createUploadStateSetter(dispatchUploadState, 'keyTakeaways');
+  const setNewTakeawayInput = createUploadStateSetter(dispatchUploadState, 'newTakeawayInput');
+  const setUploadThumbnail = createUploadStateSetter(dispatchUploadState, 'uploadThumbnail');
+  const setThumbnailMode = createUploadStateSetter(dispatchUploadState, 'thumbnailMode');
+  const setSelectedFrameIndex = createUploadStateSetter(dispatchUploadState, 'selectedFrameIndex');
+  const setSelectedAiPresetId = createUploadStateSetter(dispatchUploadState, 'selectedAiPresetId');
+  const setAiOverlayTitle = createUploadStateSetter(dispatchUploadState, 'aiOverlayTitle');
+  const setAiOverlaySpeaker = createUploadStateSetter(dispatchUploadState, 'aiOverlaySpeaker');
+  const setAiOverlayMinistry = createUploadStateSetter(dispatchUploadState, 'aiOverlayMinistry');
+  const setAiOverlayVerse = createUploadStateSetter(dispatchUploadState, 'aiOverlayVerse');
+  const setIsAiGenerating = createUploadStateSetter(dispatchUploadState, 'isAiGenerating');
+  const setAiAppliedSuccess = createUploadStateSetter(dispatchUploadState, 'aiAppliedSuccess');
+  const setCustomThumbnailInput = createUploadStateSetter(dispatchUploadState, 'customThumbnailInput');
+  const setVideoVisibility = createUploadStateSetter(dispatchUploadState, 'videoVisibility');
+  const setAudienceKidsOption = createUploadStateSetter(dispatchUploadState, 'audienceKidsOption');
+  const setIsFaithPolicyConfirmed = createUploadStateSetter(dispatchUploadState, 'isFaithPolicyConfirmed');
+  const setIsCopyrightConfirmed = createUploadStateSetter(dispatchUploadState, 'isCopyrightConfirmed');
+  const setPublishActionOption = createUploadStateSetter(dispatchUploadState, 'publishActionOption');
+  const setPublishScheduledDate = createUploadStateSetter(dispatchUploadState, 'publishScheduledDate');
+  const setPublishScheduledTime = createUploadStateSetter(dispatchUploadState, 'publishScheduledTime');
+  const setPublishScheduledTimezone = createUploadStateSetter(dispatchUploadState, 'publishScheduledTimezone');
+  const setPublishNotifyFollowers = createUploadStateSetter(dispatchUploadState, 'publishNotifyFollowers');
   const [selectedMediaPreviewUrl, setSelectedMediaPreviewUrl] = useState('');
   const isAudioUpload = selectedMediaFile ? isAudioFile(selectedMediaFile) : false;
-  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Upload progress reported by server-acknowledged upload chunks.
-  const [uploadProgressPercent, setUploadProgressPercent] = useState(0);
-  const [uploadedBytes, setUploadedBytes] = useState(0);
-  const [totalBytes, setTotalBytes] = useState(0);
-  const [uploadSpeed, setUploadSpeed] = useState('');
-  const [isRealUploadInProgress, setIsRealUploadInProgress] = useState(false);
   const uploadSpeedSampleRef = useRef({ lastLoaded: 0, lastTime: 0 });
-  const [extractedFrames, setExtractedFrames] = useState<VideoExtractedFrame[]>([]);
-  const [isExtractingFrames, setIsExtractingFrames] = useState(false);
-  const [frameExtractError, setFrameExtractError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selectedMediaFile) {
@@ -439,29 +528,6 @@ export default function CreatePage({
     return () => URL.revokeObjectURL(previewUrl);
   }, [selectedMediaFile]);
 
-  // Upload details form state
-  const [uploadTitle, setUploadTitle] = useState('');
-  const [uploadDescription, setUploadDescription] = useState('');
-  const [uploadSpeaker, setUploadSpeaker] = useState(ownerUsername);
-  const [uploadMinistry, setUploadMinistry] = useState(ministryName);
-  const [uploadCategory, setUploadCategory] = useState<'Sermons' | 'Worship & Praise' | 'Bible Study' | 'Gospel Music' | 'Youth & Family' | 'Healing & Miracles'>('Sermons');
-  const [tagsInput, setTagsInput] = useState('');
-  const [uploadScripture, setUploadScripture] = useState('');
-  const [keyTakeaways, setKeyTakeaways] = useState<string[]>([]);
-  const [newTakeawayInput, setNewTakeawayInput] = useState('');
-  
-  // 🖼️ Thumbnail and audio cover-art state
-  const [uploadThumbnail, setUploadThumbnail] = useState('');
-  const [thumbnailMode, setThumbnailMode] = useState<'ai' | 'frames' | 'upload'>('ai');
-  const [selectedFrameIndex, setSelectedFrameIndex] = useState(0);
-  const [selectedAiPresetId, setSelectedAiPresetId] = useState('cathedral_gold');
-  const [aiOverlayTitle, setAiOverlayTitle] = useState('');
-  const [aiOverlaySpeaker, setAiOverlaySpeaker] = useState(ownerUsername);
-  const [aiOverlayMinistry, setAiOverlayMinistry] = useState(ministryName);
-  const [aiOverlayVerse, setAiOverlayVerse] = useState('');
-  const [isAiGenerating, setIsAiGenerating] = useState(false);
-  const [aiAppliedSuccess, setAiAppliedSuccess] = useState(false);
-  const [customThumbnailInput, setCustomThumbnailInput] = useState('');
   const thumbnailFileInputRef = useRef<HTMLInputElement>(null);
 
   const startUploadWorkflow = (action: 'upload' | 'audio_upload') => {
@@ -486,75 +552,85 @@ export default function CreatePage({
     setExternalImportError(null);
   }, [initialAction, initialUploadSource]);
 
-  // 👥 Step 6: Audience & Visibility State
-  const [videoVisibility, setVideoVisibility] = useState<'public' | 'private' | 'unlisted'>('public');
-  const [audienceKidsOption, setAudienceKidsOption] = useState<'all_ages' | 'made_for_kids'>('all_ages');
-  const [isFaithPolicyConfirmed, setIsFaithPolicyConfirmed] = useState(true);
-  const [isCopyrightConfirmed, setIsCopyrightConfirmed] = useState(true);
+  const [broadcastState, dispatchBroadcastState] = useReducer(
+    stateUpdateReducer<BroadcastWorkflowState>,
+    ownerName,
+    createInitialBroadcastWorkflowState,
+  );
+  const {
+    liveSetupStep,
+    liveMode,
+    activeLiveStreamId,
+    ivsBroadcastCredentials,
+    livePublishError,
+    isPublishingLive,
+    broadcastType,
+    liveTitle,
+    liveDescription,
+    liveCategory,
+    liveSpeaker,
+    liveScripture,
+    rtmpServerUrl,
+    liveStreamKey,
+    showStreamKey,
+    copiedServer,
+    copiedStreamKey,
+    isGeneratingCredentials,
+    cameraPreviewStream,
+    cameraPreviewError,
+    activeEncoderTab,
+    isLiveSignalDetected,
+    enableLiveChat,
+    enablePrayerAltar,
+    enableGivingOverlay,
+    scheduleTitle,
+    scheduleSpeaker,
+    scheduleDate,
+    scheduleTime,
+    scheduleTimezone,
+    scheduleType,
+    scheduleScripture,
+    scheduleDescription,
+    notifySubscribers,
+  } = broadcastState;
+  const createBroadcastStateSetter = createStateSetter<BroadcastWorkflowState>();
+  const setLiveSetupStep = createBroadcastStateSetter(dispatchBroadcastState, 'liveSetupStep');
+  const setLiveMode = createBroadcastStateSetter(dispatchBroadcastState, 'liveMode');
+  const setActiveLiveStreamId = createBroadcastStateSetter(dispatchBroadcastState, 'activeLiveStreamId');
+  const setIvsBroadcastCredentials = createBroadcastStateSetter(dispatchBroadcastState, 'ivsBroadcastCredentials');
+  const setLivePublishError = createBroadcastStateSetter(dispatchBroadcastState, 'livePublishError');
+  const setIsPublishingLive = createBroadcastStateSetter(dispatchBroadcastState, 'isPublishingLive');
+  const setBroadcastType = createBroadcastStateSetter(dispatchBroadcastState, 'broadcastType');
+  const setLiveTitle = createBroadcastStateSetter(dispatchBroadcastState, 'liveTitle');
+  const setLiveDescription = createBroadcastStateSetter(dispatchBroadcastState, 'liveDescription');
+  const setLiveCategory = createBroadcastStateSetter(dispatchBroadcastState, 'liveCategory');
+  const setLiveSpeaker = createBroadcastStateSetter(dispatchBroadcastState, 'liveSpeaker');
+  const setLiveScripture = createBroadcastStateSetter(dispatchBroadcastState, 'liveScripture');
+  const setRtmpServerUrl = createBroadcastStateSetter(dispatchBroadcastState, 'rtmpServerUrl');
+  const setLiveStreamKey = createBroadcastStateSetter(dispatchBroadcastState, 'liveStreamKey');
+  const setShowStreamKey = createBroadcastStateSetter(dispatchBroadcastState, 'showStreamKey');
+  const setCopiedServer = createBroadcastStateSetter(dispatchBroadcastState, 'copiedServer');
+  const setCopiedStreamKey = createBroadcastStateSetter(dispatchBroadcastState, 'copiedStreamKey');
+  const setIsGeneratingCredentials = createBroadcastStateSetter(dispatchBroadcastState, 'isGeneratingCredentials');
+  const setCameraPreviewStream = createBroadcastStateSetter(dispatchBroadcastState, 'cameraPreviewStream');
+  const setCameraPreviewError = createBroadcastStateSetter(dispatchBroadcastState, 'cameraPreviewError');
+  const setActiveEncoderTab = createBroadcastStateSetter(dispatchBroadcastState, 'activeEncoderTab');
+  const setIsLiveSignalDetected = createBroadcastStateSetter(dispatchBroadcastState, 'isLiveSignalDetected');
+  const setEnableLiveChat = createBroadcastStateSetter(dispatchBroadcastState, 'enableLiveChat');
+  const setEnablePrayerAltar = createBroadcastStateSetter(dispatchBroadcastState, 'enablePrayerAltar');
+  const setEnableGivingOverlay = createBroadcastStateSetter(dispatchBroadcastState, 'enableGivingOverlay');
+  const setScheduleTitle = createBroadcastStateSetter(dispatchBroadcastState, 'scheduleTitle');
+  const setScheduleSpeaker = createBroadcastStateSetter(dispatchBroadcastState, 'scheduleSpeaker');
+  const setScheduleDate = createBroadcastStateSetter(dispatchBroadcastState, 'scheduleDate');
+  const setScheduleTime = createBroadcastStateSetter(dispatchBroadcastState, 'scheduleTime');
+  const setScheduleTimezone = createBroadcastStateSetter(dispatchBroadcastState, 'scheduleTimezone');
+  const setScheduleType = createBroadcastStateSetter(dispatchBroadcastState, 'scheduleType');
+  const setScheduleScripture = createBroadcastStateSetter(dispatchBroadcastState, 'scheduleScripture');
+  const setScheduleDescription = createBroadcastStateSetter(dispatchBroadcastState, 'scheduleDescription');
+  const setNotifySubscribers = createBroadcastStateSetter(dispatchBroadcastState, 'notifySubscribers');
 
-  // 🚀 Step 7: Publish Options State
-  const [publishActionOption, setPublishActionOption] = useState<'publish_now' | 'schedule' | 'save_draft'>('publish_now');
-  const [publishScheduledDate, setPublishScheduledDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 4);
-    return d.toISOString().split('T')[0];
-  });
-  const [publishScheduledTime, setPublishScheduledTime] = useState('10:00');
-  const [publishScheduledTimezone, setPublishScheduledTimezone] = useState('Africa/Kampala (EAT - UTC+3)');
-  const [publishNotifyFollowers, setPublishNotifyFollowers] = useState(true);
-
-  // 🔴 2. GO LIVE STATE (Broadcast live service/event)
-  // Step in Go Live flow: 'setup' | 'credentials'
-  const [liveSetupStep, setLiveSetupStep] = useState<'setup' | 'credentials'>('setup');
-  const [liveMode, setLiveMode] = useState<'quick' | 'studio'>('quick');
-  const [activeLiveStreamId, setActiveLiveStreamId] = useState<string | null>(null);
-  const [ivsBroadcastCredentials, setIvsBroadcastCredentials] = useState<IvsBroadcastCredentials | null>(null);
   const pendingLiveVideoRef = useRef<VideoStream | null>(null);
-  const [livePublishError, setLivePublishError] = useState('');
-  const [isPublishingLive, setIsPublishingLive] = useState(false);
-  
-  // What are you broadcasting? options: 'Sunday Service' | 'Bible Study' | 'Prayer' | 'Worship' | 'Conference' | 'Other'
-  const [broadcastType, setBroadcastType] = useState<LiveBroadcastType>('Other');
-  const [liveTitle, setLiveTitle] = useState('');
-  const [liveDescription, setLiveDescription] = useState('');
-  const [liveCategory, setLiveCategory] = useState<string>('');
-  const [liveSpeaker, setLiveSpeaker] = useState(ownerName);
-  const [liveScripture, setLiveScripture] = useState('');
-
-  // Gospread Generated Live-Stream Credentials (RTMPS & Stream Key)
-  const [rtmpServerUrl, setRtmpServerUrl] = useState('');
-  const [liveStreamKey, setLiveStreamKey] = useState('');
-  const [showStreamKey, setShowStreamKey] = useState(false);
-  const [copiedServer, setCopiedServer] = useState(false);
-  const [copiedStreamKey, setCopiedStreamKey] = useState(false);
-  const [isGeneratingCredentials, setIsGeneratingCredentials] = useState(false);
   const cameraPreviewRef = useRef<HTMLVideoElement>(null);
-  const [cameraPreviewStream, setCameraPreviewStream] = useState<MediaStream | null>(null);
-  const [cameraPreviewError, setCameraPreviewError] = useState('');
-
-  // Encoder Guide Tab: 'obs' | 'streamlabs' | 'vmix' | 'wirecast' | 'hardware'
-  const [activeEncoderTab, setActiveEncoderTab] = useState<'obs' | 'streamlabs' | 'vmix' | 'wirecast' | 'hardware'>('obs');
-  
-  // Live broadcast active stream simulation
-  const [isLiveSignalDetected, setIsLiveSignalDetected] = useState(true);
-  const [enableLiveChat, setEnableLiveChat] = useState(true);
-  const [enablePrayerAltar, setEnablePrayerAltar] = useState(true);
-  const [enableGivingOverlay, setEnableGivingOverlay] = useState(true);
-
-  // 📅 3. SCHEDULE BROADCAST STATE (Future release)
-  const [scheduleTitle, setScheduleTitle] = useState('');
-  const [scheduleSpeaker, setScheduleSpeaker] = useState(ownerName);
-  const [scheduleDate, setScheduleDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 3);
-    return d.toISOString().split('T')[0];
-  });
-  const [scheduleTime, setScheduleTime] = useState('19:00');
-  const [scheduleTimezone, setScheduleTimezone] = useState('EST (UTC-5)');
-  const [scheduleType, setScheduleType] = useState<'Live Broadcast Premiere' | 'Prerecorded Video Premiere' | 'Prayer Summit'>('Live Broadcast Premiere');
-  const [scheduleScripture, setScheduleScripture] = useState('');
-  const [scheduleDescription, setScheduleDescription] = useState('');
-  const [notifySubscribers, setNotifySubscribers] = useState(true);
 
   // 🎛️ STUDIO COCKPIT & QUICK ACTION STATE
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
@@ -567,9 +643,12 @@ export default function CreatePage({
 
   // 💳 GIVING & PAYOUT ACCOUNTS STATE
   const [payoutAccounts, setPayoutAccounts] = useState<PayoutAccountItem[]>([]);
+  const [payoutLoadError, setPayoutLoadError] = useState<string | null>(null);
+  const [payoutLoadAttempt, setPayoutLoadAttempt] = useState(0);
   useEffect(() => {
     if (studioNavTab !== 'giving') return;
     let active = true;
+    setPayoutLoadError(null);
     djangoApi.getPayoutAccounts().then(rows => {
       if (!active) return;
       setPayoutAccounts(rows.map(row => ({
@@ -583,9 +662,17 @@ export default function CreatePage({
         routingOrSwift: row.routing_or_swift,
         isPrimary: row.is_primary,
       })));
-    }).catch(() => undefined);
+    }).catch((error: unknown) => {
+      if (active) {
+        setPayoutLoadError(
+          error instanceof Error
+            ? `Payout accounts could not be loaded: ${error.message}`
+            : 'Payout accounts could not be loaded. Check your connection and try again.',
+        );
+      }
+    });
     return () => { active = false; };
-  }, [studioNavTab]);
+  }, [studioNavTab, payoutLoadAttempt]);
 
   // 🌐 SOCIAL MEDIA CHANNELS STATE
   const [socialRows, setSocialRows] = useState<SocialPlatformRow[]>([]);
@@ -1686,49 +1773,46 @@ export default function CreatePage({
 
       {/* RENDER MODULAR STUDIO SECTIONS WHEN NOT IN OVERVIEW */}
       {!isSubmitted && studioAction === 'choose' && studioNavTab !== 'overview' && (
-        <KingdomStudioSections
-          currentUser={currentUser}
-          ministryName={ministryName}
-          ownerName={ownerName}
-          avatarUrl={avatarUrl}
-          studioNavTab={studioNavTab}
-          contentSubTab={contentSubTab}
-          setContentSubTab={setContentSubTab}
-          liveSubTab={liveSubTab}
-          setLiveSubTab={setLiveSubTab}
-          communitySubTab={communitySubTab}
-          setCommunitySubTab={setCommunitySubTab}
-          payoutAccounts={payoutAccounts}
-          churchCampuses={churchCampuses}
-          socialRows={socialRows}
-          prayerRequests={prayerRequests}
-          onPrayForRequest={handlePrayForRequest}
-          theme={theme}
-          onAddPrayerRequest={(req) => {
-            setPrayerRequests(prev => [
-              { id: `pr-${Date.now()}`, name: ownerName, request: req, time: 'Just now', status: 'Pending', prayedCount: 0 },
-              ...prev
-            ]);
-          }}
-          onTriggerUpload={() => {
-            startUploadWorkflow('upload');
-          }}
-          onTriggerShort={() => setStudioAction('short')}
-          onTriggerGoLive={() => {
-            setStudioAction('live');
-            setLiveSetupStep('setup');
-          }}
-          onEnterLiveControlRoom={() => {
-            setStudioAction('live_control_room');
-          }}
-          onTriggerSchedule={() => {
-            setStudioAction('schedule');
-          }}
-          onMediaDeleted={onMediaDeleted}
-          onInspectRecordingVOD={(rec) => {
-            setActiveVODModalData(rec);
-          }}
-        />
+        <StudioNavigationContext.Provider value={{ state: studioNavigation, dispatch: dispatchStudioNavigation }}>
+          <KingdomStudioSections
+            currentUser={currentUser}
+            ministryName={ministryName}
+            ownerName={ownerName}
+            avatarUrl={avatarUrl}
+            payoutAccounts={payoutAccounts}
+            payoutLoadError={payoutLoadError}
+            onRetryPayoutLoad={() => setPayoutLoadAttempt(attempt => attempt + 1)}
+            churchCampuses={churchCampuses}
+            socialRows={socialRows}
+            prayerRequests={prayerRequests}
+            onPrayForRequest={handlePrayForRequest}
+            theme={theme}
+            onAddPrayerRequest={(req) => {
+              setPrayerRequests(prev => [
+                { id: `pr-${Date.now()}`, name: ownerName, request: req, time: 'Just now', status: 'Pending', prayedCount: 0 },
+                ...prev
+              ]);
+            }}
+            onTriggerUpload={() => {
+              startUploadWorkflow('upload');
+            }}
+            onTriggerShort={() => setStudioAction('short')}
+            onTriggerGoLive={() => {
+              setStudioAction('live');
+              setLiveSetupStep('setup');
+            }}
+            onEnterLiveControlRoom={() => {
+              setStudioAction('live_control_room');
+            }}
+            onTriggerSchedule={() => {
+              setStudioAction('schedule');
+            }}
+            onMediaDeleted={onMediaDeleted}
+            onInspectRecordingVOD={(rec) => {
+              setActiveVODModalData(rec);
+            }}
+          />
+        </StudioNavigationContext.Provider>
       )}
 
       {/* 🚀 STEP 1: WHAT DO YOU WANT TO DO? (ADVANCED CREATOR STUDIO COCKPIT OVERVIEW) */}
@@ -2716,7 +2800,7 @@ export default function CreatePage({
                   <span>Resumable Upload</span>
                 </div>
                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Upload progress is saved on the server. If your connection drops, retry with the same file to continue from the last confirmed chunk.
+                  Progress and your upload session are saved for 24 hours. After a browser restart, choose the same file again to continue from the last confirmed chunk; you can update its details before retrying.
                 </p>
               </div>
 

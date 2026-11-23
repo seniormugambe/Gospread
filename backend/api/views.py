@@ -183,9 +183,11 @@ class SermonUploadSessionView(generics.GenericAPIView):
         elif not created and (
             session.file_size != data["file_size"]
             or session.file_name != file_name
-            or session.metadata != metadata
         ):
             raise ValidationError({"upload_id": "This upload ID is already associated with different file details."})
+        elif not created and session.sermon_id is None and session.metadata != metadata:
+            session.metadata = metadata
+            session.save(update_fields=("metadata",))
 
         if created:
             path = _sermon_upload_path(upload_id)
@@ -1296,6 +1298,15 @@ class SermonViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         _save_sermon_for_user(serializer, self.request.user)
+
+    def perform_update(self, serializer):
+        is_publishing = serializer.validated_data.get(
+            "is_published", serializer.instance.is_published
+        )
+        if is_publishing and not serializer.instance.is_published:
+            serializer.save(published_at=timezone.now(), scheduled_for=None)
+            return
+        serializer.save()
 
     def perform_destroy(self, instance):
         urls = (instance.media_url, instance.thumbnail_url)

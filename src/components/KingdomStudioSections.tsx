@@ -54,20 +54,16 @@ import { UserSession } from './AuthModal';
 import { ChurchLocation, SocialLink } from '../data/gospelData';
 import { RecordedStreamData } from './LiveRecordingVODModal';
 import { djangoApi } from '../services/djangoApi';
+import { useStudioNavigation } from './creatorStudioState';
 
 interface KingdomStudioSectionsProps {
   currentUser?: UserSession;
   ministryName: string;
   ownerName: string;
   avatarUrl: string;
-  studioNavTab: 'overview' | 'dashboard' | 'content' | 'live_hub' | 'schedule_hub' | 'analytics' | 'community' | 'giving' | 'settings';
-  contentSubTab: 'videos' | 'shorts' | 'drafts' | 'scheduled';
-  setContentSubTab: (tab: 'videos' | 'shorts' | 'drafts' | 'scheduled') => void;
-  liveSubTab: 'go_live' | 'streams' | 'recordings';
-  setLiveSubTab: (tab: 'go_live' | 'streams' | 'recordings') => void;
-  communitySubTab: 'comments' | 'prayers' | 'chat';
-  setCommunitySubTab: (tab: 'comments' | 'prayers' | 'chat') => void;
   payoutAccounts: Array<{ id: string; label: string; type: string; currency: string; bankOrProvider: string; isPrimary: boolean }>;
+  payoutLoadError?: string | null;
+  onRetryPayoutLoad?: () => void;
   churchCampuses: ChurchLocation[];
   socialRows: SocialLink[];
   prayerRequests: Array<{ id: string; name: string; request: string; time: string; status: 'Prayed' | 'Pending'; prayedCount: number }>;
@@ -88,14 +84,9 @@ export default function KingdomStudioSections({
   ministryName,
   ownerName,
   avatarUrl,
-  studioNavTab,
-  contentSubTab,
-  setContentSubTab,
-  liveSubTab,
-  setLiveSubTab,
-  communitySubTab,
-  setCommunitySubTab,
   payoutAccounts,
+  payoutLoadError,
+  onRetryPayoutLoad,
   churchCampuses,
   socialRows,
   prayerRequests,
@@ -111,26 +102,45 @@ export default function KingdomStudioSections({
   theme = 'dark'
 }: KingdomStudioSectionsProps) {
   const isLight = theme === 'light';
+  const { state: navigation, dispatch: dispatchNavigation } = useStudioNavigation();
+  const { studioNavTab, contentSubTab, liveSubTab, communitySubTab } = navigation;
+  const setContentSubTab = (value: typeof contentSubTab) =>
+    dispatchNavigation({ type: 'set-content-subtab', value });
+  const setLiveSubTab = (value: typeof liveSubTab) =>
+    dispatchNavigation({ type: 'set-live-subtab', value });
+  const setCommunitySubTab = (value: typeof communitySubTab) =>
+    dispatchNavigation({ type: 'set-community-subtab', value });
 
   const [sampleVideos, setSampleVideos] = useState<any[]>([]);
   const [sampleShorts, setSampleShorts] = useState<any[]>([]);
-  const [sampleDrafts] = useState<any[]>([]);
+  const [sampleDrafts, setSampleDrafts] = useState<any[]>([]);
   const [sampleScheduled, setSampleScheduled] = useState<any[]>([]);
   const [sampleLiveRecordings] = useState<RecordedStreamData[]>([]);
   const [sampleComments, setSampleComments] = useState<any[]>([]);
+  const [isContentLoading, setIsContentLoading] = useState(true);
+  const [contentLoadError, setContentLoadError] = useState<string | null>(null);
+  const [contentLoadAttempt, setContentLoadAttempt] = useState(0);
+  const [publishingDraftId, setPublishingDraftId] = useState<string | null>(null);
+  const [draftError, setDraftError] = useState('');
+  const [draftNotice, setDraftNotice] = useState('');
 
   useEffect(() => {
     let active = true;
+    setIsContentLoading(true);
+    setContentLoadError(null);
     setSampleVideos([]);
     setSampleShorts([]);
     setSampleScheduled([]);
     setSampleComments([]);
     const loadStudioContent = async () => {
-      const [videos, shorts, streams, posts] = await Promise.all([
+      const [videos, shorts, streams, posts, sermons] = await Promise.all([
         djangoApi.getVideos(),
         djangoApi.getShorts(),
         djangoApi.getVideos(),
-        djangoApi.getCommunityPosts()
+        djangoApi.getCommunityPosts(),
+        currentUser?.isLoggedIn
+          ? djangoApi.getCreatorSermons()
+          : Promise.resolve([]),
       ]);
       if (!active) return;
 
@@ -181,17 +191,34 @@ export default function KingdomStudioSections({
         replied: false,
         replyText: '',
       }))));
+      setSampleDrafts(sermons
+        .filter(sermon => sermon.is_owner && !sermon.is_published)
+        .map(sermon => ({
+          id: String(sermon.id),
+          title: sermon.title,
+          size: sermon.kind === 'audio' ? 'Audio recording' : 'Video',
+          lastEdited: new Date(sermon.created_at).toLocaleDateString(),
+          status: 'Private draft',
+        })));
+      setIsContentLoading(false);
     };
-    loadStudioContent().catch(() => {
+    loadStudioContent().catch((error: unknown) => {
       if (active) {
         setSampleVideos([]);
         setSampleShorts([]);
         setSampleScheduled([]);
         setSampleComments([]);
+        setSampleDrafts([]);
+        setIsContentLoading(false);
+        setContentLoadError(
+          error instanceof Error
+            ? `Studio content could not be loaded: ${error.message}`
+            : 'Studio content could not be loaded. Check your connection and try again.',
+        );
       }
     });
     return () => { active = false; };
-  }, [
+  }, [contentLoadAttempt,
     currentUser?.id,
     currentUser?.isLoggedIn,
     currentUser?.token,
@@ -250,6 +277,23 @@ export default function KingdomStudioSections({
     }
   };
 
+  const publishDraft = async (id: string) => {
+    const draft = sampleDrafts.find(item => item.id === id);
+    if (!draft) return;
+    setPublishingDraftId(id);
+    setDraftError('');
+    setDraftNotice('');
+    try {
+      await djangoApi.publishSermon(id);
+      setSampleDrafts(current => current.filter(item => item.id !== id));
+      setDraftNotice(`"${draft.title}" is now published to the public library.`);
+    } catch (error) {
+      setDraftError(error instanceof Error ? error.message : 'Could not publish this draft. Try again.');
+    } finally {
+      setPublishingDraftId(null);
+    }
+  };
+
   // Filtered Content
   const filteredVideos = sampleVideos.filter(v => {
     const matchesSearch = !contentSearchQuery || 
@@ -264,6 +308,32 @@ export default function KingdomStudioSections({
 
   return (
     <div className="space-y-6">
+      {contentLoadError && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-500/30 bg-rose-950/30 p-4 text-sm text-rose-200">
+          <p>{contentLoadError}</p>
+          <button
+            type="button"
+            onClick={() => setContentLoadAttempt(attempt => attempt + 1)}
+            className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-rose-500"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Retry loading
+          </button>
+        </div>
+      )}
+      {payoutLoadError && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-500/30 bg-rose-950/30 p-4 text-sm text-rose-200">
+          <p>{payoutLoadError}</p>
+          <button
+            type="button"
+            onClick={onRetryPayoutLoad}
+            className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-rose-500"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Retry loading
+          </button>
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════════════════
           1. 📊 DASHBOARD VIEW
@@ -692,6 +762,19 @@ export default function KingdomStudioSections({
           {/* TAB 2.3: DRAFTS */}
           {contentSubTab === 'drafts' && (
             <div className="space-y-3">
+              {draftError && <p role="alert" className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-xs font-semibold text-rose-300">{draftError}</p>}
+              {draftNotice && <p role="status" className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-xs font-semibold text-emerald-300">{draftNotice}</p>}
+              {isContentLoading && (
+                <p role="status" className="flex items-center justify-center gap-2 rounded-2xl border border-slate-800 bg-[#161616] p-5 text-xs text-slate-400">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading drafts...
+                </p>
+              )}
+              {!isContentLoading && !contentLoadError && sampleDrafts.length === 0 && (
+                <p className="rounded-2xl border border-slate-800 bg-[#161616] p-5 text-center text-xs text-slate-400">
+                  No private drafts yet. Record an Audio Space and save it here for review.
+                </p>
+              )}
               {sampleDrafts.map(draft => (
                 <div key={draft.id} className="p-4 rounded-2xl bg-[#161616] border border-slate-800 flex items-center justify-between shadow-sm">
                   <div className="space-y-1">
@@ -702,11 +785,14 @@ export default function KingdomStudioSections({
                     </span>
                   </div>
                   <button
-                    onClick={onTriggerUpload}
-                    className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition cursor-pointer flex items-center gap-1.5"
+                    onClick={() => publishDraft(draft.id)}
+                    disabled={publishingDraftId !== null}
+                    className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition cursor-pointer flex items-center gap-1.5 disabled:cursor-wait disabled:opacity-60"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Resume Upload</span>
+                    {publishingDraftId === draft.id
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <CheckCheck className="w-3.5 h-3.5" />}
+                    <span>{publishingDraftId === draft.id ? 'Publishing...' : 'Publish'}</span>
                   </button>
                 </div>
               ))}

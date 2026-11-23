@@ -206,6 +206,7 @@ export interface VideoStream {
   videoUrl?: string;
   streamUrl?: string;
   cropPosition?: string;
+  commentCount?: number;
 }
 
 export interface AudioChapter {
@@ -237,6 +238,19 @@ export interface AudioTrack {
   downloadsCount?: string;
   rating?: number;
   audioUrl?: string;
+}
+
+export interface CreatorSermonApi {
+  id: number;
+  title: string;
+  speaker: string;
+  description: string;
+  category: string;
+  kind: 'video' | 'audio' | 'article';
+  is_published: boolean;
+  is_owner: boolean;
+  created_at: string;
+  media_url: string;
 }
 
 // Base API URL configuration from environment or direct default
@@ -900,20 +914,47 @@ class DjangoApiClient {
     }
 
     const { media_file: file, ...metadata } = payload;
-    const metadataKey = JSON.stringify({
+    const fileIdentityKey = JSON.stringify({
+      file_name: file.name,
+      file_size: file.size,
+      file_last_modified: file.lastModified,
+      file_type: file.type,
+    });
+    const sampleSize = Math.min(file.size, 64 * 1024);
+    const firstSample = new Uint8Array(await file.slice(0, sampleSize).arrayBuffer());
+    const lastSample = new Uint8Array(await file.slice(file.size - sampleSize).arrayBuffer());
+    const identityBytes = new TextEncoder().encode(fileIdentityKey);
+    const fingerprintBytes = new Uint8Array(
+      identityBytes.length + firstSample.length + lastSample.length,
+    );
+    fingerprintBytes.set(identityBytes);
+    fingerprintBytes.set(firstSample, identityBytes.length);
+    fingerprintBytes.set(lastSample, identityBytes.length + firstSample.length);
+    const fileIdentityHash = await crypto.subtle.digest('SHA-256', fingerprintBytes);
+    const legacyMetadataKey = JSON.stringify({
       file_name: file.name,
       file_size: file.size,
       file_last_modified: file.lastModified,
       metadata,
     });
-    const metadataHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(metadataKey));
+    const legacyMetadataHash = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(legacyMetadataKey),
+    );
     const storageKey = `gospread_sermon_upload_${Array.from(
-      new Uint8Array(metadataHash),
+      new Uint8Array(fileIdentityHash),
       byte => byte.toString(16).padStart(2, '0'),
     ).join('')}`;
-    const storedUploadId = sessionStorage.getItem(storageKey);
+    const legacyStorageKey = `gospread_sermon_upload_${Array.from(
+      new Uint8Array(legacyMetadataHash),
+      byte => byte.toString(16).padStart(2, '0'),
+    ).join('')}`;
+    const storedUploadId = localStorage.getItem(storageKey)
+      || sessionStorage.getItem(storageKey)
+      || sessionStorage.getItem(legacyStorageKey);
     let uploadId = storedUploadId || crypto.randomUUID();
-    sessionStorage.setItem(storageKey, uploadId);
+    localStorage.setItem(storageKey, uploadId);
+    sessionStorage.removeItem(legacyStorageKey);
 
     const startSession = (id: string) => this.request<{
       offset: number;
@@ -938,7 +979,7 @@ class DjangoApiClient {
         throw error;
       }
       uploadId = crypto.randomUUID();
-      sessionStorage.setItem(storageKey, uploadId);
+      localStorage.setItem(storageKey, uploadId);
       session = await startSession(uploadId);
     }
 
@@ -947,7 +988,9 @@ class DjangoApiClient {
         `/sermons/uploads/${uploadId}/complete/`,
         { method: 'POST', body: '{}' },
       );
+      localStorage.removeItem(storageKey);
       sessionStorage.removeItem(storageKey);
+      sessionStorage.removeItem(legacyStorageKey);
       return sermon;
     }
     if (session.file_size !== file.size || session.offset > file.size) {
@@ -1017,7 +1060,9 @@ class DjangoApiClient {
       `/sermons/uploads/${uploadId}/complete/`,
       { method: 'POST', body: '{}' },
     );
+    localStorage.removeItem(storageKey);
     sessionStorage.removeItem(storageKey);
+    sessionStorage.removeItem(legacyStorageKey);
     onProgress?.(100, file.size, file.size);
     return sermon;
   }
@@ -1030,6 +1075,12 @@ class DjangoApiClient {
       category?: string;
       kind?: 'video' | 'audio' | 'article';
       is_published?: boolean;
+      scheduled_for?: string;
+      tags?: string[];
+      scripture_reference?: string;
+      key_takeaways?: string[];
+      visibility?: 'public' | 'unlisted' | 'private';
+      audience?: 'all_ages' | 'made_for_kids';
       media_file: File;
       thumbnail_url?: string;
     },
@@ -1042,6 +1093,12 @@ class DjangoApiClient {
     formData.append('category', payload.category || 'Sermon');
     formData.append('kind', payload.kind || 'video');
     formData.append('is_published', String(payload.is_published ?? true));
+    if (payload.scheduled_for) formData.append('scheduled_for', payload.scheduled_for);
+    if (payload.tags) formData.append('tags', JSON.stringify(payload.tags));
+    if (payload.scripture_reference) formData.append('scripture_reference', payload.scripture_reference);
+    if (payload.key_takeaways) formData.append('key_takeaways', JSON.stringify(payload.key_takeaways));
+    if (payload.visibility) formData.append('visibility', payload.visibility);
+    if (payload.audience) formData.append('audience', payload.audience);
     formData.append('media_file', payload.media_file);
 
     // Handle thumbnail: send as a file when it's a data URI, otherwise as a URL string
@@ -1416,8 +1473,25 @@ class DjangoApiClient {
     await this.request(`/sermons/${encodeURIComponent(id)}/`, { method: 'DELETE' });
   }
 
+  public async getCreatorSermons(kind?: CreatorSermonApi['kind']): Promise<CreatorSermonApi[]> {
+    const params = new URLSearchParams();
+    if (kind) params.set('kind', kind);
+    const query = params.toString();
+    const response = await this.request<CreatorSermonApi[] | { results: CreatorSermonApi[] }>(
+      `/sermons/${query ? `?${query}` : ''}`,
+    );
+    return Array.isArray(response) ? response : response.results;
+  }
+
+  public async publishSermon(id: string | number): Promise<CreatorSermonApi> {
+    return this.request<CreatorSermonApi>(`/sermons/${encodeURIComponent(String(id))}/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_published: true, visibility: 'public' }),
+    });
+  }
+
   public async createShort(
-    payload: { caption: string; speaker: string; duration_seconds: number; crop_x?: number; crop_y?: number; video_file: File; thumbnail_file?: Blob | null },
+    payload: { caption: string; speaker: string; duration_seconds: number; crop_x?: number; crop_y?: number; tags?: string[]; video_file: File; thumbnail_file?: Blob | null },
     onProgress?: (percent: number) => void,
   ): Promise<{ id: number }> {
     const formData = new FormData();
@@ -1429,6 +1503,9 @@ class DjangoApiClient {
     formData.append('crop_x', String(payload.crop_x ?? 0.5));
     formData.append('crop_y', String(payload.crop_y ?? 0.5));
     formData.append('is_published', 'true');
+    if (payload.tags && payload.tags.length > 0) {
+      formData.append('tags', JSON.stringify(payload.tags));
+    }
     formData.append('video_file', payload.video_file);
     if (payload.thumbnail_file) formData.append('thumbnail_file', payload.thumbnail_file, 'thumbnail.jpg');
 
@@ -1477,9 +1554,10 @@ class DjangoApiClient {
     await this.request(`/shorts/${encodeURIComponent(id.replace(/^short-/, ''))}/`, { method: 'DELETE' });
   }
 
-  public async getShorts(): Promise<VideoStream[]> {
+  public async getShorts(ordering: 'newest' | 'trending' | 'popular' = 'newest'): Promise<VideoStream[]> {
+    const orderingParam = ordering === 'trending' ? '-view_count' : ordering === 'popular' ? '-like_count' : '-created_at';
     try {
-      const res = await this.request<any[] | { results: any[] }>('/shorts/').catch(() => []);
+      const res = await this.request<any[] | { results: any[] }>(`/shorts/?ordering=${orderingParam}`).catch(() => []);
       const items = Array.isArray(res) ? res : (res?.results || []);
       if (items.length > 0) {
         return items.map((short: any) => ({
@@ -1490,11 +1568,13 @@ class DjangoApiClient {
           channelAvatar: short.channel_avatar || '',
           subscribersCount: 'Verified',
           likesCount: String(short.like_count || '0'),
-          category: 'Sermon' as const,
+          category: (['Live Worship', 'Sermon', 'Choir Special', 'Bible Study', 'Gospel Music'].includes(short.category)
+            ? short.category
+            : 'Sermon') as VideoStream['category'],
           isLive: false,
           isShort: true,
-          viewersCount: short.view_count || 0,
-          viewsText: `${short.view_count || 0} views`,
+          viewersCount: short.view_count ?? short.views_count ?? 0,
+          viewsText: `${short.view_count ?? short.views_count ?? 0} views`,
           duration: short.duration_seconds ? `${Math.floor(short.duration_seconds / 60)}:${String(short.duration_seconds % 60).padStart(2, '0')}` : '0:45',
           thumbnail: short.thumbnail_url || '',
           description: short.caption || '',
@@ -1502,6 +1582,9 @@ class DjangoApiClient {
           videoUrl: short.video_url,
           cropPosition: `${Math.round((Number(short.crop_x ?? 0.5)) * 100)}% ${Math.round((Number(short.crop_y ?? 0.5)) * 100)}%`,
           isOwner: Boolean(short.is_owner),
+          commentCount: Number(short.comment_count ?? short.comments_count ?? 0),
+          // tags stored as JSON array string or native array from backend
+          tags: Array.isArray(short.tags) ? short.tags : [],
         }));
       }
     } catch {
