@@ -1,9 +1,14 @@
 from datetime import timedelta
+from pathlib import Path
+from uuid import uuid4
 
+from django import forms
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.core.files.storage import default_storage
 from django.utils import timezone
+from django.utils.html import format_html
 from .models import (
     AudioSpace, Church, ChurchEvent, CommunityComment, CommunityPost,
     Donation, FeedbackSubmission, GivingFund, LiveStream, LiveStreamChatMessage, LiveStreamViewer,
@@ -12,19 +17,81 @@ from .models import (
 )
 
 
+# ── User avatar admin form ───────────────────────────────────────────────────
+
+class UserAvatarAdminForm(forms.ModelForm):
+    """Extends the default User form with an optional avatar file upload widget."""
+
+    avatar_upload = forms.ImageField(
+        required=False,
+        label="Upload new avatar",
+        help_text="Upload a JPG, PNG, WebP or GIF image (max 5 MB). "
+                  "Saves the file and updates the Avatar URL field automatically.",
+        widget=forms.ClearableFileInput(attrs={"accept": "image/jpeg,image/png,image/webp,image/gif"}),
+    )
+
+    class Meta:
+        model = User
+        fields = "__all__"
+
+    def clean_avatar_upload(self):
+        upload = self.cleaned_data.get("avatar_upload")
+        if upload:
+            max_bytes = 5 * 1024 * 1024
+            allowed_ext = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+            if upload.size > max_bytes:
+                raise forms.ValidationError("Image must be 5 MB or smaller.")
+            ext = Path(upload.name).suffix.lower()
+            if ext not in allowed_ext:
+                raise forms.ValidationError("Upload a JPG, PNG, WebP or GIF image.")
+        return upload
+
+    def save(self, commit=True):
+        upload = self.cleaned_data.get("avatar_upload")
+        if upload:
+            ext = Path(upload.name).suffix.lower() or ".jpg"
+            upload.seek(0)
+            saved_name = default_storage.save(
+                f"uploads/avatars/{uuid4().hex}{ext}", upload
+            )
+            # Build an absolute URL the same way store_image_upload() does in
+            # serializers.py so the value is consistent whether storage is local
+            # or S3-backed.
+            url = default_storage.url(saved_name)
+            # default_storage.url() returns an absolute URL on S3 and a relative
+            # path locally.  Prepend FRONTEND_URL only for local relative paths.
+            if url.startswith("/"):
+                base = getattr(settings, "BACKEND_URL", "").rstrip("/")
+                url = f"{base}{url}"
+            self.instance.avatar_url = url
+        return super().save(commit=commit)
+
+
+# ── User admin ───────────────────────────────────────────────────────────────
+
 @admin.register(User)
 class GospreadUserAdmin(UserAdmin):
+    form = UserAvatarAdminForm
+
     # Use email as the primary identifier throughout the admin
     ordering = ("email",)
-    list_display = ("email", "username", "first_name", "last_name", "role", "is_staff", "is_active", "date_joined")
+    list_display = (
+        "avatar_thumbnail", "email", "username", "first_name", "last_name",
+        "role", "is_staff", "is_active", "date_joined",
+    )
     list_filter = ("role", "is_staff", "is_active", "is_superuser")
     search_fields = ("email", "username", "first_name", "last_name")
-    readonly_fields = ("date_joined", "last_login", "email_verified_at", "email_verification_sent_at")
+    readonly_fields = (
+        "date_joined", "last_login",
+        "email_verified_at", "email_verification_sent_at",
+        "avatar_preview",
+    )
 
     # Replace the default fieldsets so email appears at the top and is editable
     fieldsets = (
         (None, {"fields": ("email", "username", "password")}),
-        ("Personal info", {"fields": ("first_name", "last_name", "avatar_url", "bio")}),
+        ("Personal info", {"fields": ("first_name", "last_name", "bio")}),
+        ("Profile picture", {"fields": ("avatar_preview", "avatar_url", "avatar_upload")}),
         ("Email verification", {"fields": ("email_verified_at", "email_verification_sent_at")}),
         ("Gospread", {"fields": ("role", "praise_xp", "streak_days", "last_checkin_date", "total_study_minutes")}),
         ("Permissions", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
@@ -35,9 +102,53 @@ class GospreadUserAdmin(UserAdmin):
     add_fieldsets = (
         (None, {
             "classes": ("wide",),
-            "fields": ("email", "username", "first_name", "last_name", "password1", "password2", "role", "is_staff", "is_active"),
+            "fields": (
+                "email", "username", "first_name", "last_name",
+                "password1", "password2", "role", "is_staff", "is_active",
+                "avatar_upload",
+            ),
         }),
     )
+
+    # ── display helpers ──────────────────────────────────────────────────────
+
+    @admin.display(description="Avatar")
+    def avatar_thumbnail(self, obj):
+        """Small circular thumbnail shown in the user list."""
+        if obj.avatar_url:
+            return format_html(
+                '<img src="{}" '
+                'style="width:36px;height:36px;border-radius:50%;object-fit:cover;'
+                'border:1px solid #374151;" />',
+                obj.avatar_url,
+            )
+        initials = "".join(
+            part[0].upper()
+            for part in [obj.first_name, obj.last_name]
+            if part
+        ) or (obj.email[0].upper() if obj.email else "?")
+        return format_html(
+            '<div style="width:36px;height:36px;border-radius:50%;background:#92400e;'
+            'display:flex;align-items:center;justify-content:center;'
+            'color:#fef3c7;font-weight:900;font-size:13px;">{}</div>',
+            initials,
+        )
+
+    @admin.display(description="Current avatar")
+    def avatar_preview(self, obj):
+        """Large preview shown inside the change form above the URL / upload fields."""
+        if obj.avatar_url:
+            return format_html(
+                '<img src="{}" '
+                'style="width:96px;height:96px;border-radius:12px;object-fit:cover;'
+                'border:2px solid #374151;display:block;margin-bottom:4px;" />'
+                '<a href="{}" target="_blank" rel="noopener" '
+                'style="font-size:11px;color:#6b7280;">{}</a>',
+                obj.avatar_url,
+                obj.avatar_url,
+                obj.avatar_url,
+            )
+        return format_html('<span style="color:#6b7280;font-size:12px;">No avatar set.</span>')
 
 
 @admin.register(Church)

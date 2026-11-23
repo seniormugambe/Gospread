@@ -293,9 +293,19 @@ export default function UserProfilePage({
     setProfileSaveError('');
     setAvatarFile(file);
     const reader = new FileReader();
+    // Store the data: URL only for local preview — never sent to the API.
     reader.onload = () => setAvatarUrl(typeof reader.result === 'string' ? reader.result : '');
     reader.onerror = () => setProfileSaveError('Could not read the selected image.');
     reader.readAsDataURL(file);
+  };
+
+  // Resets local edit state to match the persisted user, used on cancel.
+  const resetEditState = () => {
+    setUserName(currentUser?.fullName || currentUser?.username || '');
+    setUserBio(currentUser?.bio || '');
+    setAvatarUrl(currentUser?.avatarUrl || currentUser?.avatar || '');
+    setAvatarFile(null);
+    setProfileSaveError('');
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -304,16 +314,16 @@ export default function UserProfilePage({
     setIsSavingProfile(true);
     setProfileSaveError('');
     try {
-      const parts = userName.trim().split(/\s+/);
       await onUpdateProfile?.({
         fullName: userName.trim(),
-        first_name: parts[0],
-        last_name: parts.slice(1).join(' '),
         bio: userBio.trim(),
-        avatarUrl,
-        avatar: avatarUrl,
+        // Only pass avatarUrl when it's a real remote URL (not a data: preview blob).
+        // The File itself is always the authoritative upload source.
+        avatarUrl: avatarFile ? undefined : (avatarUrl.startsWith('data:') ? undefined : avatarUrl),
+        avatar: avatarUrl.startsWith('data:') ? undefined : (avatarUrl || undefined),
         avatarFile,
       });
+      setAvatarFile(null); // clear the pending file after a successful save
       setIsEditing(false);
       setShowSavedToast(true);
       setTimeout(() => setShowSavedToast(false), 3000);
@@ -461,7 +471,7 @@ export default function UserProfilePage({
 
             {/* Action buttons */}
             <div className="flex flex-wrap gap-2 shrink-0 sm:pb-1">
-              <button onClick={() => { setIsEditing(e => !e); setProfileSaveError(''); }}
+              <button onClick={() => { if (isEditing) { resetEditState(); } setIsEditing(e => !e); }}
                 className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition border ${isEditing ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-slate-800 text-white border-slate-700 hover:border-amber-500/60'}`}>
                 {isEditing ? <X className="w-3.5 h-3.5" /> : <Edit2 className="w-3.5 h-3.5 text-amber-400" />}
                 {isEditing ? 'Cancel' : 'Edit Profile'}
@@ -551,7 +561,7 @@ export default function UserProfilePage({
             )}
 
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setIsEditing(false)}
+              <button type="button" onClick={() => { resetEditState(); setIsEditing(false); }}
                 className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700 transition">
                 Cancel
               </button>
