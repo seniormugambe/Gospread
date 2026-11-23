@@ -39,38 +39,44 @@ const STEPS: Record<OnboardingTrack, { title: string; subtitle: string; keys: st
   ministry: [
     { title: 'Your ministry', subtitle: 'Who you are and what you do.', keys: ['ministry_name', 'description', 'senior_pastor'] },
     { title: 'Locations', subtitle: 'Where people can find you in person.', keys: ['locations'] },
-    { title: 'Community', subtitle: 'Artistes and official pages connected to your ministry.', keys: ['affiliated_artistes', 'social_links'] },
+    // Fix 3: website_url added to the community step
+    { title: 'Online presence', subtitle: 'Where people can find you online.', keys: ['website_url', 'affiliated_artistes', 'social_links'] },
     { title: 'Contact', subtitle: 'How people can reach your ministry.', keys: ['phone', 'whatsapp', 'email'] },
   ],
   artiste: [
-    { title: 'Your artistry', subtitle: 'Tell us what you create.', keys: ['stage_name', 'artiste_type', 'genres', 'original_music', 'ministry_affiliation'] },
+    // Fix 4: artiste_type is now a single-choice; Fix 5: region added
+    { title: 'Your artistry', subtitle: 'Tell us what you create.', keys: ['stage_name', 'artiste_type', 'genres', 'original_music', 'ministry_affiliation', 'region'] },
     { title: 'Find your music', subtitle: 'Link your official profiles.', keys: ['youtube_url', 'instagram_url', 'tiktok_url', 'spotify_url', 'other_music_urls'] },
-    { title: 'Bookings', subtitle: 'Who handles invitations and bookings.', keys: ['booking_name', 'booking_phone', 'booking_whatsapp', 'booking_email'] },
+    // Fix 1: booking_email no longer required, hint added to step subtitle
+    { title: 'Bookings', subtitle: 'Who handles invitations and bookings (optional).', keys: ['booking_name', 'booking_phone', 'booking_whatsapp', 'booking_email'] },
   ],
   creator: [
     { title: 'Your channel', subtitle: 'What you create and why.', keys: ['creator_name', 'categories', 'topics', 'content_ownership'] },
-    { title: 'Your links', subtitle: 'Official pages where your content lives.', keys: ['social_links'] },
+    // Fix 5: region added to links step; Fix 2: full_name optional
+    { title: 'Your links', subtitle: 'Official pages where your content lives.', keys: ['social_links', 'region'] },
     { title: 'Contact', subtitle: 'Who we should reach out to.', keys: ['full_name', 'email', 'phone', 'whatsapp'] },
   ],
 };
 
 const SUGGESTIONS: Record<string, string[]> = {
-  artiste_type: ['Worship leader', 'Singer', 'Rapper', 'Choir', 'Band', 'Instrumentalist'],
-  genres: ['Worship', 'Gospel hip-hop', 'Contemporary Gospel', 'Afro-gospel', 'Hymns', 'Choir'],
-  categories: ['Bible teaching', 'Testimony', 'Youth ministry', 'Podcast', 'Devotional'],
-  topics: ['Prayer', 'Marriage', 'Discipleship', 'Worship', 'Apologetics', 'Family'],
+  // artiste_type is now a constrained SINGLE field — options come from the backend, no suggestions needed
+  genres: ['Worship', 'Gospel hip-hop', 'Contemporary Gospel', 'Afro-gospel', 'Hymns', 'Choir', 'Gospel R&B', 'Spoken word'],
+  categories: ['Bible teaching', 'Testimony', 'Youth ministry', 'Podcast', 'Devotional', 'Marriage & family', 'Evangelism'],
+  topics: ['Prayer', 'Marriage', 'Discipleship', 'Worship', 'Apologetics', 'Family', 'Healing', 'Faith', 'Prophecy'],
 };
 
 const PLACEHOLDERS: Record<string, string> = {
   ministry_name: 'Grace Community Church',
   description: 'A Christ-centered church focused on worship, discipleship and community outreach.',
   senior_pastor: 'Pastor John Mukasa',
+  website_url: 'https://gracechurch.org',
   phone: '+256 700 000 000',
   whatsapp: '+256 700 000 000',
   booking_phone: '+256 700 000 000',
   booking_whatsapp: '+256 700 000 000',
   email: 'info@example.org',
   booking_email: 'bookings@example.com',
+  full_name: 'Your name (optional)',
   youtube_url: 'https://youtube.com/@yourchannel',
   instagram_url: 'https://instagram.com/yourname',
   tiktok_url: 'https://tiktok.com/@yourname',
