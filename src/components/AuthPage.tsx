@@ -75,8 +75,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     }
     try {
       const me = await djangoApi.getMe();
-      if (me.onboarding_completed === false) {
-        setSignupTrack(({ pastor: 'ministry', artiste: 'artiste', creator: 'creator' } as Record<string, OnboardingTrack>)[me.role || '']);
+      const trackMap: Record<string, OnboardingTrack> = { pastor: 'ministry', artiste: 'artiste', creator: 'creator' };
+      if (me.onboarding_completed === false && me.role && trackMap[me.role]) {
+        setSignupTrack(trackMap[me.role]);
         setNeedsOnboarding(true);
         return;
       }

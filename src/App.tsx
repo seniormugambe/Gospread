@@ -375,7 +375,7 @@ export default function App() {
       // Fetch videos and shorts in parallel on initial mount
       try {
         const [backendVideos, backendShorts] = await Promise.all([
-          djangoApi.getVideos(undefined, undefined, undefined, false),
+          djangoApi.getVideos(),
           djangoApi.getShorts(false),
         ]);
         if (isMounted) {
@@ -396,7 +396,7 @@ export default function App() {
     const refreshPlatformVideos = async () => {
       try {
         const [backendVideos, backendShorts] = await Promise.all([
-          djangoApi.getVideos(undefined, undefined, undefined, false),
+          djangoApi.getVideos(),
           djangoApi.getShorts(false),
         ]);
         if (isMounted) {
