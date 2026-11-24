@@ -5,7 +5,7 @@ import math
 from pathlib import Path
 import re
 import smtplib
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from urllib.parse import urlsplit
 
 import boto3
@@ -80,20 +80,43 @@ def _run_livekit_room_call(method_name, request):
 
     return asyncio.run(call())
 SERMON_UPLOAD_CHUNK_SIZE = 8 * 1024 * 1024
-SERMON_UPLOAD_MAX_AGE = timedelta(hours=24)
+SERMON_UPLOAD_MAX_AGE = timedelta(hours=24)  # Measured from the last upload activity, not from creation.
+SERMON_UPLOAD_MAX_PENDING = 3
+SERMON_UPLOAD_LIMIT_CODE = "upload_session_limit"  # Keep in sync with UPLOAD_SESSION_LIMIT_CODE in djangoApi.ts
 
 
 def _sermon_upload_path(upload_id):
     return Path(settings.MEDIA_ROOT) / "resumable_uploads" / f"{upload_id}.part"
 
 
+def _sermon_upload_last_activity(session):
+    """Latest sign of life: session creation or the last chunk written to the partial file."""
+    last_activity = session.created_at
+    try:
+        modified_at = datetime.fromtimestamp(
+            _sermon_upload_path(session.upload_id).stat().st_mtime, tz=dt_timezone.utc
+        )
+    except OSError:
+        return last_activity
+    return max(last_activity, modified_at)
+
+
+def _sermon_upload_expired(session):
+    return _sermon_upload_last_activity(session) < timezone.now() - SERMON_UPLOAD_MAX_AGE
+
+
 def _cleanup_expired_sermon_upload_sessions():
-    expired_sessions = SermonUploadSession.objects.filter(
+    # Only sessions created before the cutoff can be expired; of those, keep any still receiving chunks.
+    candidates = SermonUploadSession.objects.filter(
         created_at__lt=timezone.now() - SERMON_UPLOAD_MAX_AGE
-    )
-    for expired_id in expired_sessions.values_list("upload_id", flat=True).iterator():
+    ).only("upload_id", "created_at")
+    expired_ids = [
+        session.upload_id for session in candidates.iterator() if _sermon_upload_expired(session)
+    ]
+    for expired_id in expired_ids:
         _sermon_upload_path(expired_id).unlink(missing_ok=True)
-    expired_sessions.delete()
+    if expired_ids:
+        SermonUploadSession.objects.filter(upload_id__in=expired_ids).delete()
 
 
 def _resolve_church_for_user(user, church=None):
@@ -154,7 +177,12 @@ class SermonUploadSessionView(generics.GenericAPIView):
             for session in sessions
         ])
 
+    @transaction.atomic
     def post(self, request):
+        # Lock the authenticated user's row while checking and creating a session.
+        # This serializes concurrent upload-init requests for the same user on PostgreSQL.
+        owner = User.objects.select_for_update().get(pk=request.user.pk)
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -178,28 +206,42 @@ class SermonUploadSessionView(generics.GenericAPIView):
         file_name = Path(data["file_name"].replace("\\", "/")).name
         _cleanup_expired_sermon_upload_sessions()
 
-        if not SermonUploadSession.objects.filter(upload_id=upload_id).exists() and (
-            SermonUploadSession.objects.filter(owner=request.user, sermon__isnull=True).count() >= 3
-        ):
-            raise ValidationError({"detail": "Finish or retry an existing upload before starting another."})
+        # Resuming an existing session does not consume an additional slot.
+        # Count only this user's unfinished sessions; completed sessions do not count.
+        existing_session = SermonUploadSession.objects.filter(
+            upload_id=upload_id,
+            owner=owner,
+        ).exists()
+        pending_count = SermonUploadSession.objects.filter(
+            owner=owner,
+            sermon__isnull=True,
+        ).count()
+        if not existing_session and pending_count >= SERMON_UPLOAD_MAX_PENDING:
+            raise ValidationError({
+                "detail": (
+                    f"You already have {SERMON_UPLOAD_MAX_PENDING} unfinished uploads. "
+                    "Resume or discard one before starting another."
+                ),
+                "code": SERMON_UPLOAD_LIMIT_CODE,
+            })
 
         session, created = SermonUploadSession.objects.get_or_create(
             upload_id=upload_id,
             defaults={
-                "owner": request.user,
+                "owner": owner,
                 "file_name": file_name,
                 "file_size": data["file_size"],
                 "metadata": metadata,
             },
         )
-        if session.owner_id != request.user.id:
+        if session.owner_id != owner.id:
             raise NotFound()
-        if session.created_at < timezone.now() - SERMON_UPLOAD_MAX_AGE:
+        if _sermon_upload_expired(session):
             _sermon_upload_path(upload_id).unlink(missing_ok=True)
             session.delete()
             session = SermonUploadSession.objects.create(
                 upload_id=upload_id,
-                owner=request.user,
+                owner=owner,
                 file_name=file_name,
                 file_size=data["file_size"],
                 metadata=metadata,
@@ -268,7 +310,7 @@ class SermonUploadChunkView(generics.GenericAPIView):
                 raise NotFound()
             if session.sermon_id:
                 return Response({"offset": session.received_size, "complete": True})
-            if session.created_at < timezone.now() - SERMON_UPLOAD_MAX_AGE:
+            if _sermon_upload_expired(session):
                 raise ValidationError({"detail": "This upload session has expired. Start the upload again."})
             if offset != session.received_size:
                 raise ValidationError({"detail": "Upload offset does not match the server.", "offset": session.received_size})
@@ -300,7 +342,7 @@ class SermonUploadCompleteView(generics.GenericAPIView):
                 raise NotFound()
             if session.sermon_id:
                 return Response(SermonSerializer(session.sermon, context={"request": request}).data)
-            if session.created_at < timezone.now() - SERMON_UPLOAD_MAX_AGE:
+            if _sermon_upload_expired(session):
                 raise ValidationError({"detail": "This upload session has expired. Start the upload again."})
             if session.received_size != session.file_size:
                 raise ValidationError({"detail": "The upload is incomplete.", "offset": session.received_size})

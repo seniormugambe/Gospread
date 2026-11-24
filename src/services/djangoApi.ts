@@ -255,6 +255,15 @@ export interface CreatorSermonApi {
 
 export type CreatorAnalyticsRange = '7d' | '28d' | '90d' | 'all';
 
+// Machine-readable code the backend sends when the unfinished-upload limit is hit.
+// Keep in sync with SERMON_UPLOAD_LIMIT_CODE in views.py.
+export const UPLOAD_SESSION_LIMIT_CODE = 'upload_session_limit';
+
+export function getApiErrorCode(error: unknown): string | undefined {
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === 'string' ? code : undefined;
+}
+
 export interface PendingSermonUpload {
   upload_id: string;
   file_name: string;
@@ -325,6 +334,7 @@ const PUBLIC_AUTH_ENDPOINTS = new Set([
 
 export interface DjangoApiError {
   detail?: string;
+  code?: string;
   non_field_errors?: string[];
   [field: string]: any;
 }
@@ -720,8 +730,9 @@ class DjangoApiClient {
             : Object.values(errorData)[0]) ||
           `API Error ${response.status}`;
         if (typeof errorMessage !== 'string') errorMessage = JSON.stringify(errorMessage);
-        const apiError = new Error(errorMessage) as Error & { status: number };
+        const apiError = new Error(errorMessage) as Error & { status: number; code?: string };
         apiError.status = response.status;
+        if (typeof errorData.code === 'string') apiError.code = errorData.code;
         throw apiError;
       }
 
@@ -957,6 +968,8 @@ class DjangoApiClient {
       audience?: 'all_ages' | 'made_for_kids';
       media_file: File;
       thumbnail_url?: string;
+      // Set when resuming a specific unfinished upload chosen from the manage list.
+      resume_upload_id?: string;
     },
     onProgress?: (percent: number, uploadedBytes: number, totalBytes: number) => void,
   ): Promise<Record<string, unknown>> {
@@ -968,7 +981,7 @@ class DjangoApiClient {
       return await this.createSermonMultipartLegacy(payload);
     }
 
-    const { media_file: file, ...metadata } = payload;
+    const { media_file: file, resume_upload_id: resumeUploadId, ...metadata } = payload;
     const fileIdentityKey = JSON.stringify({
       file_name: file.name,
       file_size: file.size,
@@ -1004,7 +1017,8 @@ class DjangoApiClient {
       new Uint8Array(legacyMetadataHash),
       byte => byte.toString(16).padStart(2, '0'),
     ).join('')}`;
-    const storedUploadId = localStorage.getItem(storageKey)
+    const storedUploadId = resumeUploadId
+      || localStorage.getItem(storageKey)
       || sessionStorage.getItem(storageKey)
       || sessionStorage.getItem(legacyStorageKey);
     let uploadId = storedUploadId || crypto.randomUUID();
@@ -1051,6 +1065,16 @@ class DjangoApiClient {
     if (session.file_size !== file.size || session.offset > file.size) {
       throw new Error('The saved upload session does not match this file. Restart the upload.');
     }
+
+    // Restore the server-confirmed progress immediately when resuming an upload.
+    // This prevents the progress UI from appearing to jump back to zero.
+    onProgress?.(
+      file.size > 0
+        ? Math.min(100, Math.round((session.offset / file.size) * 100))
+        : 0,
+      session.offset,
+      file.size,
+    );
 
     const sendChunk = (chunk: Blob, offset: number, token: string): Promise<void> =>
       new Promise((resolve, reject) => {

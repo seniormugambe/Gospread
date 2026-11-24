@@ -88,6 +88,8 @@ import {
   type CreatorAnalyticsApi,
   type CreatorAnalyticsRange,
   type PendingSermonUpload,
+  UPLOAD_SESSION_LIMIT_CODE,
+  getApiErrorCode,
 } from '../services/djangoApi';
 import CreateShortPanel from './CreateShortPanel';
 import { UserSession } from './AuthModal';
@@ -133,8 +135,6 @@ const AI_PRESET_ACCENT_RGB: Record<string, string> = {
   peaceful_sunrise: '125, 211, 252',
   modern_bold: '110, 231, 183',
 };
-
-const UPLOAD_SESSION_LIMIT_ERROR = 'Finish or retry an existing upload before starting another.';
 
 function formatUploadFileSize(bytes: number): string {
   if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
@@ -486,6 +486,12 @@ export default function CreatePage({
   const [pendingUploadSessionsLoading, setPendingUploadSessionsLoading] = useState(false);
   const [pendingUploadSessionsError, setPendingUploadSessionsError] = useState<string | null>(null);
   const [discardingUploadId, setDiscardingUploadId] = useState<string | null>(null);
+  // Message of the last error that was the backend's unfinished-upload limit (matched by error code, not text).
+  const [uploadLimitMessage, setUploadLimitMessage] = useState<string | null>(null);
+  const [resumeUploadId, setResumeUploadId] = useState<string | null>(null);
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const resumeInputRef = useRef<HTMLInputElement>(null);
+  const resumeSessionRef = useRef<PendingSermonUpload | null>(null);
   const createUploadStateSetter = createStateSetter<UploadWorkflowState>();
   const setUploadStep = createUploadStateSetter(dispatchUploadState, 'uploadStep');
   const setSelectedFile = createUploadStateSetter(dispatchUploadState, 'selectedFile');
@@ -837,7 +843,22 @@ export default function CreatePage({
     setPendingUploadSessionsError(null);
     try {
       await djangoApi.discardPendingSermonUpload(session.upload_id);
-      setPendingUploadSessions(current => current.filter(item => item.upload_id !== session.upload_id));
+      // Remove it immediately so the user can start another upload without waiting.
+      setPendingUploadSessions(current =>
+        current.filter(item => item.upload_id !== session.upload_id),
+      );
+
+      // Refresh from the server to keep the displayed list and upload limit in sync.
+      try {
+        const latestSessions = await djangoApi.getPendingSermonUploads();
+        setPendingUploadSessions(latestSessions);
+      } catch (refreshError) {
+        setPendingUploadSessionsError(
+          refreshError instanceof Error
+            ? `Upload discarded, but the list could not be refreshed: ${refreshError.message}`
+            : 'Upload discarded, but the list could not be refreshed.',
+        );
+      }
     } catch (error) {
       setPendingUploadSessionsError(
         error instanceof Error ? error.message : 'Could not discard the unfinished upload.',
@@ -895,6 +916,7 @@ export default function CreatePage({
         audience: audienceKidsOption,
         media_file: selectedMediaFile,
         thumbnail_url: uploadThumbnail || undefined,
+        resume_upload_id: resumeUploadId || undefined,
       },
       (percent, loaded, total) => {
         if (cancelled) return;
@@ -940,6 +962,8 @@ export default function CreatePage({
 
         setSelectedMediaFile(null);
         setSelectedFile(null);
+        setResumeUploadId(null);
+        setUploadLimitMessage(null);
         setExtractedFrames([]);
         setUploadProgressPercent(0);
         setUploadedBytes(0);
@@ -949,11 +973,11 @@ export default function CreatePage({
       })
       .catch((error) => {
         if (cancelled) return;
+        const message = error instanceof Error ? error.message : 'Upload failed. Please try again.';
+        setUploadLimitMessage(getApiErrorCode(error) === UPLOAD_SESSION_LIMIT_CODE ? message : null);
         setUploadStep('publish');
         setUploadProgressPercent(0);
-        setExternalImportError(
-          error instanceof Error ? error.message : 'Upload failed. Please try again.',
-        );
+        setExternalImportError(message);
       })
       .finally(() => {
         if (!cancelled) setIsRealUploadInProgress(false);
@@ -1179,7 +1203,9 @@ export default function CreatePage({
 
   // File Selector Handler
   const MAX_MEDIA_SIZE_BYTES = 10 * 1024 * 1024 * 1024; // 10 GB
-  const handleFileChosen = (file: File) => {
+  const handleFileChosen = (file: File, resumeId: string | null = null) => {
+    setResumeUploadId(resumeId);
+    setResumeError(null);
     const isAudio = isAudioFile(file);
     if (isStandaloneAudioUpload ? !isAudio : !isVideoFile(file)) {
       setSelectedMediaFile(null);
@@ -1249,6 +1275,28 @@ export default function CreatePage({
     }
 
     setUploadStep('details');
+  };
+
+  const handleResumePendingUpload = (session: PendingSermonUpload) => {
+    resumeSessionRef.current = session;
+    setResumeError(null);
+    resumeInputRef.current?.click();
+  };
+
+  const handleResumeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    const file = input.files?.[0];
+    input.value = '';
+    const session = resumeSessionRef.current;
+    resumeSessionRef.current = null;
+    if (!file || !session) return;
+    if (file.name !== session.file_name || file.size !== session.file_size) {
+      setResumeError(
+        `That file doesn't match "${session.file_name}" (${formatUploadFileSize(session.file_size)}). Choose the original file to resume.`,
+      );
+      return;
+    }
+    handleFileChosen(file, session.upload_id);
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2741,7 +2789,7 @@ export default function CreatePage({
           {externalImportError && uploadStep !== 'select' && uploadStep !== 'uploading' && (
             <div role="alert" className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-xs text-rose-300 flex flex-wrap items-center justify-between gap-3">
               <span>{externalImportError}</span>
-              {externalImportError === UPLOAD_SESSION_LIMIT_ERROR && (
+              {uploadLimitMessage !== null && externalImportError === uploadLimitMessage && (
                 <button
                   type="button"
                   onClick={() => setUploadStep('select')}
@@ -2772,7 +2820,7 @@ export default function CreatePage({
                         Unfinished uploads
                       </h3>
                       <p className="text-xs text-slate-400 mt-1">
-                        Choose the same file again in this browser to resume. Discard uploads you no longer need to free a slot.
+                        Choose Resume and pick the original file to continue where it stopped, or discard uploads you no longer need to free a slot.
                       </p>
                     </div>
                     {pendingUploadSessionsLoading && (
@@ -2785,12 +2833,25 @@ export default function CreatePage({
                       Could not manage unfinished uploads: {pendingUploadSessionsError}
                     </p>
                   )}
+                  {resumeError && (
+                    <p role="alert" className="text-xs text-rose-300">{resumeError}</p>
+                  )}
+                  <input
+                    ref={resumeInputRef}
+                    type="file"
+                    accept={isStandaloneAudioUpload
+                      ? "audio/*,.aac,.flac,.m4a,.mp3,.oga,.ogg,.opus,.wav"
+                      : "video/*,.3g2,.3gp,.avi,.m4v,.mkv,.mov,.mp4,.mpeg,.mpg,.ogv,.webm"}
+                    onChange={handleResumeInputChange}
+                    className="hidden"
+                  />
 
                   {pendingUploadSessions.map(session => {
-                    const progressPercent = Math.min(
-                      100,
-                      Math.round((session.received_size / session.file_size) * 100),
-                    );
+                    const fileSize = Math.max(0, Number(session.file_size) || 0);
+                    const receivedSize = Math.max(0, Number(session.received_size) || 0);
+                    const progressPercent = fileSize > 0
+                      ? Math.min(100, Math.round((receivedSize / fileSize) * 100))
+                      : 0;
                     return (
                       <div
                         key={session.upload_id}
@@ -2803,14 +2864,24 @@ export default function CreatePage({
                             {' · '}{progressPercent}%
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => void handleDiscardPendingUpload(session)}
-                          disabled={discardingUploadId !== null}
-                          className="shrink-0 px-3 py-2 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-bold disabled:opacity-50 transition"
-                        >
-                          {discardingUploadId === session.upload_id ? 'Discarding…' : 'Discard upload'}
-                        </button>
+                        <div className="shrink-0 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleResumePendingUpload(session)}
+                            disabled={discardingUploadId !== null}
+                            className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold disabled:opacity-50 transition"
+                          >
+                            Resume
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleDiscardPendingUpload(session)}
+                            disabled={discardingUploadId !== null}
+                            className="px-3 py-2 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-bold disabled:opacity-50 transition"
+                          >
+                            {discardingUploadId === session.upload_id ? 'Discarding…' : 'Discard upload'}
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
