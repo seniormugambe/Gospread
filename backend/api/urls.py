@@ -6,7 +6,7 @@ from .views import (
     AudioSpaceEndView, AudioSpaceListView, AudioSpaceParticipantsView, AudioSpaceTokenView, GospreadTokenRefreshView, GospreadTokenView, DirectoryView, HealthCheckView, LiveStreamViewSet, LogoutView, MeView,
     PasswordResetConfirmView, PayoutAccountViewSet, PasswordResetRequestView, PublicUserProfileView,
     PrayerRequestViewSet, RandomScriptureView, SavedSermonViewSet, SermonShortViewSet,
-    CreatorAnalyticsView, DiscoveryConfigView, DiscoveryFairnessReportView, SermonHeartbeatView, SermonUploadChunkView, SermonUploadCompleteView, SermonUploadSessionView, SermonViewSet,
+    CreatorAnalyticsView, DiscoveryConfigView, DiscoveryFairnessReportView, SermonHeartbeatView, SermonUploadChunkView, SermonUploadCompleteView, SermonUploadSessionDiscardView, SermonUploadSessionView, SermonViewSet,
     OnboardingQuestionsView, OnboardingView, SignupView, StreakCheckinView, VerificationApplicationView,
     VerificationAppealView, WatchProgressViewSet, WorshipSongViewSet,
 )
@@ -62,6 +62,7 @@ urlpatterns = [
 
     path("scriptures/random/", RandomScriptureView.as_view(), name="random-scripture"),
     path("sermons/uploads/", SermonUploadSessionView.as_view(), name="sermon-upload-session"),
+    path("sermons/uploads/<uuid:upload_id>/", SermonUploadSessionDiscardView.as_view(), name="sermon-upload-session-discard"),
     path("sermons/uploads/<uuid:upload_id>/chunks/", SermonUploadChunkView.as_view(), name="sermon-upload-chunk"),
     path("sermons/uploads/<uuid:upload_id>/complete/", SermonUploadCompleteView.as_view(), name="sermon-upload-complete"),
     path("sermons/<int:sermon_id>/heartbeat/", SermonHeartbeatView.as_view(), name="sermon-heartbeat"),

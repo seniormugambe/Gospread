@@ -83,7 +83,12 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { VideoStream, ChurchLocation, SocialLink, registerChurchProfile } from '../data/gospelData';
-import { djangoApi, type CreatorAnalyticsApi, type CreatorAnalyticsRange } from '../services/djangoApi';
+import {
+  djangoApi,
+  type CreatorAnalyticsApi,
+  type CreatorAnalyticsRange,
+  type PendingSermonUpload,
+} from '../services/djangoApi';
 import CreateShortPanel from './CreateShortPanel';
 import { UserSession } from './AuthModal';
 import LiveBroadcastRoom from './LiveBroadcastRoom';
@@ -128,6 +133,14 @@ const AI_PRESET_ACCENT_RGB: Record<string, string> = {
   peaceful_sunrise: '125, 211, 252',
   modern_bold: '110, 231, 183',
 };
+
+const UPLOAD_SESSION_LIMIT_ERROR = 'Finish or retry an existing upload before starting another.';
+
+function formatUploadFileSize(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / 1024).toFixed(0)} KB`;
+}
 
 function formatUploadSpeed(bytesPerSecond: number): string {
   if (!Number.isFinite(bytesPerSecond) || bytesPerSecond <= 0) return '';
@@ -469,6 +482,10 @@ export default function CreatePage({
     publishScheduledTimezone,
     publishNotifyFollowers,
   } = uploadState;
+  const [pendingUploadSessions, setPendingUploadSessions] = useState<PendingSermonUpload[]>([]);
+  const [pendingUploadSessionsLoading, setPendingUploadSessionsLoading] = useState(false);
+  const [pendingUploadSessionsError, setPendingUploadSessionsError] = useState<string | null>(null);
+  const [discardingUploadId, setDiscardingUploadId] = useState<string | null>(null);
   const createUploadStateSetter = createStateSetter<UploadWorkflowState>();
   const setUploadStep = createUploadStateSetter(dispatchUploadState, 'uploadStep');
   const setSelectedFile = createUploadStateSetter(dispatchUploadState, 'selectedFile');
@@ -784,6 +801,51 @@ export default function CreatePage({
     setAiOverlaySpeaker(ownerName);
     setAiOverlayMinistry(ministryName);
   }, [ownerName, ownerUsername, ministryName]);
+
+  useEffect(() => {
+    if (
+      uploadStep !== 'select'
+      || (studioAction !== 'upload' && !isStandaloneAudioUpload)
+      || (!currentUser?.isLoggedIn && !djangoApi.getAccessToken())
+    ) return;
+
+    let active = true;
+    setPendingUploadSessionsLoading(true);
+    setPendingUploadSessionsError(null);
+    djangoApi.getPendingSermonUploads().then(sessions => {
+      if (active) setPendingUploadSessions(sessions);
+    }).catch((error: unknown) => {
+      if (active) {
+        setPendingUploadSessionsError(
+          error instanceof Error ? error.message : 'Could not load unfinished uploads.',
+        );
+      }
+    }).finally(() => {
+      if (active) setPendingUploadSessionsLoading(false);
+    });
+
+    return () => { active = false; };
+  }, [studioAction, uploadStep, isStandaloneAudioUpload, currentUser?.isLoggedIn]);
+
+  const handleDiscardPendingUpload = async (session: PendingSermonUpload) => {
+    const confirmed = window.confirm(
+      `Discard the unfinished upload "${session.file_name}"? Its uploaded progress will be deleted.`,
+    );
+    if (!confirmed) return;
+
+    setDiscardingUploadId(session.upload_id);
+    setPendingUploadSessionsError(null);
+    try {
+      await djangoApi.discardPendingSermonUpload(session.upload_id);
+      setPendingUploadSessions(current => current.filter(item => item.upload_id !== session.upload_id));
+    } catch (error) {
+      setPendingUploadSessionsError(
+        error instanceof Error ? error.message : 'Could not discard the unfinished upload.',
+      );
+    } finally {
+      setDiscardingUploadId(null);
+    }
+  };
 
   useEffect(() => {
     setContactEmail(currentUser?.email || '');
@@ -1324,6 +1386,19 @@ export default function CreatePage({
     }
     setExternalImportError(null);
     setUploadStep(step);
+  };
+
+  const retrySelectedMediaUpload = () => {
+    if (!validateUploadDetails()) return;
+    if (!isFaithPolicyConfirmed || !isCopyrightConfirmed) {
+      setExternalImportError('Confirm both the faith guidelines and copyright declarations before uploading.');
+      setUploadStep('visibility');
+      return;
+    }
+    setExternalImportError(null);
+    setUploadProgressPercent(0);
+    setUploadedBytes(0);
+    setUploadStep('uploading');
   };
 
   const handleFinalUploadPublish = (e: FormEvent) => {
@@ -2656,8 +2731,17 @@ export default function CreatePage({
           </div>
 
           {externalImportError && uploadStep !== 'select' && uploadStep !== 'uploading' && (
-            <div role="alert" className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-xs text-rose-300">
-              {externalImportError}
+            <div role="alert" className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-xs text-rose-300 flex flex-wrap items-center justify-between gap-3">
+              <span>{externalImportError}</span>
+              {externalImportError === UPLOAD_SESSION_LIMIT_ERROR && (
+                <button
+                  type="button"
+                  onClick={() => setUploadStep('select')}
+                  className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 font-bold transition"
+                >
+                  Manage unfinished uploads
+                </button>
+              )}
             </div>
           )}
 
@@ -2666,6 +2750,80 @@ export default function CreatePage({
              ══════════════════════════════════════════════════════════ */}
           {uploadStep === 'select' && (
             <div className="space-y-6">
+              {(pendingUploadSessionsLoading
+                || pendingUploadSessionsError
+                || pendingUploadSessions.length > 0
+                || (selectedMediaFile && selectedFile)) && (
+                <section
+                  aria-labelledby="pending-uploads-heading"
+                  className="rounded-2xl bg-[#181818] border border-slate-800 p-4 sm:p-5 space-y-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 id="pending-uploads-heading" className="text-sm font-bold text-white">
+                        Unfinished uploads
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Choose the same file again in this browser to resume. Discard uploads you no longer need to free a slot.
+                      </p>
+                    </div>
+                    {pendingUploadSessionsLoading && (
+                      <Loader2 className="w-4 h-4 animate-spin text-amber-400 shrink-0" aria-label="Loading uploads" />
+                    )}
+                  </div>
+
+                  {pendingUploadSessionsError && (
+                    <p role="alert" className="text-xs text-rose-300">
+                      Could not manage unfinished uploads: {pendingUploadSessionsError}
+                    </p>
+                  )}
+
+                  {pendingUploadSessions.map(session => {
+                    const progressPercent = Math.min(
+                      100,
+                      Math.round((session.received_size / session.file_size) * 100),
+                    );
+                    return (
+                      <div
+                        key={session.upload_id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl bg-[#0f0f0f] border border-slate-800 p-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-white truncate">{session.file_name}</p>
+                          <p className="text-[11px] text-slate-400 mt-1">
+                            {formatUploadFileSize(session.received_size)} of {formatUploadFileSize(session.file_size)} uploaded
+                            {' · '}{progressPercent}%
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleDiscardPendingUpload(session)}
+                          disabled={discardingUploadId !== null}
+                          className="shrink-0 px-3 py-2 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-bold disabled:opacity-50 transition"
+                        >
+                          {discardingUploadId === session.upload_id ? 'Discarding…' : 'Discard upload'}
+                        </button>
+                      </div>
+                    );
+                  })}
+
+                  {selectedMediaFile && selectedFile && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl bg-amber-500/5 border border-amber-500/20 p-3">
+                      <p className="text-xs text-slate-300">
+                        Ready to retry <span className="font-semibold text-white">{selectedFile.name}</span>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={retrySelectedMediaUpload}
+                        disabled={pendingUploadSessionsLoading || discardingUploadId !== null}
+                        className="shrink-0 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold disabled:opacity-50 transition"
+                      >
+                        Retry this upload
+                      </button>
+                    </div>
+                  )}
+                </section>
+              )}
               
               {/* Source Tabs Header */}
               {!isStandaloneAudioUpload && <div className="flex items-center justify-center sm:justify-start gap-2 bg-[#121212] p-1.5 rounded-2xl border border-slate-800 w-full sm:w-fit">

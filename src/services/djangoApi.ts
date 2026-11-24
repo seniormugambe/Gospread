@@ -255,6 +255,14 @@ export interface CreatorSermonApi {
 
 export type CreatorAnalyticsRange = '7d' | '28d' | '90d' | 'all';
 
+export interface PendingSermonUpload {
+  upload_id: string;
+  file_name: string;
+  file_size: number;
+  received_size: number;
+  created_at: string;
+}
+
 export interface CreatorAnalyticsApi {
   range: CreatorAnalyticsRange;
   period_start: string | null;
@@ -923,6 +931,14 @@ class DjangoApiClient {
       form.append(key, value);
     });
     return await this.request<UserProfileData>('/auth/me/', { method: 'PATCH', body: form });
+  }
+
+  public async getPendingSermonUploads(): Promise<PendingSermonUpload[]> {
+    return await this.request<PendingSermonUpload[]>('/sermons/uploads/');
+  }
+
+  public async discardPendingSermonUpload(uploadId: string): Promise<void> {
+    await this.request<void>(`/sermons/uploads/${uploadId}/`, { method: 'DELETE' });
   }
 
   public async createSermon(

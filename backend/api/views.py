@@ -87,6 +87,15 @@ def _sermon_upload_path(upload_id):
     return Path(settings.MEDIA_ROOT) / "resumable_uploads" / f"{upload_id}.part"
 
 
+def _cleanup_expired_sermon_upload_sessions():
+    expired_sessions = SermonUploadSession.objects.filter(
+        created_at__lt=timezone.now() - SERMON_UPLOAD_MAX_AGE
+    )
+    for expired_id in expired_sessions.values_list("upload_id", flat=True).iterator():
+        _sermon_upload_path(expired_id).unlink(missing_ok=True)
+    expired_sessions.delete()
+
+
 def _resolve_church_for_user(user, church=None):
     if church is None:
         church = user.owned_churches.order_by("created_at").first()
@@ -128,6 +137,23 @@ class SermonUploadSessionView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = SermonUploadInitSerializer
 
+    def get(self, request):
+        _cleanup_expired_sermon_upload_sessions()
+        sessions = SermonUploadSession.objects.filter(
+            owner=request.user,
+            sermon__isnull=True,
+        ).order_by("created_at")
+        return Response([
+            {
+                "upload_id": str(session.upload_id),
+                "file_name": session.file_name,
+                "file_size": session.file_size,
+                "received_size": session.received_size,
+                "created_at": session.created_at,
+            }
+            for session in sessions
+        ])
+
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -150,10 +176,7 @@ class SermonUploadSessionView(generics.GenericAPIView):
 
         upload_id = data["upload_id"]
         file_name = Path(data["file_name"].replace("\\", "/")).name
-        expired_sessions = SermonUploadSession.objects.filter(created_at__lt=timezone.now() - SERMON_UPLOAD_MAX_AGE)
-        for expired_id in expired_sessions.values_list("upload_id", flat=True).iterator():
-            _sermon_upload_path(expired_id).unlink(missing_ok=True)
-        expired_sessions.delete()
+        _cleanup_expired_sermon_upload_sessions()
 
         if not SermonUploadSession.objects.filter(upload_id=upload_id).exists() and (
             SermonUploadSession.objects.filter(owner=request.user, sermon__isnull=True).count() >= 3
@@ -206,6 +229,22 @@ class SermonUploadSessionView(generics.GenericAPIView):
             "chunk_size": SERMON_UPLOAD_CHUNK_SIZE,
             "complete": bool(session.sermon_id),
         })
+
+
+class SermonUploadSessionDiscardView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, upload_id):
+        with transaction.atomic():
+            session = get_object_or_404(
+                SermonUploadSession.objects.select_for_update(),
+                upload_id=upload_id,
+                owner=request.user,
+                sermon__isnull=True,
+            )
+            _sermon_upload_path(upload_id).unlink(missing_ok=True)
+            session.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class SermonUploadChunkView(generics.GenericAPIView):

@@ -1,5 +1,6 @@
 from datetime import timedelta
 from io import StringIO
+from pathlib import Path
 import tempfile
 from unittest.mock import patch
 from urllib.parse import urlparse
@@ -1215,6 +1216,61 @@ class SermonUploadSessionTests(APITestCase):
 
         response = self.put_chunk(upload_id, 0, file_bytes)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_pending_upload_list_and_discard_free_a_slot(self):
+        sessions = []
+        for _ in range(3):
+            upload_id, started, _file_bytes, _metadata = self.start_upload()
+            self.assertEqual(started.status_code, status.HTTP_200_OK)
+            sessions.append(upload_id)
+        file_bytes = b"video"
+        self.assertEqual(self.put_chunk(sessions[0], 0, file_bytes).status_code, status.HTTP_200_OK)
+        blocked_id, blocked, _file_bytes, _metadata = self.start_upload()
+        self.assertEqual(blocked.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Finish or retry an existing upload", str(blocked.data))
+
+        pending = self.client.get("/api/v1/sermons/uploads/")
+        self.assertEqual(pending.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            {item["upload_id"] for item in pending.data},
+            {str(upload_id) for upload_id in sessions},
+        )
+        self.assertNotIn("metadata", pending.data[0])
+
+        discarded = self.client.delete(f"/api/v1/sermons/uploads/{sessions[0]}/")
+        self.assertEqual(discarded.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(SermonUploadSession.objects.filter(upload_id=sessions[0]).exists())
+        partial_path = Path(self.media_dir.name) / "resumable_uploads" / f"{sessions[0]}.part"
+        self.assertFalse(partial_path.exists())
+
+        retried = self.client.post("/api/v1/sermons/uploads/", {
+            "upload_id": str(blocked_id),
+            "file_name": "service.mp4",
+            "file_size": len(b"video-bytes"),
+            "metadata": {
+                "title": "Sunday service",
+                "speaker": "Pastor Grace",
+                "is_published": True,
+            },
+        }, format="json")
+        self.assertEqual(retried.status_code, status.HTTP_200_OK, retried.data)
+
+    def test_only_owner_can_discard_pending_upload(self):
+        upload_id, started, file_bytes, _metadata = self.start_upload()
+        self.assertEqual(started.status_code, status.HTTP_200_OK)
+        self.assertEqual(self.put_chunk(upload_id, 0, file_bytes).status_code, status.HTTP_200_OK)
+
+        other_user = User.objects.create_user(
+            username="discard-other", email="discard-other@example.com", password="StrongPass123!"
+        )
+        self.client.force_authenticate(user=other_user)
+        pending = self.client.get("/api/v1/sermons/uploads/")
+        response = self.client.delete(f"/api/v1/sermons/uploads/{upload_id}/")
+
+        self.assertEqual(pending.status_code, status.HTTP_200_OK)
+        self.assertEqual(pending.data, [])
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(SermonUploadSession.objects.filter(upload_id=upload_id).exists())
 
 
 class CreatorDraftPublicationTests(APITestCase):
