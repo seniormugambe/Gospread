@@ -422,9 +422,9 @@ export default function CreatePage({
   // -------------------------------------------------------------
   const [uploadState, dispatchUploadState] = useReducer(
     stateUpdateReducer<UploadWorkflowState>,
-    { ownerUsername, ministryName },
-    ({ ownerUsername: username, ministryName: ministry }) =>
-      createInitialUploadWorkflowState(username, ministry),
+    { ownerName, ministryName },
+    ({ ownerName: name, ministryName: ministry }) =>
+      createInitialUploadWorkflowState(name, ministry),
   );
   const {
     uploadStep,
@@ -536,6 +536,8 @@ export default function CreatePage({
     setUploadStep('select');
     setSelectedFile(null);
     setSelectedMediaFile(null);
+    setIsFaithPolicyConfirmed(false);
+    setIsCopyrightConfirmed(false);
     setUploadThumbnail('');
     setExtractedFrames([]);
     setExternalImportError(null);
@@ -547,6 +549,8 @@ export default function CreatePage({
     setUploadStep('select');
     setSelectedFile(null);
     setSelectedMediaFile(null);
+    setIsFaithPolicyConfirmed(false);
+    setIsCopyrightConfirmed(false);
     setUploadThumbnail('');
     setExtractedFrames([]);
     setExternalImportError(null);
@@ -773,11 +777,11 @@ export default function CreatePage({
 
   // Keep state synchronized with logged in user session
   useEffect(() => {
-    setUploadSpeaker(ownerUsername);
+    setUploadSpeaker(ownerName);
     setLiveSpeaker(ownerName);
     setScheduleSpeaker(ownerName);
     setUploadMinistry(ministryName);
-    setAiOverlaySpeaker(ownerUsername);
+    setAiOverlaySpeaker(ownerName);
     setAiOverlayMinistry(ministryName);
   }, [ownerName, ownerUsername, ministryName]);
 
@@ -1116,17 +1120,23 @@ export default function CreatePage({
   const handleFileChosen = (file: File) => {
     const isAudio = isAudioFile(file);
     if (isStandaloneAudioUpload ? !isAudio : !isVideoFile(file)) {
+      setSelectedMediaFile(null);
+      setSelectedFile(null);
       setExternalImportError(isStandaloneAudioUpload
         ? 'Please select a supported audio file.'
         : 'Please select a supported video file.');
       return;
     }
     if (file.size <= 0) {
+      setSelectedMediaFile(null);
+      setSelectedFile(null);
       setExternalImportError('The selected media file is empty.');
       return;
     }
     // Validate file size
     if (file.size > MAX_MEDIA_SIZE_BYTES) {
+      setSelectedMediaFile(null);
+      setSelectedFile(null);
       const sizeGB = (file.size / (1024 * 1024 * 1024)).toFixed(1);
       setExternalImportError(`File is too large (${sizeGB} GB). Maximum allowed size is 10 GB.`);
       return;
@@ -1134,6 +1144,8 @@ export default function CreatePage({
     setExternalImportError(null);
 
     setSelectedMediaFile(file);
+    setIsFaithPolicyConfirmed(false);
+    setIsCopyrightConfirmed(false);
     if (isAudio) setThumbnailMode('ai');
     const sizeInGB = (file.size / (1024 * 1024 * 1024)).toFixed(1);
     const sizeFormatted = file.size > 1024 * 1024 * 1024 
@@ -1155,9 +1167,16 @@ export default function CreatePage({
     
     // Suggest Title from file name if generic
     const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-    if (cleanName.length > 3) {
-      setUploadTitle(cleanName.charAt(0).toUpperCase() + cleanName.slice(1));
-    }
+    const suggestedTitle = cleanName.length > 3
+      ? cleanName.charAt(0).toUpperCase() + cleanName.slice(1)
+      : '';
+    setUploadTitle(suggestedTitle);
+    setAiOverlayTitle(suggestedTitle.toUpperCase());
+    setUploadDescription('');
+    setUploadScripture('');
+    setKeyTakeaways([]);
+    setTagsInput('');
+    setAiOverlayVerse('');
 
     // Only require the user to be signed in — the backend auto-provisions a
     // personal channel for any authenticated user on first upload.
@@ -1209,17 +1228,38 @@ export default function CreatePage({
 
   // Trigger Custom Thumbnail File Upload
   const handleThumbnailFileChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setUploadThumbnail(event.target.result as string);
-          setThumbnailMode('upload');
-        }
-      };
-      reader.readAsDataURL(file);
+    const input = e.currentTarget;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    const typeByExtension: Record<string, string> = {
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      webp: 'image/webp',
+    };
+    const extensionType = typeByExtension[file.name.split('.').pop()?.toLowerCase() || ''];
+    const imageType = file.type === 'image/jpg'
+      ? 'image/jpeg'
+      : (file.type === 'application/octet-stream' || !file.type ? extensionType : file.type);
+    if (!imageType || !['image/jpeg', 'image/png', 'image/webp'].includes(imageType)) {
+      setExternalImportError('Choose a JPG, PNG, or WebP thumbnail.');
+      return;
     }
+    if (file.size > 5 * 1024 * 1024) {
+      setExternalImportError('Thumbnail images must be 5 MB or smaller.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (typeof event.target?.result === 'string') {
+        setExternalImportError(null);
+        setUploadThumbnail(event.target.result);
+        setThumbnailMode('upload');
+      }
+    };
+    reader.onerror = () => setExternalImportError('Could not read the selected thumbnail.');
+    reader.readAsDataURL(imageType === file.type ? file : new Blob([file], { type: imageType }));
   };
 
   const handleGenerateAiThumbnail = async () => {
@@ -1252,18 +1292,48 @@ export default function CreatePage({
     }
   };
 
+  const validateUploadDetails = (): boolean => {
+    if (!selectedMediaFile) {
+      setExternalImportError('Choose a media file before continuing.');
+      setUploadStep('select');
+      return false;
+    }
+    if (!uploadTitle.trim() || !uploadDescription.trim() || !uploadScripture.trim()) {
+      setExternalImportError('Add a title, description, and scripture anchor before continuing.');
+      setUploadStep('details');
+      return false;
+    }
+    return true;
+  };
+
+  const navigateUploadStep = (step: UploadStep) => {
+    if (step === 'select' || step === 'uploading') {
+      setUploadStep(step);
+      return;
+    }
+    if (!selectedMediaFile) {
+      setExternalImportError('Choose a media file before continuing.');
+      setUploadStep('select');
+      return;
+    }
+    if (step !== 'details' && !validateUploadDetails()) return;
+    if (step === 'publish' && (!isFaithPolicyConfirmed || !isCopyrightConfirmed)) {
+      setExternalImportError('Confirm both the faith guidelines and copyright declarations before continuing.');
+      setUploadStep('visibility');
+      return;
+    }
+    setExternalImportError(null);
+    setUploadStep(step);
+  };
+
   const handleFinalUploadPublish = (e: FormEvent) => {
     e.preventDefault();
     setExternalImportError(null);
 
-    if (!selectedMediaFile) {
-      setExternalImportError('Choose an audio or video file before publishing.');
-      return;
-    }
-
-    if (!uploadTitle.trim()) {
-      setExternalImportError('Add a title before publishing.');
-      setUploadStep('details');
+    if (!validateUploadDetails()) return;
+    if (!isFaithPolicyConfirmed || !isCopyrightConfirmed) {
+      setExternalImportError('Confirm both the faith guidelines and copyright declarations before publishing.');
+      setUploadStep('visibility');
       return;
     }
 
@@ -2528,11 +2598,11 @@ export default function CreatePage({
                 </span>
               </div>
             ) : (
-              /* 4-Step Wizard Stepper */
+              /* Media selection is step 1; upload progress is its substate. */
               <div className="flex items-center gap-1.5 bg-[#121212] p-1 rounded-2xl border border-slate-800 text-[11px] font-bold overflow-x-auto max-w-full">
                 <button
                   type="button"
-                  onClick={() => setUploadStep('details')}
+                  onClick={() => navigateUploadStep('details')}
                   className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
                     uploadStep === 'details'
                       ? 'bg-amber-500 text-slate-950 font-black shadow-md'
@@ -2540,12 +2610,12 @@ export default function CreatePage({
                   }`}
                 >
                   <FileText className="w-3.5 h-3.5" />
-                  <span>1. {isStandaloneAudioUpload ? 'Audio Details' : 'Details'}</span>
+                  <span>2. {isStandaloneAudioUpload ? 'Audio Details' : 'Details'}</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setUploadStep('thumbnail')}
+                  onClick={() => navigateUploadStep('thumbnail')}
                   className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
                     uploadStep === 'thumbnail'
                       ? 'bg-amber-500 text-slate-950 font-black shadow-md'
@@ -2553,12 +2623,12 @@ export default function CreatePage({
                   }`}
                 >
                   <ImageIcon className="w-3.5 h-3.5" />
-                  <span>2. {isStandaloneAudioUpload ? 'Cover Art' : 'Thumbnail'}</span>
+                  <span>3. {isStandaloneAudioUpload ? 'Cover Art' : 'Thumbnail'}</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setUploadStep('visibility')}
+                  onClick={() => navigateUploadStep('visibility')}
                   className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
                     uploadStep === 'visibility'
                       ? 'bg-amber-500 text-slate-950 font-black shadow-md'
@@ -2566,12 +2636,12 @@ export default function CreatePage({
                   }`}
                 >
                   <Users className="w-3.5 h-3.5" />
-                  <span>3. Visibility</span>
+                  <span>4. Visibility</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setUploadStep('publish')}
+                  onClick={() => navigateUploadStep('publish')}
                   className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
                     uploadStep === 'publish'
                       ? 'bg-amber-500 text-slate-950 font-black shadow-md'
@@ -2579,11 +2649,17 @@ export default function CreatePage({
                   }`}
                 >
                   <UploadCloud className="w-3.5 h-3.5" />
-                  <span>4. Publish</span>
+                  <span>5. Publish</span>
                 </button>
               </div>
             )}
           </div>
+
+          {externalImportError && uploadStep !== 'select' && uploadStep !== 'uploading' && (
+            <div role="alert" className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-xs text-rose-300">
+              {externalImportError}
+            </div>
+          )}
 
           {/* ══════════════════════════════════════════════════════════
               STEP 1: SELECT MEDIA / IMPORT SOURCE
@@ -2984,7 +3060,7 @@ export default function CreatePage({
                       {isAudioUpload ? 'Tell us about your audio' : 'Tell us about your video'}
                     </h3>
                     <span className="text-[11px] text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-                      Step 1 of 4
+                      Step 2 of 5
                     </span>
                   </div>
 
@@ -3000,6 +3076,7 @@ export default function CreatePage({
                       onChange={(e) => {
                         setUploadTitle(e.target.value);
                         setAiOverlayTitle(e.target.value.toUpperCase());
+                        setExternalImportError(null);
                       }}
                       placeholder={isAudioUpload ? 'Sunday sermon — Walking by Faith' : 'Sunday Worship Service — Walking by Faith'}
                       className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none"
@@ -3015,34 +3092,24 @@ export default function CreatePage({
                       rows={3}
                       required
                       value={uploadDescription}
-                      onChange={(e) => setUploadDescription(e.target.value)}
+                      onChange={(e) => {
+                        setUploadDescription(e.target.value);
+                        setExternalImportError(null);
+                      }}
                       placeholder={isAudioUpload ? 'Share details about this sermon, song, or podcast...' : "Join us for today's worship service..."}
                       className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none resize-none"
                     />
                   </div>
 
-                  {/* Profile username */}
+                  {/* Author */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">Profile username</label>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">Author</label>
                     <input
                       type="text"
-                      value={uploadSpeaker ? `@${uploadSpeaker.replace(/^@/, '')}` : ''}
+                      value={uploadSpeaker}
                       readOnly
-                      title="This profile username is credited on your upload"
+                      title="Your full name is credited on this upload"
                       className="w-full cursor-not-allowed opacity-80 bg-[#0f0f0f] border border-slate-700 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
-                    />
-                  </div>
-
-                  {/* Ministry */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">Ministry</label>
-                    <input
-                      type="text"
-                      required
-                      value={uploadMinistry}
-                      readOnly
-                      title="Uploaded as the account owner"
-                      className="w-full cursor-not-allowed opacity-80 bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none"
                     />
                   </div>
 
@@ -3117,6 +3184,7 @@ export default function CreatePage({
                       onChange={(e) => {
                         setUploadScripture(e.target.value);
                         setAiOverlayVerse(e.target.value.toUpperCase());
+                        setExternalImportError(null);
                       }}
                       placeholder="Isaiah 40:31"
                       className="w-full bg-[#0f0f0f] border border-slate-700 focus:border-amber-400 rounded-2xl px-4 py-2.5 text-xs text-amber-300 font-bold placeholder-slate-500 focus:outline-none"
@@ -3198,7 +3266,7 @@ export default function CreatePage({
 
                   <button
                     type="button"
-                    onClick={() => setUploadStep('thumbnail')}
+                    onClick={() => navigateUploadStep('thumbnail')}
                     className="px-8 py-3 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-amber-500/20 transition cursor-pointer"
                   >
                     <span>Next: {isAudioUpload ? 'Audio Cover Art' : 'Video Thumbnail'}</span>
@@ -3235,7 +3303,7 @@ export default function CreatePage({
                     </p>
                   </div>
                   <span className="text-[11px] text-amber-400 font-bold bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 self-start sm:self-auto">
-                    Step 2 of 4
+                    Step 3 of 5
                   </span>
                 </div>
 
@@ -3600,7 +3668,7 @@ export default function CreatePage({
 
                   <button
                     type="button"
-                    onClick={() => setUploadStep('visibility')}
+                    onClick={() => navigateUploadStep('visibility')}
                     className="px-8 py-3 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-amber-500/20 transition cursor-pointer"
                   >
                     <span>Next: Audience & Visibility</span>
@@ -3635,7 +3703,7 @@ export default function CreatePage({
                     </p>
                   </div>
                   <span className="text-[11px] text-amber-400 font-bold bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 self-start sm:self-auto">
-                    Step 3 of 4
+                    Step 4 of 5
                   </span>
                 </div>
 
@@ -3816,7 +3884,10 @@ export default function CreatePage({
                     <input
                       type="checkbox"
                       checked={isFaithPolicyConfirmed}
-                      onChange={(e) => setIsFaithPolicyConfirmed(e.target.checked)}
+                      onChange={(e) => {
+                        setIsFaithPolicyConfirmed(e.target.checked);
+                        setExternalImportError(null);
+                      }}
                       className="mt-0.5 rounded border-slate-700 text-amber-500 focus:ring-amber-400"
                     />
                     <span>
@@ -3828,7 +3899,10 @@ export default function CreatePage({
                     <input
                       type="checkbox"
                       checked={isCopyrightConfirmed}
-                      onChange={(e) => setIsCopyrightConfirmed(e.target.checked)}
+                      onChange={(e) => {
+                        setIsCopyrightConfirmed(e.target.checked);
+                        setExternalImportError(null);
+                      }}
                       className="mt-0.5 rounded border-slate-700 text-amber-500 focus:ring-amber-400"
                     />
                     <span>
@@ -3850,7 +3924,7 @@ export default function CreatePage({
 
                   <button
                     type="button"
-                    onClick={() => setUploadStep('publish')}
+                    onClick={() => navigateUploadStep('publish')}
                     className="px-8 py-3 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-amber-500/20 transition cursor-pointer"
                   >
                     <span>Next: Publish Options</span>
@@ -3885,7 +3959,7 @@ export default function CreatePage({
                     </p>
                   </div>
                   <span className="text-[11px] text-amber-400 font-bold bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 self-start sm:self-auto">
-                    Step 4 of 4
+                    Step 5 of 5
                   </span>
                 </div>
 
@@ -4082,12 +4156,18 @@ export default function CreatePage({
                 {/* Final Summary Card */}
                 <div className="p-4 rounded-2xl bg-[#0f0f0f] border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <img
-                      src={uploadThumbnail}
-                      alt={isAudioUpload ? 'Selected audio cover art' : 'Selected video thumbnail'}
-                      referrerPolicy="no-referrer"
-                      className={`${isAudioUpload ? 'w-16 h-16' : 'w-16 h-11'} rounded-lg object-cover ring-1 ring-slate-700 shrink-0`}
-                    />
+                    {uploadThumbnail ? (
+                      <img
+                        src={uploadThumbnail}
+                        alt={isAudioUpload ? 'Selected audio cover art' : 'Selected video thumbnail'}
+                        referrerPolicy="no-referrer"
+                        className={`${isAudioUpload ? 'w-16 h-16' : 'w-16 h-11'} rounded-lg object-cover ring-1 ring-slate-700 shrink-0`}
+                      />
+                    ) : (
+                      <div className={`${isAudioUpload ? 'w-16 h-16' : 'w-16 h-11'} rounded-lg bg-slate-800 text-slate-500 ring-1 ring-slate-700 shrink-0 flex items-center justify-center`}>
+                        <ImageIcon className="w-5 h-5" />
+                      </div>
+                    )}
                     <div>
                       <h4 className="text-xs font-bold text-white line-clamp-1">{uploadTitle}</h4>
                       <p className="text-[11px] text-slate-400">{uploadSpeaker} • {uploadMinistry}</p>

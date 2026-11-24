@@ -7,7 +7,7 @@ services:
     disk:
       name: gospread-media
       mountPath: /var/data
-      sizeGB: 1
+      sizeGB: 20
     rootDir: backend
     healthCheckPath: /api/v1/health/
     buildCommand: |

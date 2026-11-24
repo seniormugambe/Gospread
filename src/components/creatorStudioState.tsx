@@ -96,7 +96,7 @@ export interface UploadWorkflowState {
 }
 
 export function createInitialUploadWorkflowState(
-  ownerUsername: string,
+  ownerName: string,
   ministryName: string,
 ): UploadWorkflowState {
   const scheduledDate = new Date();
@@ -116,7 +116,7 @@ export function createInitialUploadWorkflowState(
     frameExtractError: null,
     uploadTitle: '',
     uploadDescription: '',
-    uploadSpeaker: ownerUsername,
+    uploadSpeaker: ownerName,
     uploadMinistry: ministryName,
     uploadCategory: 'Sermons',
     tagsInput: '',
@@ -128,7 +128,7 @@ export function createInitialUploadWorkflowState(
     selectedFrameIndex: 0,
     selectedAiPresetId: 'cathedral_gold',
     aiOverlayTitle: '',
-    aiOverlaySpeaker: ownerUsername,
+    aiOverlaySpeaker: ownerName,
     aiOverlayMinistry: ministryName,
     aiOverlayVerse: '',
     isAiGenerating: false,
@@ -136,8 +136,8 @@ export function createInitialUploadWorkflowState(
     customThumbnailInput: '',
     videoVisibility: 'public',
     audienceKidsOption: 'all_ages',
-    isFaithPolicyConfirmed: true,
-    isCopyrightConfirmed: true,
+    isFaithPolicyConfirmed: false,
+    isCopyrightConfirmed: false,
     publishActionOption: 'publish_now',
     publishScheduledDate: scheduledDate.toISOString().split('T')[0],
     publishScheduledTime: '10:00',
