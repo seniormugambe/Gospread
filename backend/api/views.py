@@ -106,16 +106,18 @@ def _resolve_church_for_user(user, church=None):
     return church
 
 
+def _uploader_display_name(user):
+    """Return the public display name for uploaded media, never an email address."""
+    return (user.get_full_name().strip() or user.username or "Gospread Member").strip()
+
+
 def _save_sermon_for_user(serializer, user):
     church = _resolve_church_for_user(user, serializer.validated_data.get("church"))
-
-    # Always credit the uploader's full name. Fall back to username only if the
-    # account has no first/last name set, so the speaker field never shows a
-    # bare @handle on published media.
-    if not serializer.validated_data.get("speaker", "").strip():
-        serializer.validated_data["speaker"] = (
-            user.get_full_name().strip() or user.username
-        )
+    display_name = _uploader_display_name(user)
+    if display_name != "Gospread Member":
+        serializer.validated_data["speaker"] = display_name
+    elif not serializer.validated_data.get("speaker", "").strip():
+        serializer.validated_data["speaker"] = display_name
 
     if serializer.validated_data.get("is_published", False):
         return serializer.save(church=church, published_at=timezone.now(), scheduled_for=None)
@@ -1539,7 +1541,7 @@ class SermonShortViewSet(viewsets.ModelViewSet):
         if sermon and sermon.church_id != church.id:
             from rest_framework.exceptions import ValidationError
             raise ValidationError("The linked sermon must belong to the same church.")
-        speaker = serializer.validated_data.get("speaker") or user.get_full_name() or user.username
+        speaker = _uploader_display_name(user)
         serializer.save(church=church, speaker=speaker)
 
     def perform_destroy(self, instance):

@@ -129,9 +129,10 @@ interface CreateShortPanelProps {
   onRequireAuth?: () => void;
   isSignedIn: boolean;
   username: string;
+  fullName: string;
 }
 
-export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, isSignedIn, username }: CreateShortPanelProps) {
+export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, isSignedIn, username, fullName }: CreateShortPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -247,11 +248,12 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
     setError(null);
     setProgress(0);
     try {
+      const authorName = fullName.trim() || username.trim();
       const thumbnail = info.frame ? await cropFrameToBlob(info.frame, cropX, cropY).catch(() => null) : null;
       const created = await djangoApi.createShort(
         {
           caption,
-          speaker: username,
+          speaker: authorName,
           duration_seconds: info.duration,
           crop_x: cropX,
           crop_y: cropY,
@@ -263,7 +265,7 @@ export default function CreateShortPanel({ onBack, onPublished, onRequireAuth, i
       );
       const shorts = await djangoApi.getShorts().catch(() => [] as VideoStream[]);
       const mapped = shorts.find((s) => s.id === `short-${created.id}`);
-      if (mapped) onPublished({ ...mapped, speakerOrArtist: username });
+      if (mapped) onPublished({ ...mapped, speakerOrArtist: fullName.trim() || username });
       setDone(true);
     } catch (err: any) {
       setError(err?.message || 'Could not post your Gospel Nugget. Please try again.');

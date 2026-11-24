@@ -2,12 +2,14 @@ from datetime import timedelta
 from io import StringIO
 import tempfile
 from unittest.mock import patch
+from urllib.parse import urlparse
 from uuid import uuid4
 
 from botocore.exceptions import ClientError
 from django.contrib.admin.sites import site
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
+from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -323,6 +325,9 @@ class AuthenticationTests(APITestCase):
                 "bio": "A new profile bio",
                 "avatar": SimpleUploadedFile("avatar.png", b"image data", content_type="image/png"),
             }, format="multipart")
+            avatar_path = urlparse(response.data["avatar_url"]).path.removeprefix("/media/")
+            with default_storage.open(avatar_path, "rb") as avatar:
+                stored_avatar = avatar.read()
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         user.refresh_from_db()
@@ -332,6 +337,7 @@ class AuthenticationTests(APITestCase):
         self.assertEqual(user.bio, "A new profile bio")
         self.assertIn("/uploads/avatars/", user.avatar_url)
         self.assertEqual(response.data["avatar_url"], user.avatar_url)
+        self.assertEqual(stored_avatar, b"image data")
 
     def test_logout_blacklists_refresh_token(self):
         User.objects.create_user(username="member", email="logout@example.com", password="StrongPass123!")
@@ -847,6 +853,30 @@ class SermonShortTests(APITestCase):
         self.assertTrue(response.data["media_url"].startswith("http"))
         self.assertTrue(Sermon.objects.get(id=response.data["id"]).media_url)
 
+    def test_sermon_speaker_uses_uploader_full_name(self):
+        pastor = User.objects.create_user(
+            username="named-pastor",
+            email="named-pastor@example.com",
+            password="StrongPass123!",
+            first_name="Mary",
+            last_name="Kamau",
+        )
+        church = Church.objects.create(name="Named Upload Church", slug="named-upload-church", owner=pastor)
+        self.client.force_authenticate(user=pastor)
+
+        file_upload = SimpleUploadedFile("sermon.mp4", b"video-bytes", content_type="video/mp4")
+        response = self.client.post("/api/v1/sermons/", {
+            "church": church.id,
+            "title": "Full-name sermon",
+            "speaker": "named-pastor",
+            "kind": "video",
+            "media_file": file_upload,
+            "is_published": True,
+        }, format="multipart")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data["speaker"], "Mary Kamau")
+
     @override_settings(DISCOVERY_ALGORITHM_ENABLED=False)
     def test_audio_upload_is_listed_in_public_audio_catalog_only(self):
         pastor = User.objects.create_user(username="audio-pastor", email="audio@example.com", password="StrongPass123!")
@@ -951,6 +981,16 @@ class GospelNuggetCreateTests(APITestCase):
         self.assertTrue(short.video_url.startswith("http"))
         self.assertTrue(short.thumbnail_url.startswith("http"))
         self.assertTrue(short.is_published)
+
+    def test_short_speaker_is_overridden_from_username_by_full_name(self):
+        Church.objects.create(name="Nugget Church", slug="nugget-church", owner=self.user)
+        self.client.force_authenticate(user=self.user)
+
+        response = self.post_short(speaker="nugget-pastor")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        short = SermonShort.objects.get(id=response.data["id"])
+        self.assertEqual(short.speaker, "Mary Kamau")
 
     def test_creates_channel_when_user_owns_no_church(self):
         self.client.force_authenticate(user=self.user)

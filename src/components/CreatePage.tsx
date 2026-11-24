@@ -2481,6 +2481,7 @@ export default function CreatePage({
         <CreateShortPanel
           isSignedIn={Boolean(currentUser?.isLoggedIn || djangoApi.getAccessToken())}
           username={currentUser?.username || ''}
+          fullName={currentUser?.fullName || ''}
           onRequireAuth={onRequireAuth}
           onBack={() => setStudioAction('choose')}
           onPublished={onPublishSuccess}
