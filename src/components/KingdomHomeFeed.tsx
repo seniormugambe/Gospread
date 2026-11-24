@@ -146,6 +146,13 @@ export default function KingdomHomeFeed({
 
   const liveRadioTrack: AudioTrack | undefined =
     safeAudio.find((a) => a?.isLiveRadio || a?.category === '24/7 Gospel Radio');
+  const hasPodcastContent = safeAudio.some(
+    (track) =>
+      track?.isLiveRadio ||
+      track?.category === '24/7 Gospel Radio' ||
+      track?.category === 'Audio Sermon' ||
+      track?.category === 'Podcast'
+  );
 
   const filterTabs: Array<{
     id: 'All' | 'Live' | 'Sermons' | 'Worship' | 'Shorts' | 'Podcasts' | 'Ministries';
@@ -284,10 +291,18 @@ export default function KingdomHomeFeed({
           </h2>
         </div>
       </div>
-      <div className="rounded-2xl bg-slate-900/60 border border-slate-800/80 p-6 text-center space-y-1">
+      <div className="rounded-2xl bg-slate-900/60 border border-slate-800/80 p-5 text-center space-y-2">
         <Calendar className="w-6 h-6 text-indigo-400/40 mx-auto" />
         <p className="text-sm font-bold text-white">No upcoming services scheduled.</p>
         <p className="text-xs text-slate-400">Follow churches to see their upcoming broadcast schedule here.</p>
+        <button
+          type="button"
+          onClick={() => onNavigateTab('discover')}
+          className="inline-flex min-h-10 items-center justify-center gap-1 rounded-xl border border-indigo-400/20 bg-indigo-400/10 px-4 text-xs font-bold text-indigo-300 transition hover:bg-indigo-400/20"
+        >
+          Explore ministries
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
       </div>
     </section>
   );
@@ -466,14 +481,21 @@ export default function KingdomHomeFeed({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-        {effectiveSermons.map((video) => (
-          <StreamingVideoCard
-            key={video.id}
-            video={video}
-            onSelect={onSelectVideo}
-            onOpenChannel={onOpenChannelModal}
-          />
-        ))}
+        {effectiveSermons.length > 0 ? (
+          effectiveSermons.map((video) => (
+            <StreamingVideoCard
+              key={video.id}
+              video={video}
+              onSelect={onSelectVideo}
+              onOpenChannel={onOpenChannelModal}
+            />
+          ))
+        ) : (
+          <div className="col-span-full rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 text-center">
+            <p className="text-sm font-semibold text-slate-300">No sermons available yet.</p>
+            <p className="mt-1 text-xs text-slate-400">Published teachings will appear here.</p>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -494,14 +516,21 @@ export default function KingdomHomeFeed({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-        {effectiveWorship.map((video) => (
-          <StreamingVideoCard
-            key={video.id}
-            video={video}
-            onSelect={onSelectVideo}
-            onOpenChannel={onOpenChannelModal}
-          />
-        ))}
+        {effectiveWorship.length > 0 ? (
+          effectiveWorship.map((video) => (
+            <StreamingVideoCard
+              key={video.id}
+              video={video}
+              onSelect={onSelectVideo}
+              onOpenChannel={onOpenChannelModal}
+            />
+          ))
+        ) : (
+          <div className="col-span-full rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 text-center">
+            <p className="text-sm font-semibold text-slate-300">No worship videos available yet.</p>
+            <p className="mt-1 text-xs text-slate-400">New praise and worship will appear here.</p>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -602,6 +631,12 @@ export default function KingdomHomeFeed({
             );
           })()
         ) : null}
+        {!hasPodcastContent && (
+          <div className="col-span-full rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 text-center">
+            <p className="text-sm font-semibold text-slate-300">No audio shows available yet.</p>
+            <p className="mt-1 text-xs text-slate-400">Podcasts and gospel radio will appear here.</p>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -710,7 +745,7 @@ export default function KingdomHomeFeed({
   );
 
   return (
-    <div className="space-y-10 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="space-y-8 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {activeAudioSpace && (
         <button onClick={onJoinAudioSpace} className="mt-4 w-full rounded-3xl border border-fuchsia-400/40 bg-gradient-to-r from-fuchsia-950/80 via-slate-900 to-slate-900 p-5 text-left shadow-xl shadow-fuchsia-950/20 transition hover:border-fuchsia-300/70">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -753,6 +788,7 @@ export default function KingdomHomeFeed({
                 ? 'bg-amber-400 border-amber-300 text-slate-950 shadow-lg shadow-amber-400/20'
                 : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:border-amber-500/50 hover:text-white'
             }`}
+            aria-pressed={selectedFilter === 'All'}
           >
             <Sparkles className="w-4 h-4" />
             Home Overview
@@ -770,6 +806,7 @@ export default function KingdomHomeFeed({
                     ? 'bg-amber-400 border-amber-300 text-slate-950 shadow-lg shadow-amber-400/20'
                     : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:border-amber-500/50 hover:text-white'
                 }`}
+                aria-pressed={isActive}
               >
                 <Icon className="w-4 h-4" />
                 {tab.id === 'Live' && (
@@ -834,16 +871,16 @@ export default function KingdomHomeFeed({
           {renderGuestLiveSection()}
 
           {/* 2. ⚡ Shorts */}
-          {renderShortsSection()}
+          {shorts.length > 0 && renderShortsSection()}
 
           {/* 3. 📖 Sermons & Teachings */}
-          {renderSermonsSection()}
+          {effectiveSermons.length > 0 && renderSermonsSection()}
 
           {/* 4. 🎵 Worship & Praise */}
-          {renderWorshipSection()}
+          {effectiveWorship.length > 0 && renderWorshipSection()}
 
           {/* 5. 🎙 Podcasts */}
-          {renderPodcastsSection()}
+          {hasPodcastContent && renderPodcastsSection()}
 
           {/* 6. ⛪ Ministries */}
           {renderMinistriesSection(
@@ -857,34 +894,38 @@ export default function KingdomHomeFeed({
       {/* 🌟 SCENARIO B: FOR A RETURNING LOGGED-IN VIEWER                           */}
       {/* Order:                                                                    */}
       {/* 1. 🔴 Your Churches Live                                                  */}
-      {/* 2. 📅 Upcoming From Your Churches                                         */}
-      {/* 3. ❤️ Continue Watching                                                   */}
-      {/* 4. ⚡ Shorts                                                             */}
-      {/* 5. 📖 Sermons                                                            */}
-      {/* 6. 🎵 Worship                                                            */}
-      {/* 7. ⛪ Discover Ministries                                                 */}
+      {/* 2. ❤️ Continue Watching (when available)                                 */}
+      {/* 3. 📅 Upcoming From Your Churches                                         */}
+      {/* 4. ⚡ Shorts (when available)                                             */}
+      {/* 5. 📖 Sermons (when available)                                           */}
+      {/* 6. 🎵 Worship (when available)                                           */}
+      {/* 7. 🎙 Podcasts (when available)                                          */}
+      {/* 8. ⛪ Discover Ministries                                                 */}
       {/* ========================================================================= */}
       {viewingMode === 'returning' && selectedFilter === 'All' && (
         <>
           {/* 1. 🔴 Your Churches Live */}
           {renderNetworkLiveSection()}
 
-          {/* 2. 📅 Upcoming From Your Churches */}
+          {/* 2. ❤️ Continue Watching */}
+          {continueWatchingItems.length > 0 && renderContinueWatchingSection()}
+
+          {/* 3. 📅 Upcoming From Your Churches */}
           {renderUpcomingSection()}
 
-          {/* 3. ❤️ Continue Watching */}
-          {renderContinueWatchingSection()}
-
           {/* 4. ⚡ Shorts */}
-          {renderShortsSection()}
+          {shorts.length > 0 && renderShortsSection()}
 
           {/* 5. 📖 Sermons */}
-          {renderSermonsSection()}
+          {effectiveSermons.length > 0 && renderSermonsSection()}
 
           {/* 6. 🎵 Worship */}
-          {renderWorshipSection()}
+          {effectiveWorship.length > 0 && renderWorshipSection()}
 
-          {/* 7. ⛪ Discover Ministries */}
+          {/* 7. 🎙 Podcasts */}
+          {hasPodcastContent && renderPodcastsSection()}
+
+          {/* 8. ⛪ Discover Ministries */}
           {renderMinistriesSection(
             'Discover Ministries',
             'Expand your kingdom community and connect with new sanctuaries'
