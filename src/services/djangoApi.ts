@@ -960,6 +960,10 @@ class DjangoApiClient {
     },
     onProgress?: (percent: number, uploadedBytes: number, totalBytes: number) => void,
   ): Promise<Record<string, unknown>> {
+    if (!this.getAccessToken()) {
+      throw new Error('Your session is not connected to the Gospread API. Sign in again before uploading media.');
+    }
+
     if (!onProgress) {
       return await this.createSermonMultipartLegacy(payload);
     }

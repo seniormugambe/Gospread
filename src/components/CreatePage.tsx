@@ -1418,6 +1418,14 @@ export default function CreatePage({
       return;
     }
 
+    const accessToken = djangoApi.getAccessToken() || currentUser.token;
+    if (!accessToken) {
+      setExternalImportError('Your session is not connected to the Gospread API. Sign in again before uploading media.');
+      onRequireAuth?.();
+      return;
+    }
+    if (!djangoApi.getAccessToken()) djangoApi.setTokens(accessToken);
+
     if (publishActionOption === 'schedule') {
       try {
         if (new Date(scheduledDateToIso(
