@@ -55,6 +55,18 @@ from .serializers import (
 
 logger = logging.getLogger(__name__)
 
+try:  # botocore is present when media is stored in S3-compatible storage such as Cloudflare R2.
+    from botocore.exceptions import BotoCoreError, ClientError
+    STORAGE_ERRORS = (OSError, BotoCoreError, ClientError)
+except ImportError:  # local development without boto3
+    STORAGE_ERRORS = (OSError,)
+
+
+class StorageUnavailable(APIException):
+    status_code = 502
+    default_detail = "The file could not be saved to storage. Please try again in a moment."
+    default_code = "storage_unavailable"
+
 
 class FeedbackSubmissionView(generics.CreateAPIView):
     queryset = FeedbackSubmission.objects.all()
@@ -349,7 +361,17 @@ class SermonUploadCompleteView(generics.GenericAPIView):
 
             path = _sermon_upload_path(upload_id)
             if not path.is_file() or path.stat().st_size != session.file_size:
-                raise APIException("The uploaded file is missing or incomplete; start the upload again.")
+                # The temporary chunks are gone (for example after a server restart). Drop the dead
+                # session so it stops counting toward the unfinished-upload limit, and tell the client
+                # to start over. Returned, not raised, so the delete is committed.
+                session.delete()
+                return Response(
+                    {
+                        "detail": "The uploaded file was lost before it could be saved. Please upload it again.",
+                        "code": "upload_file_missing",
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
 
             data = dict(session.metadata)
             thumbnail_url = data.get("thumbnail_url", "")
@@ -373,7 +395,11 @@ class SermonUploadCompleteView(generics.GenericAPIView):
                 data["media_file"] = File(uploaded_stream, name=session.file_name)
                 sermon_serializer = SermonSerializer(data=data, context={"request": request})
                 sermon_serializer.is_valid(raise_exception=True)
-                sermon = _save_sermon_for_user(sermon_serializer, request.user)
+                try:
+                    sermon = _save_sermon_for_user(sermon_serializer, request.user)
+                except STORAGE_ERRORS as error:
+                    logger.exception("Could not store media for upload %s: %s", upload_id, error)
+                    raise StorageUnavailable() from error
             session.sermon = sermon
             session.save(update_fields=("sermon",))
             path.unlink(missing_ok=True)
