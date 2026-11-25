@@ -67,6 +67,44 @@ const MediaEngine = forwardRef<MediaEngineHandle, MediaEngineProps>(function Med
     callbacksRef.current.onError(message);
   };
 
+  // Starts playback of a native <video>. It never pauses (callers decide that) and is a
+  // no-op when the video is already playing. Failures keep the app's play state in sync
+  // and are shown to the user instead of only being logged.
+  const startPlayback = async (video: HTMLVideoElement): Promise<void> => {
+    if (!video.paused) return;
+
+    if (!video.currentSrc && !video.src) {
+      emitError('Video source is missing.');
+      return;
+    }
+
+    try {
+      await video.play();
+    } catch (err) {
+      const error = err as DOMException;
+
+      // A new load or pause() interrupted play(). This is normal, not a failure.
+      if (error.name === 'AbortError') return;
+
+      // Autoplay policy blocked playback: reset the UI to match reality.
+      if (error.name === 'NotAllowedError') {
+        callbacksRef.current.onPlayingChange(false);
+        emitStatus('paused');
+        return;
+      }
+
+      console.error('Video playback failed:', {
+        error,
+        source: video.currentSrc || video.src,
+        readyState: video.readyState,
+        networkState: video.networkState,
+        mediaError: video.error,
+      });
+      callbacksRef.current.onPlayingChange(false);
+      emitError('This video could not be played.');
+    }
+  };
+
   useImperativeHandle(ref, () => ({
     seekTo: (seconds) => {
       const target = Math.max(0, seconds);
@@ -102,14 +140,7 @@ const MediaEngine = forwardRef<MediaEngineHandle, MediaEngineProps>(function Med
 
     const tryPlay = () => {
       if (!stateRef.current.isPlaying) return;
-      el.play().catch((err: DOMException) => {
-        if (err.name === 'NotAllowedError') {
-          callbacksRef.current.onPlayingChange(false);
-          emitStatus('paused');
-        } else if (err.name !== 'AbortError') {
-          emitError('This video could not be played.');
-        }
-      });
+      void startPlayback(el);
     };
 
     const listeners: Array<[string, () => void]> = [
@@ -130,7 +161,12 @@ const MediaEngine = forwardRef<MediaEngineHandle, MediaEngineProps>(function Med
       }],
       ['ended', () => emitStatus('ended')],
       ['timeupdate', () => callbacksRef.current.onTimeUpdate(el.currentTime, Number.isFinite(el.duration) ? el.duration : 0)],
-      ['error', () => emitError(MEDIA_ERROR_MESSAGES[el.error?.code ?? 4] ?? MEDIA_ERROR_MESSAGES[4])],
+      // A missing file (404 / HTML response) lands here as MEDIA_ERR_SRC_NOT_SUPPORTED (4),
+      // usually without ever rejecting play().
+      ['error', () => {
+        callbacksRef.current.onPlayingChange(false);
+        emitError(MEDIA_ERROR_MESSAGES[el.error?.code ?? 4] ?? MEDIA_ERROR_MESSAGES[4]);
+      }],
     ];
     listeners.forEach(([type, handler]) => el.addEventListener(type, handler));
 
@@ -284,9 +320,7 @@ const MediaEngine = forwardRef<MediaEngineHandle, MediaEngineProps>(function Med
       const el = videoRef.current;
       if (!el || statusRef.current === 'loading') return;
       if (isPlaying && el.paused) {
-        el.play().catch((err: DOMException) => {
-          if (err.name === 'NotAllowedError') callbacksRef.current.onPlayingChange(false);
-        });
+        void startPlayback(el);
       } else if (!isPlaying && !el.paused) {
         el.pause();
       }
