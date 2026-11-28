@@ -195,36 +195,28 @@ SIMPLE_JWT = {
 #   R2_ACCESS_KEY_ID      from an R2 API token (Object Read & Write, limited to your bucket)
 #   R2_SECRET_ACCESS_KEY  from the same token
 #   R2_BUCKET_NAME        e.g. gospread-media
-#   R2_PUBLIC_DOMAIN      the bucket's public domain WITHOUT https://,
-#                         e.g. pub-xxxxxxxx.r2.dev  or  media.yourdomain.com
+#   R2_PUBL
+
 
 
 
 R2_BUCKET_NAME = os.environ.get("R2_BUCKET_NAME")
 
 if R2_BUCKET_NAME:
-    # Production (Render): all FileField / ImageField uploads go to R2.
     AWS_ACCESS_KEY_ID = os.environ["R2_ACCESS_KEY_ID"]
     AWS_SECRET_ACCESS_KEY = os.environ["R2_SECRET_ACCESS_KEY"]
     AWS_STORAGE_BUCKET_NAME = R2_BUCKET_NAME
-    AWS_S3_ENDPOINT_URL = f"https://{os.environ['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com"    AWS_S3_REGION_NAME = "auto"
+    AWS_S3_ENDPOINT_URL = f"https://{os.environ['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com"
+    AWS_S3_REGION_NAME = "auto"
     AWS_S3_SIGNATURE_VERSION = "s3v4"
 
-    # Public URLs served straight from Cloudflare (supports Range requests for video seeking).
     AWS_S3_CUSTOM_DOMAIN = os.environ["R2_PUBLIC_DOMAIN"]
-    AWS_QUERYSTRING_AUTH = False      # plain public URLs, no signed query strings
-    AWS_DEFAULT_ACL = None            # R2 does not use ACLs
-    AWS_S3_FILE_OVERWRITE = False     # never silently replace an existing object
+    AWS_QUERYSTRING_AUTH = False
+    AWS_DEFAULT_ACL = None
+    AWS_S3_FILE_OVERWRITE = False
     AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "public, max-age=31536000, immutable"}
 
-    # Django 4.2+. If you already define STORAGES, change only the "default" entry
-    # and keep your existing "staticfiles" backend.
     STORAGES = {
         "default": {"BACKEND": "storages.backends.s3.S3Storage"},
         "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
     }
-    # Django < 4.2 instead:
-    # DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-else:
-    # Local development: files stay on disk under MEDIA_ROOT, as before.
-    pass
