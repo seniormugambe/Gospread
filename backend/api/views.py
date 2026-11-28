@@ -399,7 +399,14 @@ class SermonUploadCompleteView(generics.GenericAPIView):
                     sermon = _save_sermon_for_user(sermon_serializer, request.user)
                 except STORAGE_ERRORS as error:
                     logger.exception("Could not store media for upload %s: %s", upload_id, error)
-                    raise StorageUnavailable() from error
+                    # Short, non-sensitive reason (S3 error code or exception class) to speed up diagnosis.
+                    reason = (
+                        getattr(error, "response", {}).get("Error", {}).get("Code")
+                        or error.__class__.__name__
+                    )
+                    raise StorageUnavailable(
+                        f"The file could not be saved to storage ({reason}). Please try again in a moment."
+                    ) from error
             session.sermon = sermon
             session.save(update_fields=("sermon",))
             path.unlink(missing_ok=True)
