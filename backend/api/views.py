@@ -12,7 +12,8 @@ import boto3
 from botocore.exceptions import ClientError
 from django.contrib.auth.forms import PasswordResetForm
 from django.conf import settings
-from django.core.exceptions import ImproperlyConfigured
+from django.core.exceptions import ImproperlyConfigured, PermissionDenied as DjangoPermissionDenied, ValidationError as DjangoValidationError
+from django.http import Http404
 from django.core.files import File
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
@@ -60,6 +61,20 @@ try:  # botocore is present when media is stored in S3-compatible storage such a
     STORAGE_ERRORS = (OSError, BotoCoreError, ClientError)
 except ImportError:  # local development without boto3
     STORAGE_ERRORS = (OSError,)
+
+
+def _storage_error_reason(error):
+    """Short, non-sensitive reason for a failed storage save: the S3 error code or the exception class."""
+    for candidate in (error, error.__cause__):
+        response = getattr(candidate, "response", None)
+        if isinstance(response, dict):
+            code = (response.get("Error") or {}).get("Code")
+            if code:
+                return str(code)
+    match = re.search(r"An error occurred \((\w+)\)", str(error))
+    if match:
+        return match.group(1)
+    return error.__class__.__name__
 
 
 class StorageUnavailable(APIException):
@@ -397,13 +412,13 @@ class SermonUploadCompleteView(generics.GenericAPIView):
                 sermon_serializer.is_valid(raise_exception=True)
                 try:
                     sermon = _save_sermon_for_user(sermon_serializer, request.user)
-                except STORAGE_ERRORS as error:
+                except (APIException, DjangoValidationError, DjangoPermissionDenied, Http404):
+                    raise  # Expected request errors keep their own status codes.
+                except Exception as error:
+                    # Anything else here is a storage or configuration failure (for example boto3's
+                    # S3UploadFailedError), so report it clearly instead of returning a bare 500.
                     logger.exception("Could not store media for upload %s: %s", upload_id, error)
-                    # Short, non-sensitive reason (S3 error code or exception class) to speed up diagnosis.
-                    reason = (
-                        getattr(error, "response", {}).get("Error", {}).get("Code")
-                        or error.__class__.__name__
-                    )
+                    reason = _storage_error_reason(error)
                     raise StorageUnavailable(
                         f"The file could not be saved to storage ({reason}). Please try again in a moment."
                     ) from error
